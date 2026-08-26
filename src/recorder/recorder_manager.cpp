@@ -155,35 +155,6 @@ const unsigned long MIN_FREE_BYTE = 400 * 1024 * 1024;
 const char *CONTAINER_FORMAT = "mp4";
 const char *PREVIEW_IMAGE_EXTENSION = ".jpg";
 
-AVFormatContext *RecUtil::CreateContainer(const std::string &full_path) {
-    AVFormatContext *fmt_ctx = nullptr;
-
-    if (avformat_alloc_output_context2(&fmt_ctx, nullptr, CONTAINER_FORMAT, full_path.c_str()) <
-        0) {
-        ERROR_PRINT("Could not alloc output context");
-        return nullptr;
-    }
-
-    if (!(fmt_ctx->oformat->flags & AVFMT_NOFILE)) {
-        if (avio_open(&fmt_ctx->pb, full_path.c_str(), AVIO_FLAG_WRITE) < 0) {
-            ERROR_PRINT("Could not open %s", full_path.c_str());
-            return nullptr;
-        }
-    }
-
-    return fmt_ctx;
-}
-
-void RecUtil::CloseContext(AVFormatContext *fmt_ctx) {
-    if (fmt_ctx) {
-        av_write_trailer(fmt_ctx);
-        if (!(fmt_ctx->oformat->flags & AVFMT_NOFILE)) {
-            avio_closep(&fmt_ctx->pb);
-        }
-        avformat_free_context(fmt_ctx);
-    }
-}
-
 std::unique_ptr<RecorderManager> RecorderManager::Create(std::shared_ptr<VideoCapturer> video_src,
                                                          std::shared_ptr<AudioCapturer> audio_src,
                                                          Args config, bool auto_start) {
@@ -264,7 +235,8 @@ RecorderManager::RecorderManager(Args config)
       fmt_ctx(nullptr),
       auto_start_(true),
       header_written_(false),
-      has_first_keyframe(false),
+      base_start_time_{},
+      is_recording_(false),
       record_path(config.record_path) {}
 
 void RecorderManager::SubscribeVideoSource(std::shared_ptr<VideoCapturer> video_src) {
@@ -274,10 +246,17 @@ void RecorderManager::SubscribeVideoSource(std::shared_ptr<VideoCapturer> video_
                                (video_src_->format() != V4L2_PIX_FMT_H264);
 
             // waiting first keyframe to start recorders.
-            if (auto_start_ && !has_first_keyframe && is_keyframe) {
+            if (auto_start_ && !is_recording_ && is_keyframe) {
                 Start();
+            }
+
+            if (!is_recording_) {
+                return;
+            }
+
+            if (file_number_ == 0) {
                 base_start_time_ = buffer->timestamp();
-                next_generate_time_ = ++file_index_ * config.file_duration;
+                file_number_ = 1;
             }
 
             int64_t total_elapsed_us =
@@ -285,16 +264,14 @@ void RecorderManager::SubscribeVideoSource(std::shared_ptr<VideoCapturer> video_
                 (int64_t)(buffer->timestamp().tv_usec - base_start_time_.tv_usec);
             double total_elapsed_time = total_elapsed_us / 1e6;
 
-            if (has_first_keyframe) {
-                if (total_elapsed_time >= next_generate_time_ && is_keyframe) {
-                    Stop();
-                    Start();
-                    next_generate_time_ = ++file_index_ * config.file_duration;
-                }
+            if (total_elapsed_time >= file_number_ * config.file_duration && is_keyframe) {
+                CloseCurrentFile();
+                Start();
+                ++file_number_;
+            }
 
-                if (video_recorder) {
-                    video_recorder->OnBuffer(buffer);
-                }
+            if (video_recorder) {
+                video_recorder->OnBuffer(buffer);
             }
         },
         config.record_stream_idx);
@@ -312,7 +289,7 @@ void RecorderManager::SubscribeAudioSource(std::shared_ptr<AudioCapturer> audio_
     }
 
     audio_subscription_ = audio_src->Subscribe([this](AudioBuffer buffer) {
-        if (has_first_keyframe) {
+        if (is_recording_) {
             audio_recorder->OnBuffer(buffer);
         }
     });
@@ -325,7 +302,7 @@ void RecorderManager::SubscribeAudioSource(std::shared_ptr<AudioCapturer> audio_
 void RecorderManager::WriteIntoFile(AVPacket *pkt) {
     std::lock_guard<std::mutex> lock(ctx_mux);
 
-    if (!fmt_ctx || !has_first_keyframe)
+    if (!fmt_ctx || !is_recording_)
         return;
 
     if (!header_written_) {
@@ -375,8 +352,19 @@ void RecorderManager::Start() {
 
     if (config.record_type != RecordType::Snapshot) {
         std::lock_guard<std::mutex> lock(ctx_mux);
-        fmt_ctx = RecUtil::CreateContainer(new_file.GetFullPath());
-        if (fmt_ctx == nullptr) {
+        if (avformat_alloc_output_context2(&fmt_ctx, nullptr, CONTAINER_FORMAT,
+                                           current_filepath_.c_str()) < 0) {
+            ERROR_PRINT("Could not alloc output context");
+            fmt_ctx = nullptr;
+            usleep(1000);
+            return;
+        }
+
+        if (!(fmt_ctx->oformat->flags & AVFMT_NOFILE) &&
+            avio_open(&fmt_ctx->pb, current_filepath_.c_str(), AVIO_FLAG_WRITE) < 0) {
+            ERROR_PRINT("Could not open %s", current_filepath_.c_str());
+            avformat_free_context(fmt_ctx);
+            fmt_ctx = nullptr;
             usleep(1000);
             return;
         }
@@ -390,7 +378,7 @@ void RecorderManager::Start() {
 
         header_written_ = false;
 
-        av_dump_format(fmt_ctx, 0, new_file.GetFullPath().c_str(), 1);
+        av_dump_format(fmt_ctx, 0, current_filepath_.c_str(), 1);
     }
 
     if (video_recorder) {
@@ -401,15 +389,15 @@ void RecorderManager::Start() {
     }
 
     if (config.record_type != RecordType::Video) {
-        auto image_path = ReplaceExtension(new_file.GetFullPath(), PREVIEW_IMAGE_EXTENSION);
+        auto image_path = ReplaceExtension(current_filepath_, PREVIEW_IMAGE_EXTENSION);
         MakePreviewImage(image_path);
     }
 
-    has_first_keyframe = true;
+    is_recording_ = true;
 }
 
-void RecorderManager::Stop() {
-    has_first_keyframe = false;
+void RecorderManager::CloseCurrentFile() {
+    is_recording_ = false;
     current_filepath_.clear();
 
     if (video_recorder) {
@@ -421,10 +409,28 @@ void RecorderManager::Stop() {
 
     {
         std::lock_guard<std::mutex> lock(ctx_mux);
-        RecUtil::CloseContext(fmt_ctx);
-        fmt_ctx = nullptr;
+        if (fmt_ctx) {
+            // av_write_trailer walks muxer state that only avformat_write_header allocates.
+            if (header_written_) {
+                av_write_trailer(fmt_ctx);
+            } else {
+                ERROR_PRINT("Closing a container with no header written; the file is empty.");
+            }
+
+            if (!(fmt_ctx->oformat->flags & AVFMT_NOFILE)) {
+                avio_closep(&fmt_ctx->pb);
+            }
+            avformat_free_context(fmt_ctx);
+            fmt_ctx = nullptr;
+        }
         header_written_ = false;
     }
+}
+
+void RecorderManager::Stop() {
+    CloseCurrentFile();
+
+    file_number_ = 0;
 }
 
 RecorderManager::~RecorderManager() {
@@ -441,7 +447,7 @@ RecorderManager::~RecorderManager() {
 
 std::string RecorderManager::current_filepath() const { return current_filepath_; }
 
-bool RecorderManager::is_recording() const { return has_first_keyframe.load(); }
+bool RecorderManager::is_recording() const { return is_recording_.load(); }
 
 void RecorderManager::MakePreviewImage(std::string path) {
     // Capture video_src_ by value (shared_ptr copy) so the thread holds its own

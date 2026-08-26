@@ -17,12 +17,6 @@ extern "C" {
 #include "recorder/audio_recorder.h"
 #include "recorder/video_recorder.h"
 
-class RecUtil {
-  public:
-    static AVFormatContext *CreateContainer(const std::string &full_path);
-    static void CloseContext(AVFormatContext *fmt_ctx);
-};
-
 class RecorderManager {
   public:
     static std::unique_ptr<RecorderManager> Create(std::shared_ptr<VideoCapturer> video_src,
@@ -44,21 +38,20 @@ class RecorderManager {
     int height;
     std::string record_path;
     AVFormatContext *fmt_ctx;
-    std::atomic<bool> has_first_keyframe;
+    std::atomic<bool> is_recording_;
     std::unique_ptr<VideoRecorder> video_recorder;
     std::unique_ptr<AudioRecorder> audio_recorder;
 
     void CreateVideoRecorder(std::shared_ptr<VideoCapturer> video_src);
+    void CloseCurrentFile();
     void CreateAudioRecorder(std::shared_ptr<AudioCapturer> audio_src);
     void SubscribeVideoSource(std::shared_ptr<VideoCapturer> video_src);
     void SubscribeAudioSource(std::shared_ptr<AudioCapturer> audio_src);
 
   private:
     bool auto_start_;
-    int file_index_ = 0;
-    double next_generate_time_;
+    int file_number_ = 0;
     std::atomic<bool> header_written_;
-    std::atomic<bool> time_reset_pending_;
     std::mutex rotation_mtx_;
     std::condition_variable rotation_cv_;
     std::atomic<bool> rotation_abort_;
