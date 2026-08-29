@@ -136,7 +136,11 @@ void CloudflareService::CreatePeerAndOffer(uint64_t gen) {
     }
 
     PeerConfig config;
-    config.is_sfu_peer = true;
+    // Cloudflare registers channels through POST /datachannels/new and requires each one
+    // pre-negotiated on the stream id that call returns, so CreateDataChannel has to be
+    // handed that id rather than the RoleId default. Its data channels carry no envelope,
+    // unlike LiveKit's -- hence a backend of its own rather than a shared "is an SFU" flag.
+    config.backend = SignalingBackend::Cloudflare;
     config.is_publisher = true;
     // Cloudflare has no trickle-ICE endpoint, so the candidates have to be in the offer.
     config.has_candidates_in_sdp = true;
@@ -310,12 +314,12 @@ void CloudflareService::MonitorPeer(uint64_t gen) {
                 return;
             }
 
-            if (!self->peer_ || self->peer_->isExpired()) {
+            if (!self->peer_ || self->peer_->is_expired()) {
                 self->ScheduleReconnect("the peer connection expired");
                 return;
             }
 
-            if (self->peer_->isConnected()) {
+            if (self->peer_->is_connected()) {
                 self->peer_was_connected_ = true;
                 self->retry_count_ = 0;
                 self->peer_down_since_ = {};

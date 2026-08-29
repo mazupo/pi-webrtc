@@ -40,12 +40,6 @@ static const std::unordered_map<std::string, int> stream_source_table = {
     {"sub", 1},
 };
 
-static const std::unordered_map<std::string, int> ipc_mode_table = {
-    {"both", -1},
-    {"lossy", ChannelMode::Lossy},
-    {"reliable", ChannelMode::Reliable},
-};
-
 #if defined(USE_LIBCAMERA_CAPTURE)
 static const std::unordered_map<std::string, int> ae_metering_table = {
     {"centre", libcamera::controls::MeteringCentreWeighted},
@@ -210,9 +204,8 @@ void Parser::ParseArgs(int argc, char *argv[], Args &args) {
         ("latency-trace-interval", bpo::value<int>(&args.latency_trace_interval)->default_value(args.latency_trace_interval),
             "How often (in seconds) --latency-trace prints its summary.")
         ("enable-ipc", bpo::bool_switch(&args.enable_ipc)->default_value(args.enable_ipc),
-            "Enable IPC relay using a WebRTC DataChannel, lossy (UDP-like) or reliable (TCP-like) based on client preference.")
-        ("ipc-channel",  bpo::value<std::string>(&args.ipc_channel)->default_value(args.ipc_channel),
-            "IPC channel mode: both, lossy, reliable")
+            "Enable IPC relay over WebRTC DataChannels. Both a lossy (UDP-like) and a "
+            "reliable (TCP-like) channel are opened; the client picks one per message.")
         ("socket-path", bpo::value<std::string>(&args.socket_path)->default_value(args.socket_path),
             "Specifies the Unix domain socket path used to bridge messages between "
             "the WebRTC DataChannel and local IPC applications.")
@@ -454,7 +447,6 @@ void Parser::ParseArgs(int argc, char *argv[], Args &args) {
     }
 
     args.record_type = ParseEnum(record_type_table, args.record_type_str);
-    args.ipc_channel_mode = ParseEnum(ipc_mode_table, args.ipc_channel);
     args.record_mode = ParseEnum(record_mode_table, args.record_mode_str);
 
     // Resolve on-demand path fallback

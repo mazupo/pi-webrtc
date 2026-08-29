@@ -10,33 +10,29 @@
 #include <api/task_queue/pending_task_safety_flag.h>
 #include <api/video/video_sink_interface.h>
 
+#include <map>
+
 #include "args.h"
 #include "common/logging.h"
-#include "rtc/rtc_channel.h"
+#include "ipc/unix_socket_server.h"
+#include "rtc/datachannel/command_channel.h"
+#include "rtc/datachannel/ipc_channel.h"
+#include "rtc/datachannel/rtc_channel.h"
+#include "rtc/datachannel/stream_channel.h"
 
-enum ChannelMode {
-    Command,
-    Lossy,
-    Reliable
+// Which signaling backend a peer belongs to. Everything that varies between backends is
+// derived from this one value, so adding a backend is a change in one place.
+enum class SignalingBackend {
+    // A browser peer we negotiate with directly: MQTT or WHEP signaling.
+    Direct,
+    LiveKit,
+    Cloudflare,
 };
-
-static inline std::string ChannelModeToString(ChannelMode id) {
-    switch (id) {
-        case Command:
-            return "command";
-        case Lossy:
-            return "_lossy";
-        case Reliable:
-            return "_reliable";
-        default:
-            return "unknown";
-    }
-}
 
 struct PeerConfig : public webrtc::PeerConnectionInterface::RTCConfiguration {
     int timeout = 10;
     bool is_publisher = true;
-    bool is_sfu_peer = false;
+    SignalingBackend backend = SignalingBackend::Direct;
     bool has_candidates_in_sdp = false;
     bool data_channel_only = false;
     // For SFUs whose data channels are not plain SCTP streams negotiated in the SDP.
@@ -102,8 +98,6 @@ class RtcPeer : public webrtc::PeerConnectionObserver,
                 public webrtc::CreateSessionDescriptionObserver,
                 public SignalingMessageObserver {
   public:
-    using OnRtcChannelCallback = std::function<void(std::shared_ptr<RtcChannel>)>;
-
     static webrtc::scoped_refptr<RtcPeer> Create(PeerConfig config);
 
     RtcPeer(PeerConfig config);
@@ -111,18 +105,21 @@ class RtcPeer : public webrtc::PeerConnectionObserver,
     void CreateOffer();
     void Terminate();
 
-    bool isSfuPeer() const;
-    bool isPublisher() const;
-    bool isConnected() const;
-    bool isExpired() const;
+    bool is_sfu_peer() const;
+    bool is_publisher() const;
+    bool is_connected() const;
+    bool is_expired() const;
     std::string id() const;
 
     void SetSink(webrtc::VideoSinkInterface<webrtc::VideoFrame> *video_sink_obj);
     void SetPeer(webrtc::scoped_refptr<webrtc::PeerConnectionInterface> peer);
     webrtc::scoped_refptr<webrtc::PeerConnectionInterface> GetPeer();
-    std::shared_ptr<RtcChannel> CreateDataChannel(ChannelMode mode);
+    void SetIpcServer(std::shared_ptr<UnixSocketServer> ipc_server);
+    std::shared_ptr<RtcChannel> CreateDataChannel(ChannelRole role,
+                                                  std::optional<int> id = std::nullopt);
+    std::shared_ptr<RtcChannel> GetChannel(ChannelRole role) const;
+    std::shared_ptr<CommandChannel> GetCommandChannel() const;
     std::string RestartIce(std::string ice_ufrag, std::string ice_pwd);
-    void SetOnDataChannelCallback(OnRtcChannelCallback callback);
 
     // SignalingMessageObserver implementation.
     void SetRemoteSdp(const std::string &sdp, const std::string &type) override;
@@ -149,6 +146,9 @@ class RtcPeer : public webrtc::PeerConnectionObserver,
     void EmitLocalSdp(int delay_sec = 0);
     void FlushPendingIce();
     void RenewSafetyFlag(webrtc::scoped_refptr<webrtc::PendingTaskSafetyFlag> &flag);
+    std::shared_ptr<RtcChannel> AddChannel(ChannelRole role,
+                                           webrtc::scoped_refptr<webrtc::DataChannelInterface> dc);
+    void TerminateChannels();
 
     struct PendingIceCandidate {
         std::string sdp_mid;
@@ -160,7 +160,7 @@ class RtcPeer : public webrtc::PeerConnectionObserver,
 
     int timeout_;
     std::string id_;
-    bool is_sfu_peer_;
+    SignalingBackend backend_;
     bool is_publisher_;
     bool has_candidates_in_sdp_;
     bool needs_renegotiation_ = false;
@@ -177,10 +177,9 @@ class RtcPeer : public webrtc::PeerConnectionObserver,
     std::unique_ptr<webrtc::SessionDescriptionInterface> modified_desc_;
     std::unique_ptr<webrtc::SessionDescriptionInterface> rollback_desc_;
 
-    OnRtcChannelCallback on_data_channel_;
-    std::shared_ptr<RtcChannel> cmd_channel_;
-    std::shared_ptr<RtcChannel> lossy_channel_;
-    std::shared_ptr<RtcChannel> reliable_channel_;
+    std::shared_ptr<UnixSocketServer> ipc_server_;
+    mutable std::mutex channels_mutex_;
+    std::map<ChannelRole, std::shared_ptr<RtcChannel>> channels_;
     webrtc::scoped_refptr<webrtc::PeerConnectionInterface> peer_connection_;
     webrtc::VideoSinkInterface<webrtc::VideoFrame> *custom_video_sink_;
 };

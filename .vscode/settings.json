@@ -87,4 +87,5 @@
     "python.defaultInterpreterPath": "/home/pi/venv/bin/python",
     "protobuf.clangFormat.enabled": true,
     "protobuf.clangFormat.path": "/usr/bin/clang-format",
+    "protobuf.protoc.path": "/usr/local/bin/protoc",
 }

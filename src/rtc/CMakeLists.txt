@@ -22,12 +22,9 @@ get_filename_component(PROTOC_PREFIX ${PROTOC_DIR} DIRECTORY)
 set(PROTOC_INCLUDE_DIR "${PROTOC_PREFIX}/include")
 
 # path of the proto files
-set(PROTO_SRC_DIRS
-  "${CMAKE_SOURCE_DIR}/external/livekit-protocol/protobufs"
-  "${CMAKE_SOURCE_DIR}/external/protocol/protos"
-)
+set(LIVEKIT_PROTO_DIR "${CMAKE_SOURCE_DIR}/external/livekit-protocol/protobufs")
+set(APP_PROTO_DIR "${CMAKE_SOURCE_DIR}/external/protocol/protos")
 set(PROTO_OUT_DIR "${CMAKE_SOURCE_DIR}/proto")
-file(MAKE_DIRECTORY ${PROTO_OUT_DIR})
 
 set(PROTO_SRCS "")
 
@@ -39,6 +36,7 @@ foreach(wk_name ${WELL_KNOWN_PROTOS})
   set(wk_h "${PROTO_OUT_DIR}/google/protobuf/${wk_name}.pb.h")
   add_custom_command(
     OUTPUT ${wk_cc} ${wk_h}
+    COMMAND ${CMAKE_COMMAND} -E make_directory ${PROTO_OUT_DIR}
     COMMAND ${PROTOC_EXECUTABLE}
     ARGS --cpp_out=lite:${PROTO_OUT_DIR}
     -I ${PROTOC_INCLUDE_DIR}
@@ -48,35 +46,44 @@ foreach(wk_name ${WELL_KNOWN_PROTOS})
   list(APPEND PROTO_SRCS ${wk_cc})
 endforeach()
 
-foreach(PROTO_SRC_DIR ${PROTO_SRC_DIRS})
-  # collect all .proto
-  file(GLOB PROTO_FILES "${PROTO_SRC_DIR}/*.proto")
+# generate `*.pb.cc` and `*.pb.h` to `proto/`, keeping the path relative to its proto dir
+macro(generate_proto _dir _rel)
+  string(REGEX REPLACE "\\.proto$" "" _base "${_rel}")
+  set(_cc "${PROTO_OUT_DIR}/${_base}.pb.cc")
+  set(_h "${PROTO_OUT_DIR}/${_base}.pb.h")
+  add_custom_command(
+    OUTPUT ${_cc} ${_h}
+    COMMAND ${CMAKE_COMMAND} -E make_directory ${PROTO_OUT_DIR}
+    COMMAND ${PROTOC_EXECUTABLE}
+    ARGS --cpp_out=lite:${PROTO_OUT_DIR}
+    -I ${_dir}
+    -I ${PROTOC_INCLUDE_DIR}
+    "${_dir}/${_rel}"
+    DEPENDS "${_dir}/${_rel}"
+  )
+  list(APPEND PROTO_SRCS ${_cc})
+endmacro()
 
-  # generate `*.pb.cc` and `*.pb.h` to `proto/`
-  foreach(proto_file ${PROTO_FILES})
-    get_filename_component(proto_name ${proto_file} NAME_WE)
+set(LIVEKIT_PROTOS
+  livekit_models.proto
+  livekit_metrics.proto
+  logger/options.proto
+)
+foreach(livekit_proto ${LIVEKIT_PROTOS})
+  generate_proto("${LIVEKIT_PROTO_DIR}" "${livekit_proto}")
+endforeach()
 
-    set(proto_cc "${PROTO_OUT_DIR}/${proto_name}.pb.cc")
-    set(proto_h "${PROTO_OUT_DIR}/${proto_name}.pb.h")
-
-    add_custom_command(
-      OUTPUT ${proto_cc} ${proto_h}
-      COMMAND ${PROTOC_EXECUTABLE}
-      ARGS --cpp_out=lite:${PROTO_OUT_DIR}
-      -I ${PROTO_SRC_DIR}
-      -I ${PROTOC_INCLUDE_DIR}
-      ${proto_file}
-      DEPENDS ${proto_file}
-    )
-
-    list(APPEND PROTO_SRCS ${proto_cc})
-  endforeach()
+file(GLOB APP_PROTOS RELATIVE "${APP_PROTO_DIR}" "${APP_PROTO_DIR}/*.proto")
+foreach(app_proto ${APP_PROTOS})
+  generate_proto("${APP_PROTO_DIR}" "${app_proto}")
 endforeach()
 
 aux_source_directory(${PROJECT_SOURCE_DIR} RTC_FILES)
+aux_source_directory(${PROJECT_SOURCE_DIR}/datachannel DATACHANNEL_FILES)
 
 add_library(${PROJECT_NAME}
   ${RTC_FILES}
+  ${DATACHANNEL_FILES}
   ${PROTO_SRCS}
 )
 

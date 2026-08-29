@@ -109,12 +109,12 @@ void PeerRegistry::Sweep() {
                 continue;
             }
 
-            const char *status = peer->isExpired()
+            const char *status = peer->is_expired()
                                      ? "expired"
-                                     : (peer->isConnected() ? "connected" : "reconnecting");
+                                     : (peer->is_connected() ? "connected" : "reconnecting");
             DEBUG_PRINT("Found peer_id key: %s, status: %s", peer_id.c_str(), status);
 
-            if (peer->isExpired()) {
+            if (peer->is_expired()) {
                 DEBUG_PRINT("(%s) was erased.", peer_id.c_str());
                 expired_ids.push_back(peer_id);
                 expired.push_back(std::move(peer));

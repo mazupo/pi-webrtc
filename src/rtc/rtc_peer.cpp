@@ -5,7 +5,7 @@
 
 #include <rtc_base/thread.h>
 
-#include "rtc/sfu_channel.h"
+#include "rtc/datachannel/channel_framing.h"
 
 webrtc::scoped_refptr<RtcPeer> RtcPeer::Create(PeerConfig config) {
     return webrtc::make_ref_counted<RtcPeer>(std::move(config));
@@ -14,13 +14,13 @@ webrtc::scoped_refptr<RtcPeer> RtcPeer::Create(PeerConfig config) {
 RtcPeer::RtcPeer(PeerConfig config)
     : id_(utils::GenerateUuid()),
       timeout_(config.timeout),
-      is_sfu_peer_(config.is_sfu_peer),
+      backend_(config.backend),
       is_publisher_(config.is_publisher),
       has_candidates_in_sdp_(config.has_candidates_in_sdp) {}
 
 RtcPeer::~RtcPeer() {
     Terminate();
-    DEBUG_PRINT("peer connection (%s) was destroyed!", id_.c_str());
+    DEBUG_PRINT("peer connection (%s) was released!", id_.c_str());
 }
 
 void RtcPeer::CreateOffer() {
@@ -62,26 +62,18 @@ void RtcPeer::Terminate() {
     modified_desc_.release();
     rollback_desc_.reset();
 
-    if (cmd_channel_) {
-        cmd_channel_->Terminate();
-    }
-    if (lossy_channel_) {
-        lossy_channel_->Terminate();
-    }
-    if (reliable_channel_) {
-        reliable_channel_->Terminate();
-    }
+    TerminateChannels();
 }
 
 std::string RtcPeer::id() const { return id_; }
 
-bool RtcPeer::isSfuPeer() const { return is_sfu_peer_; }
+bool RtcPeer::is_sfu_peer() const { return backend_ != SignalingBackend::Direct; }
 
-bool RtcPeer::isPublisher() const { return is_publisher_; }
+bool RtcPeer::is_publisher() const { return is_publisher_; }
 
-bool RtcPeer::isConnected() const { return is_connected_.load(); }
+bool RtcPeer::is_connected() const { return is_connected_.load(); }
 
-bool RtcPeer::isExpired() const { return is_expired_.load(); }
+bool RtcPeer::is_expired() const { return is_expired_.load(); }
 
 void RtcPeer::SetSink(webrtc::VideoSinkInterface<webrtc::VideoFrame> *video_sink_obj) {
     custom_video_sink_ = std::move(video_sink_obj);
@@ -95,18 +87,18 @@ webrtc::scoped_refptr<webrtc::PeerConnectionInterface> RtcPeer::GetPeer() {
     return peer_connection_;
 }
 
-std::shared_ptr<RtcChannel> RtcPeer::CreateDataChannel(ChannelMode mode) {
-    struct webrtc::DataChannelInit init;
-    init.ordered = true;
-    init.id = static_cast<int>(mode);
-    if (!is_sfu_peer_) {
-        init.negotiated = true;
-    }
-    if (mode == ChannelMode::Lossy) {
-        init.maxRetransmits = 0;
-    }
+void RtcPeer::SetIpcServer(std::shared_ptr<UnixSocketServer> ipc_server) {
+    ipc_server_ = std::move(ipc_server);
+}
 
-    auto label = ChannelModeToString(mode);
+std::shared_ptr<RtcChannel> RtcPeer::CreateDataChannel(ChannelRole role, std::optional<int> id) {
+    auto init = RoleInit(role);
+    // Only LiveKit opens channels in-band.
+    if (backend_ != SignalingBackend::LiveKit) {
+        init.negotiated = true;
+        init.id = id.value_or(RoleId(role));
+    }
+    auto label = std::string(RoleLabel(role));
     auto result = peer_connection_->CreateDataChannelOrError(label, &init);
 
     if (!result.ok()) {
@@ -114,41 +106,86 @@ std::shared_ptr<RtcChannel> RtcPeer::CreateDataChannel(ChannelMode mode) {
         return nullptr;
     }
 
-    auto dc = result.MoveValue();
+    return AddChannel(role, result.MoveValue());
+}
+
+std::shared_ptr<RtcChannel>
+RtcPeer::AddChannel(ChannelRole role, webrtc::scoped_refptr<webrtc::DataChannelInterface> dc) {
+    auto framing = ([this]() {
+        switch (backend_) {
+            case SignalingBackend::LiveKit:
+                return LiveKitFraming::Create();
+            default:
+                return PlainFraming::Create();
+        }
+    })();
 
     std::shared_ptr<RtcChannel> channel;
-    if (is_sfu_peer_) {
-        channel = SfuChannel::Create(dc);
-    } else {
-        channel = RtcChannel::Create(dc);
+    switch (role) {
+        case ChannelRole::Command:
+            channel = CommandChannel::Create(std::move(dc), std::move(framing));
+            break;
+        case ChannelRole::Stream:
+            channel = StreamChannel::Create(std::move(dc), std::move(framing));
+            break;
+        case ChannelRole::Lossy:
+        case ChannelRole::Reliable:
+            channel = IpcChannel::Create(role, std::move(dc), std::move(framing), ipc_server_);
+            break;
     }
 
-    if (mode == ChannelMode::Command) {
-        DEBUG_PRINT("The Command data channel is established successfully.");
-        cmd_channel_ = channel;
+    {
+        std::lock_guard<std::mutex> lock(channels_mutex_);
+        channels_[role] = channel;
+    }
+    DEBUG_PRINT("The %s data channel is established successfully.",
+                std::string(RoleLabel(role)).c_str());
 
-        cmd_channel_->RegisterHandler(
-            protocol::CommandType::DISCONNECT,
-            [this](std::shared_ptr<RtcChannel> datachannel, const protocol::Packet &pkt) {
+    if (role == ChannelRole::Command) {
+        auto command = std::static_pointer_cast<CommandChannel>(channel);
+        command->RegisterHandler(
+            protocol::Request::kDisconnect, [this](const CommandChannel::Context &ctx) {
                 DEBUG_PRINT("Received DISCONNECT command. Closing peer connection.");
-                peer_connection_->Close();
-                peer_connection_ = nullptr;
-                if (pkt.has_disconnection_request()) {
-                    auto request = pkt.disconnection_request();
-                    DEBUG_PRINT("Reason: %s",
-                                protocol::DisconnectRequest_DisconnectReason_Name(request.reason())
-                                    .c_str());
+                if (peer_connection_) {
+                    peer_connection_->Close();
+                    peer_connection_ = nullptr;
                 }
+                const auto &request = ctx.request.disconnect();
+                DEBUG_PRINT(
+                    "Reason: %s",
+                    protocol::DisconnectRequest_DisconnectReason_Name(request.reason()).c_str());
             });
-    } else if (mode == ChannelMode::Lossy) {
-        DEBUG_PRINT("The Lossy data channel is established successfully.");
-        lossy_channel_ = channel;
-    } else if (mode == ChannelMode::Reliable) {
-        DEBUG_PRINT("The Reliable data channel is established successfully.");
-        reliable_channel_ = channel;
+    }
+
+    // Either channel may arrive first, so link them whenever both are present.
+    auto command = GetCommandChannel();
+    auto stream = GetChannel(ChannelRole::Stream);
+    if (command && stream) {
+        command->SetStreamChannel(std::static_pointer_cast<StreamChannel>(stream));
     }
 
     return channel;
+}
+
+std::shared_ptr<RtcChannel> RtcPeer::GetChannel(ChannelRole role) const {
+    std::lock_guard<std::mutex> lock(channels_mutex_);
+    auto it = channels_.find(role);
+    return it == channels_.end() ? nullptr : it->second;
+}
+
+std::shared_ptr<CommandChannel> RtcPeer::GetCommandChannel() const {
+    return std::static_pointer_cast<CommandChannel>(GetChannel(ChannelRole::Command));
+}
+
+void RtcPeer::TerminateChannels() {
+    std::map<ChannelRole, std::shared_ptr<RtcChannel>> channels;
+    {
+        std::lock_guard<std::mutex> lock(channels_mutex_);
+        channels.swap(channels_);
+    }
+    for (auto &[role, channel] : channels) {
+        channel->Terminate();
+    }
 }
 
 std::string RtcPeer::RestartIce(std::string ice_ufrag, std::string ice_pwd) {
@@ -172,10 +209,6 @@ std::string RtcPeer::RestartIce(std::string ice_ufrag, std::string ice_pwd) {
     peer_connection_->local_description()->ToString(&local_sdp);
 
     return local_sdp;
-}
-
-void RtcPeer::SetOnDataChannelCallback(OnRtcChannelCallback callback) {
-    on_data_channel_ = std::move(callback);
 }
 
 void RtcPeer::OnSignalingChange(webrtc::PeerConnectionInterface::SignalingState new_state) {
@@ -203,12 +236,12 @@ void RtcPeer::OnSignalingChange(webrtc::PeerConnectionInterface::SignalingState 
     } else if (new_state == webrtc::PeerConnectionInterface::SignalingState::kStable &&
                previous_state ==
                    webrtc::PeerConnectionInterface::SignalingState::kHaveRemoteOffer &&
-               is_connected_.load() && needs_renegotiation_ && !is_sfu_peer_) {
+               is_connected_.load() && needs_renegotiation_ && !is_sfu_peer()) {
         needs_renegotiation_ = false;
         DEBUG_PRINT("Resuming renegotiation deferred by glare rollback (%s).", id_.c_str());
         CreateOffer();
     } else if (new_state == webrtc::PeerConnectionInterface::SignalingState::kStable &&
-               is_connected_.load() && !needs_renegotiation_ && !is_sfu_peer_ &&
+               is_connected_.load() && !needs_renegotiation_ && !is_sfu_peer() &&
                has_candidates_in_sdp_) {
         DEBUG_PRINT("Renegotiation completed, cleaning up signaling callbacks.");
         on_local_ice_fn_ = nullptr;
@@ -219,23 +252,14 @@ void RtcPeer::OnSignalingChange(webrtc::PeerConnectionInterface::SignalingState 
 void RtcPeer::OnDataChannel(webrtc::scoped_refptr<webrtc::DataChannelInterface> channel) {
     DEBUG_PRINT("On remote DataChannel => %s", channel->label().c_str());
 
-    if (!on_data_channel_) {
+    auto role = RoleFromLabel(channel->label());
+    if (!role) {
+        DEBUG_PRINT("Ignoring remote DataChannel with unknown label => %s",
+                    channel->label().c_str());
         return;
     }
 
-    if (channel->label() == ChannelModeToString(ChannelMode::Command)) {
-        cmd_channel_ = RtcChannel::Create(channel);
-        on_data_channel_(cmd_channel_);
-        DEBUG_PRINT("Command data channel is established successfully.");
-    } else if (channel->label() == ChannelModeToString(ChannelMode::Lossy)) {
-        lossy_channel_ = SfuChannel::Create(channel);
-        on_data_channel_(lossy_channel_);
-        DEBUG_PRINT("Lossy data channel is established successfully.");
-    } else if (channel->label() == ChannelModeToString(ChannelMode::Reliable)) {
-        reliable_channel_ = SfuChannel::Create(channel);
-        on_data_channel_(reliable_channel_);
-        DEBUG_PRINT("Reliable data channel is established successfully.");
-    }
+    AddChannel(*role, std::move(channel));
 }
 
 void RtcPeer::OnIceGatheringChange(webrtc::PeerConnectionInterface::IceGatheringState new_state) {
@@ -296,7 +320,7 @@ void RtcPeer::OnIceCandidate(const webrtc::IceCandidateInterface *candidate) {
 }
 
 void RtcPeer::OnRenegotiationNeeded() {
-    if (is_sfu_peer_) {
+    if (is_sfu_peer()) {
         return; // SFU controls negotiation; never renegotiate from client side.
     }
     DEBUG_PRINT("OnRenegotiationNeeded for peer %s", id_.c_str());
@@ -428,7 +452,7 @@ void RtcPeer::SetRemoteSdp(const std::string &sdp, const std::string &sdp_type) 
         DEBUG_PRINT(
             "Glare on peer %s: rolling back pending local offer before applying remote offer.",
             id_.c_str());
-        if (!is_sfu_peer_) {
+        if (!is_sfu_peer()) {
             needs_renegotiation_ = true;
         }
         rollback_desc_ = webrtc::CreateRollbackSessionDescription();
@@ -462,7 +486,7 @@ void RtcPeer::SetRemoteSdp(const std::string &sdp, const std::string &sdp_type) 
                                            session_description.release());
 
     if (type == webrtc::SdpType::kOffer) {
-        if (is_sfu_peer_ && !is_publisher_) {
+        if (is_sfu_peer() && !is_publisher_) {
             for (auto &transceiver : peer_connection_->GetTransceivers()) {
                 if (transceiver->media_type() == webrtc::MediaType::VIDEO) {
                     transceiver->SetDirectionWithError(webrtc::RtpTransceiverDirection::kInactive);

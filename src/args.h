@@ -141,8 +141,6 @@ struct Args {
     // ipc
     bool enable_ipc = false;
     std::string socket_path = "/tmp/pi-webrtc-ipc.sock";
-    std::string ipc_channel = "both";
-    int ipc_channel_mode = -1;
 
     // webrtc
     int jpeg_quality = 30;

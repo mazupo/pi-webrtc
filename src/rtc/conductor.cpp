@@ -222,76 +222,52 @@ void Conductor::EnsureTracksAdded(webrtc::scoped_refptr<RtcPeer> peer) {
 }
 
 void Conductor::InitializeDataChannels(webrtc::scoped_refptr<RtcPeer> peer) {
-    if (peer->isSfuPeer() && !peer->isPublisher()) {
-        peer->SetOnDataChannelCallback([this](std::shared_ptr<RtcChannel> channel) {
-            DEBUG_PRINT("Remote channel (%s) from sfu subscriber peer [%s]",
-                        channel->label().c_str(), channel->id().c_str());
-            BindDataChannelToIpcReceiver(channel);
-        });
+    peer->SetIpcServer(ipc_server_);
+
+    if (peer->is_sfu_peer() && !peer->is_publisher()) {
+        // A LiveKit subscriber peer opens via onDataChannel.
         return;
     }
 
-    if (args.enable_ipc) {
-        switch (args.ipc_channel_mode) {
-            case ChannelMode::Lossy: {
-                auto lossy_channel = peer->CreateDataChannel(ChannelMode::Lossy);
-                BindIpcToDataChannel(lossy_channel);
-                break;
-            }
-            case ChannelMode::Reliable: {
-                auto reliable_channel = peer->CreateDataChannel(ChannelMode::Reliable);
-                BindIpcToDataChannel(reliable_channel);
-                break;
-            }
-            default: {
-                auto lossy_channel = peer->CreateDataChannel(ChannelMode::Lossy);
-                auto reliable_channel = peer->CreateDataChannel(ChannelMode::Reliable);
-                BindIpcToDataChannel(lossy_channel);
-                BindIpcToDataChannel(reliable_channel);
-                break;
-            }
-        }
+    if (!peer->is_sfu_peer()) {
+        peer->CreateDataChannel(ChannelRole::Command);
+        peer->CreateDataChannel(ChannelRole::Stream);
+        RegisterCommandHandlers(peer);
     }
 
-    if (!peer->isSfuPeer()) {
-        InitializeCommandChannel(peer);
+    if (args.enable_ipc) {
+        peer->CreateDataChannel(ChannelRole::Lossy);
+        peer->CreateDataChannel(ChannelRole::Reliable);
     }
 }
 
-void Conductor::InitializeCommandChannel(webrtc::scoped_refptr<RtcPeer> peer) {
-    auto cmd_channel = peer->CreateDataChannel(ChannelMode::Command);
-    cmd_channel->RegisterHandler(
-        protocol::CommandType::TAKE_SNAPSHOT,
-        [this](std::shared_ptr<RtcChannel> datachannel, const protocol::Packet pkt) {
-            TakeSnapshot(datachannel, pkt);
-        });
-    cmd_channel->RegisterHandler(
-        protocol::CommandType::QUERY_FILE,
-        [this](std::shared_ptr<RtcChannel> datachannel, const protocol::Packet pkt) {
-            QueryFile(datachannel, pkt);
-        });
-    cmd_channel->RegisterHandler(
-        protocol::CommandType::TRANSFER_FILE,
-        [this](std::shared_ptr<RtcChannel> datachannel, const protocol::Packet pkt) {
-            TransferFile(datachannel, pkt);
-        });
-    cmd_channel->RegisterHandler(
-        protocol::CommandType::CONTROL_CAMERA,
-        [this](std::shared_ptr<RtcChannel> datachannel, const protocol::Packet pkt) {
-            ControlCamera(datachannel, pkt);
-        });
-    cmd_channel->RegisterHandler(
-        protocol::CommandType::START_RECORDING,
-        [this](std::shared_ptr<RtcChannel> datachannel, const protocol::Packet pkt) {
-            StartRecording(datachannel, pkt);
-        });
-    cmd_channel->RegisterHandler(
-        protocol::CommandType::STOP_RECORDING,
-        [this](std::shared_ptr<RtcChannel> datachannel, const protocol::Packet pkt) {
-            StopRecording(datachannel, pkt);
-        });
+void Conductor::RegisterCommandHandlers(webrtc::scoped_refptr<RtcPeer> peer) {
+    auto command = peer->GetCommandChannel();
+    if (!command) {
+        return;
+    }
 
-    cmd_channel->OnClosed([this]() {
+    using Context = CommandChannel::Context;
+    command->RegisterHandler(protocol::Request::kTakeSnapshot, [this](const Context &ctx) {
+        TakeSnapshot(ctx);
+    });
+    command->RegisterHandler(protocol::Request::kQueryFile, [this](const Context &ctx) {
+        QueryFile(ctx);
+    });
+    command->RegisterHandler(protocol::Request::kTransferFile, [this](const Context &ctx) {
+        TransferFile(ctx);
+    });
+    command->RegisterHandler(protocol::Request::kControlCamera, [this](const Context &ctx) {
+        ControlCamera(ctx);
+    });
+    command->RegisterHandler(protocol::Request::kStartRecording, [this](const Context &ctx) {
+        StartRecording(ctx);
+    });
+    command->RegisterHandler(protocol::Request::kStopRecording, [this](const Context &ctx) {
+        StopRecording(ctx);
+    });
+
+    command->OnClosed([this]() {
         auto recorder = ondemand_recorder_.lock();
         if (recorder && recorder->is_recording()) {
             DEBUG_PRINT("Peer disconnected: Auto-stop on-demand recording when peer disconnects "
@@ -301,22 +277,32 @@ void Conductor::InitializeCommandChannel(webrtc::scoped_refptr<RtcPeer> peer) {
     });
 }
 
-void Conductor::TakeSnapshot(std::shared_ptr<RtcChannel> datachannel, const protocol::Packet &pkt) {
+void Conductor::TakeSnapshot(const CommandChannel::Context &ctx) {
+    if (!ctx.stream) {
+        ERROR_PRINT("Snapshot requested on a peer without a stream channel.");
+        return;
+    }
+
     try {
-        auto quality = std::clamp(pkt.take_snapshot_request().quality(), 0u, 100u);
+        auto quality = std::clamp(ctx.request.take_snapshot().quality(), 0u, 100u);
 
         auto i420buff = video_capture_source_->GetI420Frame(args.live_stream_idx);
         auto jpg_buffer = jpeg_util::ConvertYuvToJpeg(
             i420buff->DataY(), video_capture_source_->width(args.live_stream_idx),
             video_capture_source_->height(args.live_stream_idx), quality);
-        datachannel->Send(std::move(jpg_buffer));
+        ctx.stream->Send(ctx.request_id, std::move(jpg_buffer));
     } catch (const std::exception &e) {
         ERROR_PRINT("%s", e.what());
     }
 }
 
-void Conductor::QueryFile(std::shared_ptr<RtcChannel> datachannel, const protocol::Packet &pkt) {
-    if (!pkt.has_query_file_request()) {
+void Conductor::QueryFile(const CommandChannel::Context &ctx) {
+    if (!ctx.stream) {
+        ERROR_PRINT("File query requested on a peer without a stream channel.");
+        return;
+    }
+
+    if (!ctx.request.has_query_file()) {
         ERROR_PRINT("Invalid metadata request");
         return;
     }
@@ -326,7 +312,7 @@ void Conductor::QueryFile(std::shared_ptr<RtcChannel> datachannel, const protoco
         return;
     }
 
-    auto req = pkt.query_file_request();
+    auto req = ctx.request.query_file();
     auto type = req.type();
     const bool is_timelapse = (req.mode() == protocol::VideoMode::TIMELAPSE);
     const std::string &parameter = req.parameter();
@@ -338,26 +324,26 @@ void Conductor::QueryFile(std::shared_ptr<RtcChannel> datachannel, const protoco
     if (type == protocol::QueryFileType::LATEST_FILE || parameter.empty()) {
         auto path = media_query::FindLatestCompleteFile(search_dir, ".mp4");
         DEBUG_PRINT("LATEST: %s", path.c_str());
-        SendFileResponse(datachannel, path, req.mode());
+        ResponseQueryFile(ctx, path, req.mode());
     } else if (type == protocol::QueryFileType::BEFORE_FILE) {
         auto paths = media_query::FindOlderFiles(search_dir, parameter, 8);
         if (!paths.empty()) {
             for (auto &path : paths) {
                 DEBUG_PRINT("OLDER: %s", path.c_str());
-                SendFileResponse(datachannel, path, req.mode());
+                ResponseQueryFile(ctx, path, req.mode());
             }
             return;
         }
-        SendFileResponse(datachannel, "", req.mode());
+        ResponseQueryFile(ctx, "", req.mode());
     } else if (type == protocol::QueryFileType::BEFORE_TIME) {
         auto path = media_query::FindFilesFromDatetime(search_dir, parameter);
         DEBUG_PRINT("TIME_MATCH: %s", path.c_str());
-        SendFileResponse(datachannel, path, req.mode());
+        ResponseQueryFile(ctx, path, req.mode());
     }
 }
 
-void Conductor::SendFileResponse(std::shared_ptr<RtcChannel> datachannel, const std::string &path,
-                                 const protocol::VideoMode mode) {
+void Conductor::ResponseQueryFile(const CommandChannel::Context &ctx, const std::string &path,
+                                  const protocol::VideoMode mode) {
 
     protocol::QueryFileResponse resp = {};
 
@@ -373,20 +359,25 @@ void Conductor::SendFileResponse(std::shared_ptr<RtcChannel> datachannel, const 
         }
     }
 
-    datachannel->Send(resp);
+    ctx.stream->Send(ctx.request_id, resp);
 }
 
-void Conductor::TransferFile(std::shared_ptr<RtcChannel> datachannel, const protocol::Packet &pkt) {
+void Conductor::TransferFile(const CommandChannel::Context &ctx) {
+    if (!ctx.stream) {
+        ERROR_PRINT("File transfer requested on a peer without a stream channel.");
+        return;
+    }
+
     if (args.record_path.empty()) {
         return;
     }
 
-    if (!pkt.has_transfer_file_request()) {
+    if (!ctx.request.has_transfer_file()) {
         ERROR_PRINT("Invalid file transfer request");
         return;
     }
 
-    const std::string &path = pkt.transfer_file_request().filepath();
+    const std::string &path = ctx.request.transfer_file().filepath();
 
     try {
         std::ifstream file(path, std::ios::binary | std::ios::ate);
@@ -394,21 +385,20 @@ void Conductor::TransferFile(std::shared_ptr<RtcChannel> datachannel, const prot
             ERROR_PRINT("Unable to open file: %s", path.c_str());
             return;
         }
-        datachannel->Send(file);
+        ctx.stream->Send(ctx.request_id, file);
         DEBUG_PRINT("Sent Video: %s", path.c_str());
     } catch (const std::exception &e) {
         ERROR_PRINT("%s", e.what());
     }
 }
 
-void Conductor::ControlCamera(std::shared_ptr<RtcChannel> datachannel,
-                              const protocol::Packet &pkt) {
-    if (!pkt.has_control_camera_request()) {
+void Conductor::ControlCamera(const CommandChannel::Context &ctx) {
+    if (!ctx.request.has_control_camera()) {
         ERROR_PRINT("Invalid camera control request");
         return;
     }
 
-    const auto &req = pkt.control_camera_request();
+    const auto &req = ctx.request.control_camera();
     int key = req.id();
     int value = req.value();
     DEBUG_PRINT("parse meta cmd message => %d, %d", key, value);
@@ -429,8 +419,7 @@ void Conductor::SetOnDemandRecorder(std::shared_ptr<RecorderManager> recorder) {
     ondemand_recorder_ = recorder;
 }
 
-void Conductor::StartRecording(std::shared_ptr<RtcChannel> datachannel,
-                               const protocol::Packet &pkt) {
+void Conductor::StartRecording(const CommandChannel::Context &ctx) {
     auto recorder = ondemand_recorder_.lock();
     if (!recorder) {
         ERROR_PRINT("On-demand recorder is not set.");
@@ -439,14 +428,14 @@ void Conductor::StartRecording(std::shared_ptr<RtcChannel> datachannel,
     recorder->Start();
     DEBUG_PRINT("On-demand recording started.");
 
-    protocol::RecordingResponse resp;
-    resp.set_is_recording(true);
-    resp.set_filepath(recorder->current_filepath());
-    datachannel->Send(resp);
+    protocol::Response resp;
+    auto *recording = resp.mutable_recording();
+    recording->set_is_recording(true);
+    recording->set_filepath(recorder->current_filepath());
+    ctx.command->Send(ctx.request_id, resp);
 }
 
-void Conductor::StopRecording(std::shared_ptr<RtcChannel> datachannel,
-                              const protocol::Packet &pkt) {
+void Conductor::StopRecording(const CommandChannel::Context &ctx) {
     auto recorder = ondemand_recorder_.lock();
     if (!recorder) {
         ERROR_PRINT("On-demand recorder is not set.");
@@ -456,10 +445,11 @@ void Conductor::StopRecording(std::shared_ptr<RtcChannel> datachannel,
     recorder->Stop();
     DEBUG_PRINT("On-demand recording stopped.");
 
-    protocol::RecordingResponse resp;
-    resp.set_is_recording(false);
-    resp.set_filepath(filepath);
-    datachannel->Send(resp);
+    protocol::Response resp;
+    auto *recording = resp.mutable_recording();
+    recording->set_is_recording(false);
+    recording->set_filepath(filepath);
+    ctx.command->Send(ctx.request_id, resp);
 }
 
 void Conductor::InitializePeerConnectionFactory() {
@@ -520,42 +510,4 @@ void Conductor::InitializeIpcServer() {
         ipc_server_ = UnixSocketServer::Create(args.socket_path);
         ipc_server_->Start();
     }
-}
-
-void Conductor::BindIpcToDataChannel(std::shared_ptr<RtcChannel> channel) {
-    BindIpcToDataChannelSender(channel);
-    BindDataChannelToIpcReceiver(channel);
-}
-
-void Conductor::BindIpcToDataChannelSender(std::shared_ptr<RtcChannel> channel) {
-    if (!channel || !ipc_server_) {
-        ERROR_PRINT("IPC or DataChannel is not found!");
-        return;
-    }
-
-    const auto id = channel->id();
-    const auto label = channel->label();
-
-    ipc_server_->RegisterPeerCallback(id, [channel](const std::string &msg) {
-        channel->Send(msg);
-    });
-    DEBUG_PRINT("[%s] DataChannel (%s) registered to IPC server for sending.", id.c_str(),
-                label.c_str());
-
-    channel->OnClosed([this, id, label]() {
-        ipc_server_->UnregisterPeerCallback(id);
-        DEBUG_PRINT("[%s] DataChannel (%s) unregistered from IPC server.", id.c_str(),
-                    label.c_str());
-    });
-}
-
-void Conductor::BindDataChannelToIpcReceiver(std::shared_ptr<RtcChannel> channel) {
-    if (!channel || !ipc_server_)
-        return;
-
-    channel->RegisterHandler([this](const std::string &msg) {
-        ipc_server_->Write(msg);
-    });
-    DEBUG_PRINT("DataChannel (%s) connected to IPC server for receiving.",
-                channel->label().c_str());
 }

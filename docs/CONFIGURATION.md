@@ -136,8 +136,7 @@ messages with the browser. See [Advanced Usage](ADVANCED.md#two-way-datachannel-
 
 | Option | Default | Description |
 |---|---|---|
-| `--enable-ipc` | `false` | Enable the IPC relay over a DataChannel. |
-| `--ipc-channel` | `both` | Channel mode: `lossy` (UDP-like), `reliable` (TCP-like), or `both`, based on client preference. |
+| `--enable-ipc` | `false` | Enable the IPC relay over DataChannels. Opens both a lossy (UDP-like) and a reliable (TCP-like) channel; the client picks one per message. |
 | `--socket-path` | `/tmp/pi-webrtc-ipc.sock` | Unix domain socket used to bridge the DataChannel to local applications. |
 
 ## Signaling
