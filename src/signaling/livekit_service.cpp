@@ -222,7 +222,7 @@ void LiveKitService::OnMessage(const std::string &req) {
         }
 
         PeerConfig config;
-        config.is_sfu_peer = true;
+        config.backend = SignalingBackend::LiveKit;
 
         webrtc::PeerConnectionInterface::IceServer ice_server;
         nlohmann::json messageJson = nlohmann::json::parse(jsonObj["message"].get<std::string>());

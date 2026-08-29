@@ -39,23 +39,19 @@ class Conductor {
     void InitializeTracks();
     void InitializeIpcServer();
     void InitializeDataChannels(webrtc::scoped_refptr<RtcPeer> peer);
-    void InitializeCommandChannel(webrtc::scoped_refptr<RtcPeer> peer);
-
-    void BindIpcToDataChannel(std::shared_ptr<RtcChannel> channel);
-    void BindIpcToDataChannelSender(std::shared_ptr<RtcChannel> channel);
-    void BindDataChannelToIpcReceiver(std::shared_ptr<RtcChannel> channel);
+    void RegisterCommandHandlers(webrtc::scoped_refptr<RtcPeer> peer);
 
     void
     ApplyBitrateSettings(webrtc::scoped_refptr<webrtc::PeerConnectionInterface> peer_connection);
     void AddTracks(webrtc::scoped_refptr<webrtc::PeerConnectionInterface> peer_connection);
-    void TakeSnapshot(std::shared_ptr<RtcChannel> datachannel, const protocol::Packet &pkt);
-    void QueryFile(std::shared_ptr<RtcChannel> datachannel, const protocol::Packet &pkt);
-    void TransferFile(std::shared_ptr<RtcChannel> datachannel, const protocol::Packet &pkt);
-    void ControlCamera(std::shared_ptr<RtcChannel> datachannel, const protocol::Packet &pkt);
-    void SendFileResponse(std::shared_ptr<RtcChannel> datachannel, const std::string &path,
-                          const protocol::VideoMode mode);
-    void StartRecording(std::shared_ptr<RtcChannel> datachannel, const protocol::Packet &pkt);
-    void StopRecording(std::shared_ptr<RtcChannel> datachannel, const protocol::Packet &pkt);
+    void TakeSnapshot(const CommandChannel::Context &ctx);
+    void QueryFile(const CommandChannel::Context &ctx);
+    void TransferFile(const CommandChannel::Context &ctx);
+    void ControlCamera(const CommandChannel::Context &ctx);
+    void ResponseQueryFile(const CommandChannel::Context &ctx, const std::string &path,
+                           const protocol::VideoMode mode);
+    void StartRecording(const CommandChannel::Context &ctx);
+    void StopRecording(const CommandChannel::Context &ctx);
 
     std::unique_ptr<webrtc::Thread> network_thread_;
     std::unique_ptr<webrtc::Thread> worker_thread_;

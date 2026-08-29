@@ -4,6 +4,7 @@
 - [Using the Legacy V4L2 Driver](#using-the-legacy-v4l2-driver)
 - [Running as a Linux Service](#running-as-a-linux-service)
 - [Two-way Audio Communication](#two-way-audio-communication)
+- [DataChannels](#datachannels)
 - [Two-way DataChannel Messaging](#two-way-datachannel-messaging)
 - [Stream AI or Any Custom Feed to a Virtual Camera](#stream-ai-or-any-custom-feed-to-a-virtual-camera)
 - [WHEP with Nginx Proxy](#whep-with-nginx-proxy)
@@ -226,11 +227,47 @@ follow the links below.
 - **Microphone** — [wiring and testing an I2S MEMS mic](https://learn.adafruit.com/adafruit-i2s-mems-microphone-breakout/raspberry-pi-wiring-test)
 - **Speaker** — [wiring a MAX98357 I2S amp](https://learn.adafruit.com/adafruit-max98357-i2s-class-d-mono-amp/raspberry-pi-wiring)
 
+# DataChannels
+
+`pi-webrtc` opens up to four DataChannels towards a browser peer, each with a single job:
+
+| Label | Ordered | Reliability | Carries |
+| --- | --- | --- | --- |
+| `command` | yes | reliable | Client requests, and small device responses such as the recording state. |
+| `stream` | **no** | reliable | Bulk responses, chunked: snapshot JPEGs, file-query results, file transfers. |
+| `_lossy` | no | no retransmits | IPC, UDP-like. |
+| `_reliable` | yes | reliable | IPC, TCP-like. |
+
+`command` and `stream` are always opened; the two IPC channels only with
+[`--enable-ipc`](CONFIGURATION.md#ipc).
+
+How the channels are opened depends on the signaling backend, not on the role. For a
+direct browser peer (MQTT, WHEP) all four are negotiated out-of-band on fixed stream ids
+**0**, **1**, **2** and **3** in the order above, so both ends can use a channel as soon
+as the transport is up. The client creates each one itself, e.g.
+`createDataChannel("command", { negotiated: true, id: 0, ordered: true })`.
+
+Over LiveKit the SFU opens its own reserved channels towards the device instead, so
+there the IPC pair is negotiated in-band and matched by label.
+
+Bulk content gets its own unordered channel because a large response would otherwise
+head-of-line block every command behind it. Each transfer is split into a
+`Stream` header, chunks and a trailer sharing one `stream_id`, so several transfers may
+interleave freely: asking for a snapshot while a video download is in flight gets an
+answer straight away rather than waiting for the download to finish. The enclosing
+packet's `type` says how the reassembled body is to be parsed, and its `request_id` which
+request it answers.
+
 # Two-way DataChannel Messaging
 
 Carries AI event notifications, sensor readings, or remote control commands between the
-browser and the device. Works with both `--use-mqtt` and `--use-livekit`, and
-[`--ipc-channel`](CONFIGURATION.md#ipc) chooses `lossy` or `reliable` delivery.
+browser and the device. Works with both `--use-mqtt` and `--use-livekit`.
+
+[`--enable-ipc`](CONFIGURATION.md#ipc) opens two channels, lossy (UDP-like) and reliable
+(TCP-like), and the client chooses per message rather than for the whole connection —
+picamera.js takes the mode as an argument to `sendText()` / `sendData()`, defaulting to
+reliable. Messages the device sends up from the Unix socket always go over the reliable
+channel.
 
 > [!NOTE]
 > Over `--use-livekit`, messages are broadcast to every participant in the room.
