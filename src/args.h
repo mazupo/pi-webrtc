@@ -141,6 +141,8 @@ struct Args {
     // ipc
     bool enable_ipc = false;
     std::string socket_path = "/tmp/pi-webrtc-ipc.sock";
+    bool enable_gamepad = false;
+    std::string gamepad_socket_path = "/tmp/pi-webrtc-gamepad.sock";
 
     // webrtc
     int jpeg_quality = 30;
