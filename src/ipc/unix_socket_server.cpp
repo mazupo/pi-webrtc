@@ -1,5 +1,8 @@
 #include "ipc/unix_socket_server.h"
 
+#include <sys/time.h>
+#include <vector>
+
 #include "common/logging.h"
 
 std::shared_ptr<UnixSocketServer> UnixSocketServer::Create(const std::string &socket_path) {
@@ -23,13 +26,45 @@ void UnixSocketServer::UnregisterPeerCallback(const std::string &id) {
     peer_callbacks_.erase(id);
 }
 
-void UnixSocketServer::Write(const std::string &message) {
-    std::lock_guard<std::mutex> lock(mutex_);
-    for (const auto &[fd, _] : client_threads_) {
-        ssize_t n = ::write(fd, message.c_str(), message.size());
-        if (n < 0) {
-            ERROR_PRINT("Failed to write to client fd=%d: %s", fd, strerror(errno));
+bool UnixSocketServer::WriteAll(int fd, const std::string &message) {
+    size_t sent = 0;
+    while (sent < message.size()) {
+        // Prevent SIGPIPE when the client disconnects.
+        ssize_t n = ::send(fd, message.data() + sent, message.size() - sent, MSG_NOSIGNAL);
+        if (n > 0) {
+            sent += static_cast<size_t>(n);
+            continue;
         }
+        if (n < 0 && errno == EINTR) {
+            continue;
+        }
+        ERROR_PRINT("Failed to write to client fd=%d after %zu of %zu bytes: %s", fd, sent,
+                    message.size(), strerror(errno));
+        return false;
+    }
+    return true;
+}
+
+void UnixSocketServer::Write(const std::string &message) {
+    std::vector<int> stale;
+    {
+        std::lock_guard<std::mutex> lock(mutex_);
+        for (auto it = client_threads_.begin(); it != client_threads_.end();) {
+            if (WriteAll(it->first, message)) {
+                ++it;
+                continue;
+            }
+
+            stale.push_back(it->first);
+            if (it->second.joinable()) {
+                it->second.detach();
+            }
+            it = client_threads_.erase(it);
+        }
+    }
+
+    for (int fd : stale) {
+        shutdown(fd, SHUT_RDWR);
     }
 }
 
@@ -104,6 +139,11 @@ void UnixSocketServer::AcceptLoop() {
             continue;
         }
 
+        // Drop clients that block writes for too long.
+        timeval send_timeout{};
+        send_timeout.tv_usec = 200 * 1000;
+        setsockopt(client_fd, SOL_SOCKET, SO_SNDTIMEO, &send_timeout, sizeof(send_timeout));
+
         std::thread t(&UnixSocketServer::HandleClient, this, client_fd);
         {
             std::lock_guard<std::mutex> lock(mutex_);
@@ -131,8 +171,6 @@ void UnixSocketServer::HandleClient(int client_fd) {
         }
     }
 
-    close(client_fd);
-
     {
         std::lock_guard<std::mutex> lock(mutex_);
         auto it = client_threads_.find(client_fd);
@@ -143,6 +181,8 @@ void UnixSocketServer::HandleClient(int client_fd) {
             client_threads_.erase(it);
         }
     }
+
+    close(client_fd);
 
     DEBUG_PRINT("[%d] leaved!", client_fd);
 }

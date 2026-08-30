@@ -37,7 +37,7 @@ std::shared_ptr<Conductor> Conductor::Create(Args args) {
     auto ptr = std::make_shared<Conductor>(args);
     ptr->InitializePeerConnectionFactory();
     ptr->InitializeTracks();
-    ptr->InitializeIpcServer();
+    ptr->InitializeIpcEndpoints();
     return ptr;
 }
 
@@ -45,8 +45,8 @@ Conductor::Conductor(Args args)
     : args(args) {}
 
 Conductor::~Conductor() {
-    if (ipc_server_) {
-        ipc_server_->Stop();
+    if (ipc_endpoints_) {
+        ipc_endpoints_->StopAll();
     }
     audio_track_ = nullptr;
     video_track_ = nullptr;
@@ -222,7 +222,7 @@ void Conductor::EnsureTracksAdded(webrtc::scoped_refptr<RtcPeer> peer) {
 }
 
 void Conductor::InitializeDataChannels(webrtc::scoped_refptr<RtcPeer> peer) {
-    peer->SetIpcServer(ipc_server_);
+    peer->SetIpcEndpoints(ipc_endpoints_);
 
     if (peer->is_sfu_peer() && !peer->is_publisher()) {
         // A LiveKit subscriber peer opens via onDataChannel.
@@ -505,9 +505,23 @@ void Conductor::InitializePeerConnectionFactory() {
     peer_connection_factory_ = webrtc::CreateModularPeerConnectionFactory(std::move(deps));
 }
 
-void Conductor::InitializeIpcServer() {
-    if (args.enable_ipc) {
-        ipc_server_ = UnixSocketServer::Create(args.socket_path);
-        ipc_server_->Start();
+void Conductor::InitializeIpcEndpoints() {
+    if (!args.enable_ipc) {
+        if (args.enable_gamepad) {
+            ERROR_PRINT("--enable-gamepad needs --enable-ipc: without it there are no data "
+                        "channels for gamepad input to arrive on.");
+        }
+        return;
     }
+
+    ipc_endpoints_ = std::make_shared<IpcEndpoints>();
+    ipc_endpoints_->Add(IpcEndpoints::kDefault, UnixSocketServer::Create(args.socket_path),
+                        /*length_prefixed=*/false, /*bidirectional=*/true);
+    if (args.enable_gamepad) {
+        ipc_endpoints_->Add(IpcEndpoints::kGamepad,
+                            UnixSocketServer::Create(args.gamepad_socket_path),
+                            /*length_prefixed=*/true, /*bidirectional=*/false);
+    }
+
+    ipc_endpoints_->StartAll();
 }

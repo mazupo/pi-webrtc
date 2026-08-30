@@ -13,6 +13,7 @@
 #include "args.h"
 #include "capturer/audio_capturer.h"
 #include "capturer/video_capturer.h"
+#include "ipc/ipc_endpoints.h"
 #include "recorder/recorder_manager.h"
 #include "rtc/audio_device_bridge.h"
 #include "rtc/rtc_peer.h"
@@ -37,7 +38,7 @@ class Conductor {
 
     void InitializePeerConnectionFactory();
     void InitializeTracks();
-    void InitializeIpcServer();
+    void InitializeIpcEndpoints();
     void InitializeDataChannels(webrtc::scoped_refptr<RtcPeer> peer);
     void RegisterCommandHandlers(webrtc::scoped_refptr<RtcPeer> peer);
 
@@ -66,7 +67,7 @@ class Conductor {
     webrtc::scoped_refptr<webrtc::VideoTrackInterface> video_track_;
     webrtc::scoped_refptr<ScaleTrackSource> video_track_source_;
 
-    std::shared_ptr<UnixSocketServer> ipc_server_;
+    std::shared_ptr<IpcEndpoints> ipc_endpoints_;
     std::weak_ptr<RecorderManager> ondemand_recorder_;
 };
 

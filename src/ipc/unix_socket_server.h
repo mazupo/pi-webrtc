@@ -42,6 +42,7 @@ class UnixSocketServer {
 
     void AcceptLoop();
     void HandleClient(int client_fd);
+    bool WriteAll(int fd, const std::string &message);
 };
 
 #endif

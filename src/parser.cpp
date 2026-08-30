@@ -209,6 +209,13 @@ void Parser::ParseArgs(int argc, char *argv[], Args &args) {
         ("socket-path", bpo::value<std::string>(&args.socket_path)->default_value(args.socket_path),
             "Specifies the Unix domain socket path used to bridge messages between "
             "the WebRTC DataChannel and local IPC applications.")
+        ("enable-gamepad", bpo::bool_switch(&args.enable_gamepad)->default_value(args.enable_gamepad),
+            "Serve the `gamepad` IPC endpoint on its own socket, carrying operator input as "
+            "protocol.InputReport. Each payload is written with a big-endian uint32 length in "
+            "front of it, because a stream socket has no message boundaries of its own. "
+            "Requires --enable-ipc, which opens the data channels this arrives on.")
+        ("gamepad-socket-path", bpo::value<std::string>(&args.gamepad_socket_path)->default_value(args.gamepad_socket_path),
+            "Where --enable-gamepad puts its socket.")
         ("stun-url", bpo::value<std::string>(&args.stun_url)->default_value(args.stun_url),
             "Set the STUN server URL for WebRTC. e.g. `stun:xxx.xxx.xxx`.")
         ("turn-url", bpo::value<std::string>(&args.turn_url)->default_value(args.turn_url),
