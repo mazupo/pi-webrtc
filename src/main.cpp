@@ -10,21 +10,9 @@
 #include "signaling/mqtt_service.h"
 #include "signaling/whep_service.h"
 
-int main(int argc, char *argv[]) {
-    Args args;
-    try {
-        Parser::ParseArgs(argc, argv, args);
-    } catch (const std::exception &e) {
-        // ParseEnum and ParseDevice throw on a bad value; without this the process aborts
-        // with "terminate called after throwing" and dumps core instead of naming the problem.
-        ERROR_PRINT("%s", e.what());
-        return 1;
-    }
+namespace {
 
-    if (args.latency_trace) {
-        latency::Start(args.latency_trace_interval);
-    }
-
+void Run(const Args &args) {
     std::shared_ptr<Conductor> conductor = Conductor::Create(args);
     std::unique_ptr<RecorderManager> bg_recorder_mgr;
     std::shared_ptr<RecorderManager> ondemand_recorder_mgr;
@@ -80,6 +68,29 @@ int main(int argc, char *argv[]) {
     }
 
     ioc.run();
+}
+
+} // namespace
+
+int main(int argc, char *argv[]) {
+    Args args;
+    try {
+        Parser::ParseArgs(argc, argv, args);
+    } catch (const std::exception &e) {
+        ERROR_PRINT("%s", e.what());
+        return 1;
+    }
+
+    if (args.latency_trace) {
+        latency::Start(args.latency_trace_interval);
+    }
+
+    try {
+        Run(args);
+    } catch (const std::exception &e) {
+        ERROR_PRINT("%s", e.what());
+        return 1;
+    }
 
     return 0;
 }
