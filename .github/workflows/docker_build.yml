@@ -68,7 +68,7 @@ jobs:
             cp -r protoc-33.0/include/* /usr/local/include/ &&
             rm -rf protoc-33.0 protoc-33.0-linux-aarch_64.zip &&
             cd /app &&
-            wget -q https://github.com/TzuHuanTai/Native-WebRTC-Builder/releases/download/7680/libwebrtc-arm64.tar.gz &&
+            wget -q https://github.com/mazupo/libwebrtc-builder/releases/download/7680/libwebrtc-arm64.tar.gz &&
             tar -xzf libwebrtc-arm64.tar.gz &&
             mkdir -p /usr/local/include/webrtc &&
             mv include/* /usr/local/include/webrtc &&

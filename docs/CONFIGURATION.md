@@ -295,5 +295,4 @@ entries above record to `/mnt/ext_disk/video/front/` and `/mnt/ext_disk/video/si
 # Commercial Version
 
 Options marked <sup>[\*](COMMERCIAL.md#licensing)</sup> above are part of the commercial
-build. See [Commercial Version](COMMERCIAL.md) for what is included and how to license it,
-or contact **tzu.huan.tai@gmail.com**.
+build. See [COMMERCIAL.md](COMMERCIAL.md) for what is included and how to license it.

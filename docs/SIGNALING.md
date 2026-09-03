@@ -69,7 +69,7 @@ client ->pi-webrtc: connected
 ```
 
 Clients:
-[picamera.js](https://www.npmjs.com/package/picamera.js) ·
+[client-sdk-js](https://github.com/mazupo/client-sdk-js) ·
 [picamera-web](https://app.picamera.live) ·
 [picamera-app](https://github.com/TzuHuanTai/picamera-app) (Android)
 
@@ -149,7 +149,7 @@ change.
 Everyone who joins the same room sees the stream. With `--enable-ipc`, DataChannel messages
 are broadcast to every participant in the room rather than to a single peer.
 
-Client: [picamera.js](https://github.com/TzuHuanTai/picamera.js?tab=readme-ov-file#examples)
+Client: [client-sdk-js](https://github.com/mazupo/client-sdk-js)
 
 #### Access Tokens <sup>[\*](COMMERCIAL.md#licensing)</sup>
 
@@ -247,12 +247,11 @@ flowing. The session can also be read straight from the
 DataChannel/IPC traffic is not carried over this backend — `--enable-ipc` still applies to the
 other signaling services running alongside it.
 
-Client: [picamera.js](https://github.com/TzuHuanTai/picamera.js?tab=readme-ov-file#examples)
+Client: [client-sdk-js](https://github.com/mazupo/client-sdk-js)
 
 ---
 
 # Commercial Version
 
 Options marked <sup>[\*](COMMERCIAL.md#licensing)</sup> above are part of the commercial
-build. See [Commercial Version](COMMERCIAL.md) for what is included and how to license it,
-or contact **tzu.huan.tai@gmail.com**.
+build. See [Commercial Version](COMMERCIAL.md) for what is included and how to license it.
