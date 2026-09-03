@@ -20,6 +20,11 @@ timeval ToTimeval(uint64_t timestamp_ns) {
 
 EGLDisplay GetEglDisplay() {
     return []() -> EGLDisplay {
+        if (const char *x11 = getenv("DISPLAY"); x11 && *x11) {
+            INFO_PRINT("Ignoring DISPLAY=%s; capturing on the Tegra device display.", x11);
+            unsetenv("DISPLAY");
+        }
+
         EGLDisplay dpy = eglGetDisplay(EGL_DEFAULT_DISPLAY);
         if (dpy == EGL_NO_DISPLAY) {
             ERROR_PRINT("Cannot get an EGL display for the buffer stream");
