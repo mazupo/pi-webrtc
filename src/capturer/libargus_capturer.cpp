@@ -18,6 +18,24 @@ timeval ToTimeval(uint64_t timestamp_ns) {
     return tv;
 }
 
+EGLDisplay GetEglDisplay() {
+    return []() -> EGLDisplay {
+        EGLDisplay dpy = eglGetDisplay(EGL_DEFAULT_DISPLAY);
+        if (dpy == EGL_NO_DISPLAY) {
+            ERROR_PRINT("Cannot get an EGL display for the buffer stream");
+            return EGL_NO_DISPLAY;
+        }
+        if (eglInitialize(dpy, nullptr, nullptr) != EGL_TRUE) {
+            ERROR_PRINT("Failed to initialize the EGL display");
+            return EGL_NO_DISPLAY;
+        }
+
+        const char *vendor = eglQueryString(dpy, EGL_VENDOR);
+        INFO_PRINT("EGL vendor: %s", vendor ? vendor : "unknown");
+        return dpy;
+    }();
+}
+
 } // namespace
 
 std::shared_ptr<LibargusCapturer> LibargusCapturer::Create(Args args) {
@@ -158,15 +176,8 @@ bool StreamHandler::PrepareBuffers() {
         return false;
     }
 
-    // EGL_DEFAULT_DISPLAY resolves to the Tegra device display and needs no X server, so this
-    // still works headless.
-    egl_display_ = eglGetDisplay(EGL_DEFAULT_DISPLAY);
+    egl_display_ = GetEglDisplay();
     if (egl_display_ == EGL_NO_DISPLAY) {
-        ERROR_PRINT("Cannot get an EGL display for the buffer stream");
-        return false;
-    }
-    if (eglInitialize(egl_display_, nullptr, nullptr) != EGL_TRUE) {
-        ERROR_PRINT("Failed to initialize the EGL display");
         return false;
     }
 
@@ -311,17 +322,15 @@ void StreamHandler::ReleaseBuffers() {
 
         if (buffer->surface) {
             NvBufSurfaceUnMapEglImage(buffer->surface, 0);
-            NvBufSurfaceDestroy(buffer->surface);
             buffer->surface = nullptr;
         }
-        buffer->dma_fd = -1;
+        if (buffer->dma_fd >= 0) {
+            NvBufSurf::NvDestroy(buffer->dma_fd);
+            buffer->dma_fd = -1;
+        }
     }
     buffers_.clear();
-
-    if (egl_display_ != EGL_NO_DISPLAY) {
-        eglTerminate(egl_display_);
-        egl_display_ = EGL_NO_DISPLAY;
-    }
+    egl_display_ = EGL_NO_DISPLAY;
 }
 
 StreamHandler::~StreamHandler() {
