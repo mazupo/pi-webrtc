@@ -42,7 +42,7 @@ killall -12 pi-webrtc
 Convert the performance data into a PDF report using the pprof tool:
 
 ```bash
-pprof /home/pi/IoT/RaspberryPi-WebRTC/build/pi-webrtc prof.out.0 --pdf > prof_0.pdf
+pprof /home/pi/IoT/pi-webrtc/build/pi-webrtc prof.out.0 --pdf > prof_0.pdf
 pprof --pdf --base=heap.0001.heap ./test_recorder heap.0003.heap > heap_diff.pdf
 ```
 

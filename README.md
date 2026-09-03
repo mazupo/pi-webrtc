@@ -6,9 +6,9 @@ Ultra-low latency WebRTC streaming for Raspberry Pi and NVIDIA Jetson over WiFi,
 
 <p align="center">
     <a href="https://chromium.googlesource.com/external/webrtc/+/branch-heads/7680"><img src="https://img.shields.io/badge/libwebrtc-m146.7680-red.svg" alt="WebRTC Version"></a>
-    <img src="https://img.shields.io/github/downloads/TzuHuanTai/RaspberryPi-WebRTC/total.svg?color=yellow" alt="Download">
+    <img src="https://img.shields.io/github/downloads/mazupo/pi-webrtc/total.svg?color=yellow" alt="Download">
     <img src="https://img.shields.io/badge/C%2B%2B-20-brightgreen?logo=cplusplus">
-    <img src="https://img.shields.io/github/v/release/TzuHuanTai/RaspberryPi-WebRTC?color=blue" alt="Release">
+    <img src="https://img.shields.io/github/v/release/mazupo/pi-webrtc?color=blue" alt="Release">
     <a href="https://opensource.org/licenses/Apache-2.0"><img src="https://img.shields.io/badge/License-Apache_2.0-purple.svg" alt="License Apache"></a>
 </p>
 
@@ -55,9 +55,9 @@ sudo apt install libmosquitto1 pulseaudio libavformat61 libswscale8 libyaml-cpp0
 
 ### 3. Download Binary
 
-Get the latest [release binary](https://github.com/TzuHuanTai/RaspberryPi-WebRTC/releases) .
+Get the latest [release binary](https://github.com/mazupo/pi-webrtc/releases) .
 ```bash
-wget https://github.com/TzuHuanTai/RaspberryPi-WebRTC/releases/latest/download/pi-webrtc_raspios-trixie-arm64.tar.gz
+wget https://github.com/mazupo/pi-webrtc/releases/latest/download/pi-webrtc_raspios-trixie-arm64.tar.gz
 tar -xzf pi-webrtc_raspios-trixie-arm64.tar.gz
 ```
 
@@ -102,10 +102,10 @@ Use [HiveMQ](https://www.hivemq.com), [EMQX](https://www.emqx.com/en), or a [sel
 
 | Transport | Best for | Clients |
 | --- | --- | --- |
-| **MQTT** | Peer-to-peer, no public hostname needed | [picamera.js](https://www.npmjs.com/package/picamera.js) (Web + React Native) · [picamera-app](https://github.com/TzuHuanTai/picamera-app) (Android) |
+| **MQTT** | Peer-to-peer, no public hostname needed | [client-sdk-js](https://github.com/mazupo/client-sdk-js) · [picamera-app](https://github.com/TzuHuanTai/picamera-app) |
 | **[WHEP](https://www.ietf.org/archive/id/draft-ietf-wish-whep-02.html)** | Playing a URL in any standard WebRTC player | [Home Assistant WebRTC Camera](https://github.com/AlexxIT/WebRTC) · [eyevinn/webrtc-player](https://www.npmjs.com/package/@eyevinn/webrtc-player) |
-| **[LiveKit](https://livekit.io)** | Many simultaneous viewers from one uplink | [picamera.js](https://github.com/TzuHuanTai/picamera.js?tab=readme-ov-file#examples) |
-| **[Cloudflare Realtime](https://developers.cloudflare.com/realtime/sfu/)** | Many simultaneous viewers with nothing to host | [picamera.js](https://github.com/TzuHuanTai/picamera.js?tab=readme-ov-file#examples) |
+| **[LiveKit](https://livekit.io)** | Many simultaneous viewers from one uplink | [client-sdk-js](https://github.com/mazupo/client-sdk-js) · [livekit-sdk](https://github.com/livekit/client-sdk-js) |
+| **[Cloudflare Realtime](https://developers.cloudflare.com/realtime/sfu/)** | Many simultaneous viewers with nothing to host | [client-sdk-js](https://github.com/mazupo/client-sdk-js) |
 
 Signaling is pluggable — each transport implements the same interface in `src/signaling/`, and
 more than one can be enabled at a time.
@@ -118,9 +118,9 @@ more than one can be enabled at a time.
 
 ## Commercial
 
-Object detection and tracking on Jetson, multi-camera capture from a single process, and
-on-device LiveKit token issuing are available under a commercial license — see
-[Commercial Version](docs/COMMERCIAL.md) or contact **tzu.huan.tai@gmail.com**.
+Detection and tracking on Jetson, multi-camera capture, and publishing straight to LiveKit
+or Cloudflare Realtime with no relay in between are licensed separately — see
+[COMMERCIAL.md](docs/COMMERCIAL.md).
 
 ## License
 

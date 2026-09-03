@@ -118,7 +118,7 @@ jobs:
             sudo cp protoc-33.0/bin/protoc /usr/local/bin/protoc && \
             sudo cp -r protoc-33.0/include/* /usr/local/include/ && \
             rm -rf protoc-33.0 protoc-33.0-linux-aarch_64.zip &&
-            wget -q https://github.com/TzuHuanTai/Native-WebRTC-Builder/releases/download/7680/libwebrtc-arm64.tar.gz &&
+            wget -q https://github.com/mazupo/libwebrtc-builder/releases/download/7680/libwebrtc-arm64.tar.gz &&
             tar -xzf libwebrtc-arm64.tar.gz &&
             sudo mkdir -p /usr/local/include/webrtc &&
             sudo mv include/* /usr/local/include/webrtc &&

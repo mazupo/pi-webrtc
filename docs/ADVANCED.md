@@ -34,8 +34,8 @@ See [Signaling](SIGNALING.md#livekit) for how the connection works.
 | `wss://api.picamera.live` | `APIWnQTs4tmUZvA` |
 
 ⚠️ The testing server allows up to 100 concurrent connections, with a monthly limit of 5,000
-minutes and 50 GB of transfer shared across all users. For a dedicated environment, contact
-`tzu.huan.tai@gmail.com`.
+minutes and 50 GB of transfer shared across all users. For a dedicated environment, see
+[COMMERCIAL.md](COMMERCIAL.md#contact).
 
 ### 1. Run on the device
 
@@ -56,7 +56,7 @@ minutes and 50 GB of transfer shared across all users. For a dedicated environme
 
 ### 2. Join the room
 
-- [`picamera.js`](https://github.com/TzuHuanTai/picamera.js?tab=readme-ov-file#examples)
+- See [example](https://github.com/mazupo/client-sdk-js/blob/main/docs/EXAMPLES.md#play-through-the-livekit-sfu)
 - Web demo: [https://app.picamera.live/room](https://app.picamera.live/room)
 
 ## Cloudflare Realtime
@@ -77,7 +77,7 @@ under its `--uid`. A viewer only ever needs the uid.
 ⚠️ Shared across all users and capped at the Cloudflare free tier, so it stops serving once the
 monthly allowance is used up. Everyone shares these keys and the registry is keyed by `--uid`,
 so pick a distinctive one — a common name can be overwritten by another tester. For a dedicated
-environment, contact `tzu.huan.tai@gmail.com`.
+environment, see [Commercial Version](COMMERCIAL.md#contact).
 
 ### 1. Run on the device
 
@@ -265,9 +265,9 @@ browser and the device. Works with both `--use-mqtt` and `--use-livekit`.
 
 [`--enable-ipc`](CONFIGURATION.md#ipc) opens two channels, lossy (UDP-like) and reliable
 (TCP-like), and the client chooses per message rather than for the whole connection —
-picamera.js takes the mode as an argument to `sendText()` / `sendData()`, defaulting to
-reliable. Messages the device sends up from the Unix socket always go over the reliable
-channel.
+[client-sdk-js](https://github.com/mazupo/client-sdk-js) takes the mode as an argument to
+`sendText()` / `sendData()`, defaulting to reliable. Messages the device sends up from the
+Unix socket always go over the reliable channel.
 
 > [!NOTE]
 > Over `--use-livekit`, messages are broadcast to every participant in the room.
@@ -285,9 +285,9 @@ channel.
     It logs everything sent and received through `pi-webrtc`, and keeps sending
     "**ping from client**" over the Unix socket. The socket path is `--socket-path`.
 
-- On the client side, picamera.js exposes `onMessage()` and `sendMessage()`. See
-  [the picamera.js examples](https://github.com/TzuHuanTai/picamera.js?tab=readme-ov-file#examples),
-  or try it on the [picamera-web](http://app.picamera.live/interaction) interaction page.
+- On the client side, [client-sdk-js](https://github.com/mazupo/client-sdk-js) exposes
+  `onMessage()` for what arrives and `sendText()` / `sendData()` for what goes out. See [examples](https://github.com/mazupo/client-sdk-js/blob/main/docs/EXAMPLES.md#send-and-receive-ipc-messages).
+- Web demo: [http://app.picamera.live/interaction](http://app.picamera.live/interaction)
 
 # Stream AI or Any Custom Feed to a Virtual Camera
 
