@@ -31,7 +31,7 @@ See [Signaling](SIGNALING.md#livekit) for how the connection works.
 
 | URL | API Key |
 | --- | --- |
-| `wss://api.picamera.live` | `APIWnQTs4tmUZvA` |
+| `wss://api.mazupo.com` | `APIWnQTs4tmUZvA` |
 
 ⚠️ The testing server allows up to 100 concurrent connections, with a monthly limit of 5,000
 minutes and 50 GB of transfer shared across all users. For a dedicated environment, see
@@ -46,12 +46,12 @@ minutes and 50 GB of transfer shared across all users. For a dedicated environme
     --height=1080 \
     --uid=your-display-name \
     --use-livekit \
-    --livekit-url=wss://api.picamera.live \
+    --livekit-url=wss://api.mazupo.com \
     --livekit-key=APIWnQTs4tmUZvA \
     --livekit-room=the-room-name
 ```
 
-> `--uid` is the publisher's identity, e.g. `camera123`.
+> `--uid` is the publisher's identity.
 > `--livekit-room` is the room name shared by the publisher and its viewers.
 
 ### 2. Join the room
@@ -72,7 +72,7 @@ under its `--uid`. A viewer only ever needs the uid.
 
 | URL | Device API Key | Viewer API Key |
 | --- | --- | --- |
-| `https://api.picamera.live` | `81f899b8fab5692b0faa76c3372b7ae6` | `ec0478c67e729b6f429eda1e97829af0` |
+| `https://api.mazupo.com` | `81f899b8fab5692b0faa76c3372b7ae6` | `ec0478c67e729b6f429eda1e97829af0` |
 
 ⚠️ Shared across all users and capped at the Cloudflare free tier, so it stops serving once the
 monthly allowance is used up. Everyone shares these keys and the registry is keyed by `--uid`,
@@ -88,11 +88,11 @@ environment, see [Commercial Version](COMMERCIAL.md#contact).
     --height=1080 \
     --uid=your-display-name \
     --use-cloudflare \
-    --api-url=https://api.picamera.live \
+    --api-url=https://api.mazupo.com \
     --api-key=81f899b8fab5692b0faa76c3372b7ae6
 ```
 
-> `--uid` is what a viewer looks the stream up by, e.g. `camera123`.
+> `--uid` is what a viewer looks the stream up by.
 
 ### 2. Watch
 

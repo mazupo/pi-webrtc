@@ -71,12 +71,12 @@ session to recover whenever the link drops — so a fleet depends on nothing but
 
 Not a licensed feature. It relays the Cloudflare Realtime handshake and holds the session a
 viewer has to pull, so a device needs neither a Cloudflare account nor the handshake logic.
-[api.picamera.live](https://api.picamera.live) is open for anyone to try — see
+[api.mazupo.com](https://api.mazupo.com) is open for anyone to try — see
 [Broadcasting to many viewers](ADVANCED.md#cloudflare-realtime).
 
 | Flag | Description |
 |---|---|
-| `--api-url` | Base URL of the device API, e.g. `https://api.picamera.live`. |
+| `--api-url` | Base URL of the device API, e.g. `https://api.mazupo.com`. |
 | `--api-key` | Bearer token authenticating this device against it. |
 
 ## Hardware Requirements

@@ -179,7 +179,7 @@ The device API relays the handshake and holds the session a viewer has to pull. 
 | Option | Default | Description |
 |---|---|---|
 | `--use-cloudflare` | `false` | Publish to a Cloudflare Realtime SFU over its HTTPS API. |
-| `--api-url` | | Base URL of the device API, e.g. `https://api.picamera.live`. Every Realtime call goes to `<api-url>/sfu/...`, and the session is published to `PUT <api-url>/devices/<uid>/session` on connect and refreshed every 15 minutes. **Required** with `--use-cloudflare`. |
+| `--api-url` | | Base URL of the device API, e.g. `https://api.mazupo.com`. Every Realtime call goes to `<api-url>/sfu/...`, and the session is published to `PUT <api-url>/devices/<uid>/session` on connect and refreshed every 15 minutes. **Required** with `--use-cloudflare`. |
 | `--api-key` | | Bearer token authenticating this device against `--api-url`. **Required** with `--api-url`. |
 | `--cloudflare-url` <sup>[\*](COMMERCIAL.md#licensing)</sup> | | Base URL of the Realtime API, including the API version path. Defaults to `https://rtc.live.cloudflare.com/v1`; only worth setting when Cloudflare publishes a newer version. |
 | `--cloudflare-app-id` <sup>[\*](COMMERCIAL.md#licensing)</sup> | | Realtime App ID to publish into. **Required** with `--use-cloudflare` in the commercial build. |

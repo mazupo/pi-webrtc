@@ -250,7 +250,7 @@ void Parser::ParseArgs(int argc, char *argv[], Args &args) {
             "Enables publishing to a Cloudflare Realtime SFU through the device API. Requires "
             "--api-url and --api-key; the Realtime credentials stay on the API side.")
         ("api-url", bpo::value<std::string>(&args.api_url)->default_value(args.api_url),
-            "Base URL of the picamera device API, e.g. https://api.picamera.live.")
+            "Base URL of the picamera device API, e.g. https://api.mazupo.com.")
         ("api-key", bpo::value<std::string>(&args.api_key)->default_value(args.api_key),
             "Bearer token authenticating this device against --api-url.")
         ("config", bpo::value<std::string>()->default_value(""),
@@ -342,7 +342,7 @@ void Parser::ParseArgs(int argc, char *argv[], Args &args) {
         }
     } else {
         if (args.api_url.rfind("https://", 0) != 0 && args.api_url.rfind("http://", 0) != 0) {
-            std::cerr << "Error: --api-url must be a full url, e.g. https://api.picamera.live."
+            std::cerr << "Error: --api-url must be a full url, e.g. https://api.mazupo.com."
                       << std::endl;
             exit(1);
         }

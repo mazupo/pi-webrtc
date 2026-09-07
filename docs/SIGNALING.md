@@ -169,13 +169,13 @@ so nothing has to be hosted and the fan-out runs on Cloudflare's edge.
     --height=1080 \
     --uid=your-display-name \
     --use-cloudflare \
-    --api-url=https://api.picamera.live \
+    --api-url=https://api.mazupo.com \
     --api-key=your-device-api-key
 ```
 
 No Cloudflare credentials ever reach the device. Every call goes to `<api-url>/sfu/...`, which
 attaches the Realtime credentials and forwards the request. That is what makes SFU streaming
-usable without a Cloudflare account of your own — [api.picamera.live](https://api.picamera.live)
+usable without a Cloudflare account of your own — [api.mazupo.com](https://api.mazupo.com)
 exists so the feature can be tried for free — and it means a stolen device yields a revocable API
 key rather than full access to an app. The session id is published under the uid, so a viewer
 only ever needs that — see [Finding the stream](#finding-the-stream) below.
