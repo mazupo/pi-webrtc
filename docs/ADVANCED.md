@@ -6,6 +6,7 @@
 - [Two-way Audio Communication](#two-way-audio-communication)
 - [DataChannels](#datachannels)
 - [Two-way DataChannel Messaging](#two-way-datachannel-messaging)
+- [Gamepad Input](#gamepad-input)
 - [Stream AI or Any Custom Feed to a Virtual Camera](#stream-ai-or-any-custom-feed-to-a-virtual-camera)
 - [WHEP with Nginx Proxy](#whep-with-nginx-proxy)
 - [Using the WebRTC Camera in Home Assistant](#using-the-webrtc-camera-in-home-assistant)
@@ -288,6 +289,64 @@ Unix socket always go over the reliable channel.
 - On the client side, [client-sdk-js](https://github.com/mazupo/client-sdk-js) exposes
   `onMessage()` for what arrives and `sendText()` / `sendData()` for what goes out. See [examples](https://github.com/mazupo/client-sdk-js/blob/main/docs/EXAMPLES.md#send-and-receive-ipc-messages).
 - Web demo: [http://app.picamera.live/interaction](http://app.picamera.live/interaction)
+
+# Gamepad Input
+
+[`--enable-gamepad`](CONFIGURATION.md#ipc) serves a named IPC endpoint, `gamepad`, on a
+socket of its own, so a control process on the device can read a gamepad held at the
+browser. It requires [`--enable-ipc`](#two-way-datachannel-messaging).
+
+- Each payload is a `protocol.InputReport` (`external/protocol/protos/input.proto`), with
+  a big-endian `uint32` length in front of it — a stream socket has no message boundaries.
+- One-way: the device writes, local processes read. Replies go on the default endpoint.
+- `InputReport.sequence` counts samples per session. The lossy channel forwards only newer
+  samples, so gaps mean dropped input — watch them and neutralize if they grow.
+
+## Button mapping
+
+W3C "standard" mapping. Sticks and triggers are floats; buttons pack into one `uint32`,
+`buttons[N].pressed` as bit N. `standard_mapping` is false when the browser does not
+recognize the pad, and the table then does not apply.
+
+| Bit | Button | Bit | Button | Bit | Button |
+| --- | --- | --- | --- | --- | --- |
+| 0 | A | 6 | LT | 12 | D-pad up |
+| 1 | B | 7 | RT | 13 | D-pad down |
+| 2 | X | 8 | Back/View | 14 | D-pad left |
+| 3 | Y | 9 | Start/Menu | 15 | D-pad right |
+| 4 | LB | 10 | L3 | 16 | Guide |
+| 5 | RB | 11 | R3 | | |
+
+## Reading it
+
+[gamepad_socket.py](../examples/gamepad_socket.py) prints each report as it arrives and
+flags sequence gaps. It reads bindings generated from the `.proto`, so build those first.
+
+1. Install the protobuf runtime and compiler:
+    ```bash
+    pip install protobuf
+    sudo apt install protobuf-compiler
+    ```
+
+2. Generate the bindings into `examples/`:
+    ```bash
+    protoc -I external/protocol/protos --python_out=examples input.proto common.proto
+    ```
+
+3. Start `pi-webrtc` with both flags:
+    ```bash
+    /path/to/pi-webrtc --camera=libcamera:0 --fps=30 ... --enable-ipc --enable-gamepad
+    ```
+
+4. Run the example, then connect a gamepad in the browser:
+    ```bash
+    python ./examples/gamepad_socket.py
+    ```
+    The socket path is `--gamepad-socket-path`.
+
+- On [client-sdk-js](https://github.com/mazupo/client-sdk-js) side, see the [example](https://github.com/mazupo/client-sdk-js/blob/main/docs/EXAMPLES.md#drive-a-device-with-a-gamepad). The sender polls the browser's
+[Gamepad API](https://developer.mozilla.org/en-US/docs/Web/API/Gamepad_API).
+- Web demo: [http://app.mazupo.com/gamepad](http://app.mazupo.com/gamepad)
 
 # Stream AI or Any Custom Feed to a Virtual Camera
 
