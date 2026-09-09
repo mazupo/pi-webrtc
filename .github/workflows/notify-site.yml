@@ -1,4 +1,4 @@
-name: Rebuild picamera.live docs
+name: Rebuild mazupo.com docs
 
 on:
   push:
@@ -16,7 +16,7 @@ jobs:
           DEPLOY_HOOK: ${{ secrets.CF_PAGES_DEPLOY_HOOK }}
         run: |
           if [ -z "$DEPLOY_HOOK" ]; then
-            echo "::error::CF_PAGES_DEPLOY_HOOK is not set — picamera.live will not pick up these docs changes."
+            echo "::error::CF_PAGES_DEPLOY_HOOK is not set — mazupo.com will not pick up these docs changes."
             exit 1
           fi
           curl --fail --silent --show-error -X POST "$DEPLOY_HOOK"
