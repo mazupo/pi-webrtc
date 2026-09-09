@@ -17,5 +17,9 @@ models
 
 !/docs/*.jpg
 
+# generated protobuf bindings
+*_pb2.py
+__pycache__
+
 # local config files
 config/*.local.yml
