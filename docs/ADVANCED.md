@@ -58,7 +58,7 @@ minutes and 50 GB of transfer shared across all users. For a dedicated environme
 ### 2. Join the room
 
 - See [example](https://github.com/mazupo/client-sdk-js/blob/main/docs/EXAMPLES.md#play-through-the-livekit-sfu)
-- Web demo: [https://app.picamera.live/room](https://app.picamera.live/room)
+- Web demo: [https://app.mazupo.com/room](https://app.mazupo.com/room)
 
 ## Cloudflare Realtime
 
@@ -97,7 +97,7 @@ environment, see [Commercial Version](COMMERCIAL.md#contact).
 
 ### 2. Watch
 
-Web demo: [https://app.picamera.live/cloudflare](https://app.picamera.live/cloudflare). Put the
+Web demo: [https://app.mazupo.com/cloudflare](https://app.mazupo.com/cloudflare). Put the
 URL and the **viewer** key into *Settings → Network*, then pick the device from the selector.
 
 # Using the Legacy V4L2 Driver
@@ -288,7 +288,7 @@ Unix socket always go over the reliable channel.
 
 - On the client side, [client-sdk-js](https://github.com/mazupo/client-sdk-js) exposes
   `onMessage()` for what arrives and `sendText()` / `sendData()` for what goes out. See [examples](https://github.com/mazupo/client-sdk-js/blob/main/docs/EXAMPLES.md#send-and-receive-ipc-messages).
-- Web demo: [http://app.picamera.live/interaction](http://app.picamera.live/interaction)
+- Web demo: [http://app.mazupo.com/interaction](http://app.mazupo.com/interaction)
 
 # Gamepad Input
 

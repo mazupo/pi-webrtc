@@ -77,7 +77,7 @@ Use [HiveMQ](https://www.hivemq.com), [EMQX](https://www.emqx.com/en), or a [sel
 
 ![preview_demo](https://github.com/user-attachments/assets/d472b6e0-8104-4aaf-b02b-9925c5c363d0)
 
-- Open [picamera-web](https://app.picamera.live)  demo UI — add MQTT settings, and create a `UID`.
+- Open [picamera-web](https://app.mazupo.com)  demo UI — add MQTT settings, and create a `UID`.
 - Run the command on your Pi:
     ```bash
     ./pi-webrtc \
@@ -112,7 +112,7 @@ more than one can be enabled at a time.
 
 ## Documentation
 
-📚 **Full documentation → [picamera.live/docs](https://picamera.live/docs)**
+📚 **Full documentation → [mazupo.com/docs](https://mazupo.com/docs)**
 
 [Configuration](docs/CONFIGURATION.md) · [Camera and Encoding](docs/CAMERA_AND_ENCODING.md) · [Signaling](docs/SIGNALING.md) · [Recording](docs/RECORDING.md) · [Architecture](docs/ARCHITECTURE.md) · [Building](docs/BUILD.md) · [Advanced usage](docs/ADVANCED.md)
 

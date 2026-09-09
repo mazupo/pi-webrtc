@@ -70,7 +70,7 @@ client ->pi-webrtc: connected
 
 Clients:
 [client-sdk-js](https://github.com/mazupo/client-sdk-js) ·
-[picamera-web](https://app.picamera.live) ·
+[picamera-web](https://app.mazupo.com) ·
 [picamera-app](https://github.com/TzuHuanTai/picamera-app) (Android)
 
 ## WHEP
