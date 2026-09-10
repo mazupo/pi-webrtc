@@ -153,20 +153,24 @@ webrtc::scoped_refptr<webrtc::I420BufferInterface> V4L2FrameBuffer::ToI420() {
 
     if (format_ == V4L2_PIX_FMT_YUV420) {
         memcpy(i420_buffer->MutableDataY(), src, size_);
-    } else {
+        return i420_buffer;
+    }
+
 #if defined(USE_LIBARGUS_CAPTURE)
+    if (IsDmaOnly()) {
         if (NvConvertToI420(buffer_.dmafd, i420_buffer->MutableDataY(), size_, width_, height_) <
             0) {
             ERROR_PRINT("NvConvertToI420 Failed");
         }
-#else
-        if (libyuv::ConvertToI420(src, size_, i420_buffer->MutableDataY(), i420_buffer->StrideY(),
-                                  i420_buffer->MutableDataU(), i420_buffer->StrideU(),
-                                  i420_buffer->MutableDataV(), i420_buffer->StrideV(), 0, 0, width_,
-                                  height_, width_, height_, libyuv::kRotate0, format_) < 0) {
-            ERROR_PRINT("libyuv ConvertToI420 Failed");
-        }
+        return i420_buffer;
+    }
 #endif
+
+    if (libyuv::ConvertToI420(src, size_, i420_buffer->MutableDataY(), i420_buffer->StrideY(),
+                              i420_buffer->MutableDataU(), i420_buffer->StrideU(),
+                              i420_buffer->MutableDataV(), i420_buffer->StrideV(), 0, 0, width_,
+                              height_, width_, height_, libyuv::kRotate0, format_) < 0) {
+        ERROR_PRINT("libyuv ConvertToI420 Failed");
     }
 
     return i420_buffer;
