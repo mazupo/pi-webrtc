@@ -12,6 +12,7 @@ if(USE_JETSON_HW_ENCODER)
         ${MULTIMEDIA_API_BASE}/samples/common/classes/NvElementProfiler.cpp
         ${MULTIMEDIA_API_BASE}/samples/common/classes/NvV4l2Element.cpp
         ${MULTIMEDIA_API_BASE}/samples/common/classes/NvV4l2ElementPlane.cpp
+        ${MULTIMEDIA_API_BASE}/samples/common/classes/NvVideoDecoder.cpp
         ${MULTIMEDIA_API_BASE}/samples/common/classes/NvVideoEncoder.cpp
         # ${MULTIMEDIA_API_BASE}/samples/common/classes/NvLogging.cpp
 

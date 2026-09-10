@@ -9,6 +9,7 @@
 #include <modules/video_capture/video_capture_factory.h>
 #include <third_party/libyuv/include/libyuv.h>
 
+#include "common/latency_tracer.h"
 #include "common/logging.h"
 
 std::shared_ptr<V4L2Capturer> V4L2Capturer::Create(Args args) {
@@ -161,6 +162,10 @@ void V4L2Capturer::CaptureImage() {
 
     auto buffer = V4L2Buffer::FromV4L2((uint8_t *)capture_.buffers[buf.index].start, buf, format_);
     frame_buffer_ = V4L2FrameBuffer::Create(width_, height_, buffer);
+
+    if (latency::Enabled()) {
+        latency::RecordCapture(latency::SensorUs(buffer.timestamp), latency::NowUs());
+    }
     if (hw_accel_ && format_ == V4L2_PIX_FMT_H264) {
         if ((buffer.flags & V4L2_BUF_FLAG_KEYFRAME) != 0) {
             has_first_keyframe_ = true;
@@ -173,12 +178,21 @@ void V4L2Capturer::CaptureImage() {
 
     if (hw_accel_ && IsCompressedFormat()) {
         if (!decoder_) {
+#if defined(USE_RPI_HW_ENCODER)
             decoder_ = V4L2Decoder::Create({width_, height_, format_, true});
+#elif defined(USE_JETSON_HW_ENCODER)
+            decoder_ = JetsonDecoder::Create({width_, height_, format_, true});
+#endif
+            if (!decoder_) {
+                ERROR_PRINT("Unable to create the hardware decoder for %s",
+                            v4l2_util::FourccToString(format_).c_str());
+                exit(EXIT_FAILURE);
+            }
         }
 
         decoder_->EmplaceBuffer(frame_buffer_, [this, buffer](V4L2FrameBufferRef decoded_buffer) {
             // hw decoder doesn't output timestamps.
-            decoded_buffer->GetRawBuffer().timestamp = buffer.timestamp;
+            decoded_buffer->SetTimestamp(buffer.timestamp);
             stream_subject_.Next(decoded_buffer);
         });
     } else {
