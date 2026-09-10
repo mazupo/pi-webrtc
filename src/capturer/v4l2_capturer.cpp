@@ -60,39 +60,40 @@ void V4L2Capturer::Initialize() {
 
     if (format_ == V4L2_PIX_FMT_H264) {
         if (!SetControls(V4L2_CID_MPEG_VIDEO_BITRATE_MODE, V4L2_MPEG_VIDEO_BITRATE_MODE_VBR)) {
-            ERROR_PRINT("Unable to set VBR mode");
+            WARN_PRINT("Unable to set VBR mode");
         }
         if (!SetControls(V4L2_CID_MPEG_VIDEO_H264_PROFILE, V4L2_MPEG_VIDEO_H264_PROFILE_HIGH)) {
-            ERROR_PRINT("Unable to set H264 profile");
+            WARN_PRINT("Unable to set H264 profile");
         }
         if (!SetControls(V4L2_CID_MPEG_VIDEO_REPEAT_SEQ_HEADER, true)) {
-            ERROR_PRINT("Unable to set repeat seq header");
+            WARN_PRINT("Unable to set repeat seq header");
         }
         if (!SetControls(V4L2_CID_MPEG_VIDEO_H264_LEVEL, V4L2_MPEG_VIDEO_H264_LEVEL_4_0)) {
-            ERROR_PRINT("Unable to set H264 level");
+            WARN_PRINT("Unable to set H264 level");
         }
         if (!SetControls(V4L2_CID_MPEG_VIDEO_H264_I_PERIOD, 60)) {
-            ERROR_PRINT("Unable to set H264 I-frame period");
+            WARN_PRINT("Unable to set H264 I-frame period");
         }
         if (!SetControls(V4L2_CID_MPEG_VIDEO_FORCE_KEY_FRAME, 1)) {
-            ERROR_PRINT("Unable to force set to key frame");
+            WARN_PRINT("Unable to force set to key frame");
         }
     }
 
     if (!v4l2_util::SetFps(fd_, capture_.type, fps_)) {
-        ERROR_PRINT("Unable to set fps");
+        WARN_PRINT("Unable to set fps");
     }
 
-    if (!v4l2_util::SetCtrl(fd_, V4L2_CID_ROTATE, rotation_)) {
-        ERROR_PRINT("Unable to set the rotation angle");
+    if (rotation_ > 0 && !v4l2_util::SetCtrl(fd_, V4L2_CID_ROTATE, rotation_)) {
+        WARN_PRINT("Unable to set the rotation angle");
     }
 
     if (!v4l2_util::SetFormat(fd_, &capture_, width_, height_, format_)) {
         ERROR_PRINT("Unable to set the resolution: %dx%d", width_, height_);
     }
 
-    if (!SetControls(V4L2_CID_MPEG_VIDEO_BITRATE, 10 * 1024 * 1024)) {
-        ERROR_PRINT("Unable to set video bitrate");
+    if (format_ == V4L2_PIX_FMT_H264 &&
+        !SetControls(V4L2_CID_MPEG_VIDEO_BITRATE, 10 * 1024 * 1024)) {
+        WARN_PRINT("Unable to set video bitrate");
     }
 }
 
