@@ -28,6 +28,7 @@ enum class Stage : int {
     kI420Scale,       // ToI420() + I420Buffer::ScaleFrom
     kNvTransform,     // NvBufSurf::NvTransform
     kScalerDwell,     // scaler queue push -> pop on the worker thread
+    kHwDecodeDwell,   // buffer queued to the hw decoder -> dequeued from the capture plane
     kHwEncodeDwell,   // buffer queued to the hw encoder -> dequeued from the capture plane
     kEncodeCall,      // duration of VideoEncoder::Encode() (the whole cost for sync encoders)
     kOnEncodedImage,  // duration of the downstream OnEncodedImage(): packetize + pacer handoff
@@ -44,6 +45,8 @@ enum class Counter : int {
     kScalerNoBuffer,   // scaler had no free buffer
     kScalerQueueFull,  // scaler task queue rejected the push
     kV4L2NoBuffer,     // v4l2 codec had no free output buffer
+    kDecoderNoBuffer,  // decoder had no free frame buffer
+    kDecoderDqTimeout, // hw decoder dqBuffer() timed out
     kEncoderDqTimeout, // hw encoder dqBuffer() timed out
 
     kCounterCount,

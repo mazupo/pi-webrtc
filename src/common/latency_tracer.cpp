@@ -33,16 +33,16 @@ constexpr int kSlotCount = 1 << kSlotBits;
 const char *const kStageNames[] = {
     "sensor->capture", "sensor->track_in", "sensor->onframe",  "sensor->encode_in",
     "sensor->encoded", "sensor->sent",     "capture_cb_work",  "argus_copy",
-    "i420_scale",      "nvtransform",      "scaler_dwell",     "hw_encode_dwell",
-    "encode_call",     "on_encoded_image", "capture_interval",
+    "i420_scale",      "nvtransform",      "scaler_dwell",     "hw_decode_dwell",
+    "hw_encode_dwell", "encode_call",      "on_encoded_image", "capture_interval",
 };
 static_assert(sizeof(kStageNames) / sizeof(kStageNames[0]) ==
                   static_cast<size_t>(Stage::kStageCount),
               "kStageNames must stay in sync with Stage");
 
 const char *const kCounterNames[] = {
-    "captured",     "encoded",      "adapt_drop", "encoder_queue_drop",
-    "scaler_nobuf", "scaler_qfull", "v4l2_nobuf", "dq_timeout",
+    "captured",     "encoded",    "adapt_drop",    "encoder_queue_drop", "scaler_nobuf",
+    "scaler_qfull", "v4l2_nobuf", "decoder_nobuf", "decoder_dq_timeout", "dq_timeout",
 };
 static_assert(sizeof(kCounterNames) / sizeof(kCounterNames[0]) ==
                   static_cast<size_t>(Counter::kCounterCount),

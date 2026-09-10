@@ -56,6 +56,7 @@ struct V4L2BufferGroup {
 
 namespace v4l2_util {
 
+std::string FourccToString(uint32_t fourcc);
 int OpenDevice(const char *file);
 void CloseDevice(int fd);
 bool QueryCapabilities(int fd, v4l2_capability *cap);

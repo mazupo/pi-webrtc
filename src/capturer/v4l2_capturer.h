@@ -5,7 +5,11 @@
 
 #include "args.h"
 #include "capturer/video_capturer.h"
+#if defined(USE_RPI_HW_ENCODER)
 #include "codecs/v4l2/v4l2_decoder.h"
+#elif defined(USE_JETSON_HW_ENCODER)
+#include "codecs/jetson/jetson_decoder.h"
+#endif
 #include "common/interface/subject.h"
 #include "common/v4l2_frame_buffer.h"
 #include "common/v4l2_utils.h"
@@ -46,7 +50,7 @@ class V4L2Capturer : public VideoCapturer {
     Args config_;
     V4L2BufferGroup capture_;
     std::unique_ptr<Worker> worker_;
-    std::unique_ptr<V4L2Decoder> decoder_;
+    std::unique_ptr<IFrameProcessor> decoder_;
 
     V4L2FrameBufferRef frame_buffer_;
     Subject<V4L2FrameBufferRef> stream_subject_;

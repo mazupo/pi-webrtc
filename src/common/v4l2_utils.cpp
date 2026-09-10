@@ -25,19 +25,6 @@ bool IsMultiPlaneVideo(v4l2_capability *cap) {
            (cap->capabilities & V4L2_CAP_VIDEO_M2M_MPLANE);
 }
 
-std::string FourccToString(uint32_t fourcc) {
-    int length = 4;
-    std::string buf;
-    buf.resize(length);
-
-    for (int i = 0; i < length; i++) {
-        const int c = fourcc & 0xff;
-        buf[i] = c;
-        fourcc >>= 8;
-    }
-    return buf;
-}
-
 void UnMap(V4L2BufferGroup *gbuffer) {
     for (int i = 0; i < gbuffer->num_buffers; i++) {
         if (gbuffer->buffers[i].dmafd > 0) {
@@ -106,6 +93,19 @@ bool MMap(int fd, V4L2BufferGroup *gbuffer) {
 }
 
 } // namespace
+
+std::string FourccToString(uint32_t fourcc) {
+    int length = 4;
+    std::string buf;
+    buf.resize(length);
+
+    for (int i = 0; i < length; i++) {
+        const int c = fourcc & 0xff;
+        buf[i] = c;
+        fourcc >>= 8;
+    }
+    return buf;
+}
 
 int OpenDevice(const char *file) {
     int fd = open(file, O_RDWR);
