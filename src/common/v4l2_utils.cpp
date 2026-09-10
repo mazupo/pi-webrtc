@@ -92,6 +92,33 @@ bool MMap(int fd, V4L2BufferGroup *gbuffer) {
     return true;
 }
 
+void ReportCtrlFailure(int fd, uint32_t id, int32_t value, const char *op) {
+    int err = errno;
+    v4l2_queryctrl query = {};
+    query.id = id;
+
+    if (ioctl(fd, VIDIOC_QUERYCTRL, &query) < 0) {
+        WARN_PRINT("fd(%d) %s(0x%08x) is not supported by the driver", fd, op, id);
+        return;
+    }
+
+    const char *name = reinterpret_cast<const char *>(query.name);
+
+    if (query.flags & V4L2_CTRL_FLAG_DISABLED) {
+        WARN_PRINT("fd(%d) %s(0x%08x '%s') is disabled by the driver", fd, op, id, name);
+        return;
+    }
+
+    if (query.flags & V4L2_CTRL_FLAG_INACTIVE) {
+        WARN_PRINT("fd(%d) %s(0x%08x '%s') is inactive in the current configuration", fd, op, id,
+                   name);
+        return;
+    }
+
+    ERROR_PRINT("fd(%d) %s(0x%08x '%s') to %d, valid range [%d, %d] step %d: %s", fd, op, id, name,
+                value, query.minimum, query.maximum, query.step, strerror(err));
+}
+
 } // namespace
 
 std::string FourccToString(uint32_t fourcc) {
@@ -240,7 +267,7 @@ bool SetCtrl(int fd, uint32_t id, int32_t value) {
     ctrls.id = id;
     ctrls.value = value;
     if (ioctl(fd, VIDIOC_S_CTRL, &ctrls) < 0) {
-        ERROR_PRINT("fd(%d) set ctrl(%d): %s", fd, id, strerror(errno));
+        ReportCtrlFailure(fd, id, value, "set ctrl");
         return false;
     }
     return true;
@@ -260,7 +287,7 @@ bool SetExtCtrl(int fd, uint32_t id, int32_t value) {
     ctrl.value = value;
 
     if (ioctl(fd, VIDIOC_S_EXT_CTRLS, &ctrls) < 0) {
-        ERROR_PRINT("fd(%d) set ext ctrl(%d): %s", fd, id, strerror(errno));
+        ReportCtrlFailure(fd, id, value, "set ext ctrl");
         return false;
     }
     return true;

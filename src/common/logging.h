@@ -52,6 +52,14 @@ inline std::string GetCurrentTime() {
             logging::GetFolderName(__FILE__).c_str(), logging::GetFileName(__FILE__).c_str(),      \
             __LINE__, ##__VA_ARGS__)
 
+#define WARN_PRINT(fmt, ...)                                                                       \
+    fprintf(stderr,                                                                                \
+            "[%s] [%d] \033[1;35m WARN\033[0m \033[1;37m%s\033[0m \033[1;34m%s:%d\033[0m " fmt     \
+            "\n",                                                                                  \
+            logging::GetCurrentTime().c_str(), (int)gettid(),                                      \
+            logging::GetFolderName(__FILE__).c_str(), logging::GetFileName(__FILE__).c_str(),      \
+            __LINE__, ##__VA_ARGS__)
+
 #define INFO_PRINT(fmt, ...)                                                                       \
     printf("[%s] [%d] \033[1;32m INFO\033[0m \033[1;37m%s\033[0m \033[1;34m%s:%d\033[0m " fmt      \
            "\n",                                                                                   \
