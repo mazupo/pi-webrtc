@@ -67,7 +67,12 @@ void RtcPeer::Terminate() {
 
 std::string RtcPeer::id() const { return id_; }
 
-bool RtcPeer::is_sfu_peer() const { return backend_ != SignalingBackend::Direct; }
+// SFU peers renegotiate through their own way; WHEP cannot deliver later offers.
+bool RtcPeer::can_renegotiate() const { return backend_ == SignalingBackend::Direct; }
+
+bool RtcPeer::is_sfu_peer() const {
+    return backend_ == SignalingBackend::LiveKit || backend_ == SignalingBackend::Cloudflare;
+}
 
 bool RtcPeer::is_publisher() const { return is_publisher_; }
 
@@ -236,12 +241,12 @@ void RtcPeer::OnSignalingChange(webrtc::PeerConnectionInterface::SignalingState 
     } else if (new_state == webrtc::PeerConnectionInterface::SignalingState::kStable &&
                previous_state ==
                    webrtc::PeerConnectionInterface::SignalingState::kHaveRemoteOffer &&
-               is_connected_.load() && needs_renegotiation_ && !is_sfu_peer()) {
+               is_connected_.load() && needs_renegotiation_ && can_renegotiate()) {
         needs_renegotiation_ = false;
         DEBUG_PRINT("Resuming renegotiation deferred by glare rollback (%s).", id_.c_str());
         CreateOffer();
     } else if (new_state == webrtc::PeerConnectionInterface::SignalingState::kStable &&
-               is_connected_.load() && !needs_renegotiation_ && !is_sfu_peer() &&
+               is_connected_.load() && !needs_renegotiation_ && can_renegotiate() &&
                has_candidates_in_sdp_) {
         DEBUG_PRINT("Renegotiation completed, cleaning up signaling callbacks.");
         on_local_ice_fn_ = nullptr;
@@ -320,8 +325,8 @@ void RtcPeer::OnIceCandidate(const webrtc::IceCandidateInterface *candidate) {
 }
 
 void RtcPeer::OnRenegotiationNeeded() {
-    if (is_sfu_peer()) {
-        return; // SFU controls negotiation; never renegotiate from client side.
+    if (!can_renegotiate()) {
+        return;
     }
     DEBUG_PRINT("OnRenegotiationNeeded for peer %s", id_.c_str());
     needs_renegotiation_ = true;
@@ -452,7 +457,7 @@ void RtcPeer::SetRemoteSdp(const std::string &sdp, const std::string &sdp_type) 
         DEBUG_PRINT(
             "Glare on peer %s: rolling back pending local offer before applying remote offer.",
             id_.c_str());
-        if (!is_sfu_peer()) {
+        if (can_renegotiate()) {
             needs_renegotiation_ = true;
         }
         rollback_desc_ = webrtc::CreateRollbackSessionDescription();

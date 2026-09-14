@@ -23,8 +23,9 @@
 // Which signaling backend a peer belongs to. Everything that varies between backends is
 // derived from this one value, so adding a backend is a change in one place.
 enum class SignalingBackend {
-    // A browser peer we negotiate with directly: MQTT or WHEP signaling.
+    // A browser peer we negotiate with directly over MQTT, which can carry later offers.
     Direct,
+    Whep,
     LiveKit,
     Cloudflare,
 };
@@ -35,7 +36,6 @@ struct PeerConfig : public webrtc::PeerConnectionInterface::RTCConfiguration {
     SignalingBackend backend = SignalingBackend::Direct;
     bool has_candidates_in_sdp = false;
     bool data_channel_only = false;
-    // For SFUs whose data channels are not plain SCTP streams negotiated in the SDP.
     bool no_data_channels = false;
 };
 
@@ -105,6 +105,7 @@ class RtcPeer : public webrtc::PeerConnectionObserver,
     void CreateOffer();
     void Terminate();
 
+    bool can_renegotiate() const;
     bool is_sfu_peer() const;
     bool is_publisher() const;
     bool is_connected() const;
