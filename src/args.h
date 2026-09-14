@@ -168,9 +168,9 @@ struct Args {
     std::string mqtt_username = "";
     std::string mqtt_password = "";
 
-    // http signaling
+    // WHEP signaling
     bool use_whep = false;
-    uint16_t http_port = 8080;
+    uint16_t whep_port = 8080;
 
     // LiveKit signaling
     bool use_livekit = false;

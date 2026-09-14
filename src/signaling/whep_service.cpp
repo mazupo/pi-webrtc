@@ -84,7 +84,7 @@ std::shared_ptr<WhepService> WhepService::Create(Args args, std::shared_ptr<Cond
 WhepService::WhepService(Args args, std::shared_ptr<Conductor> conductor,
                          boost::asio::io_context &ioc)
     : conductor_(conductor),
-      port_(args.http_port),
+      port_(args.whep_port),
       acceptor_({ioc, {boost::asio::ip::address_v6::any(), port_}}) {}
 
 WhepService::~WhepService() { Disconnect(); }
