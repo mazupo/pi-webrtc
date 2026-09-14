@@ -1,10 +1,80 @@
 #include "signaling/whep_service.h"
 
+#include <cctype>
 #include <iostream>
 #include <regex>
+#include <sstream>
 #include <vector>
 
 #include "common/logging.h"
+
+namespace {
+
+constexpr int kAnswerTimeoutSec = 10;
+
+constexpr char kSdpType[] = "application/sdp";
+constexpr char kTrickleIceType[] = "application/trickle-ice-sdpfrag";
+constexpr char kSessionSegment[] = "sessions";
+
+// Extract the media type without parameters and lowercase it.
+std::string MediaTypeOf(const std::string &value) {
+    auto type = value.substr(0, value.find(';'));
+    auto begin = type.find_first_not_of(" \t");
+    auto end = type.find_last_not_of(" \t");
+    if (begin == std::string::npos) {
+        return "";
+    }
+    type = type.substr(begin, end - begin + 1);
+    for (auto &c : type) {
+        c = static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
+    }
+    return type;
+}
+
+// ICE username fragment identifies the ICE session and serves as its strong entity-tag.
+std::string EntityTagOf(const std::string &sdp) {
+    static const std::regex ufrag_regex(R"(a=ice-ufrag:([^\r\n]+))");
+    std::smatch match;
+    if (!std::regex_search(sdp, match, ufrag_regex)) {
+        return "";
+    }
+    return "\"" + match[1].str() + "\"";
+}
+
+std::string LocalSdpOf(const webrtc::scoped_refptr<RtcPeer> &peer) {
+    auto pc = peer->GetPeer();
+    if (!pc || !pc->local_description()) {
+        return "";
+    }
+    std::string sdp;
+    pc->local_description()->ToString(&sdp);
+    return sdp;
+}
+
+} // namespace
+
+WhepTarget ParseWhepTarget(const std::string &target) {
+    std::vector<std::string> segments;
+    std::stringstream ss(target.substr(0, target.find('?')));
+    std::string segment;
+    while (std::getline(ss, segment, '/')) {
+        if (!segment.empty()) {
+            segments.push_back(segment);
+        }
+    }
+
+    WhepTarget result;
+    if (segments.size() == 2 && segments[0] == kSessionSegment) {
+        result.kind = WhepTarget::Kind::Session;
+        result.peer_id = segments[1];
+    } else if (segments.empty()) {
+        result.kind = WhepTarget::Kind::Endpoint;
+    } else if (segments.size() == 1 && segments[0] != kSessionSegment) {
+        result.kind = WhepTarget::Kind::Endpoint;
+        result.stream = segments[0];
+    }
+    return result;
+}
 
 std::shared_ptr<WhepService> WhepService::Create(Args args, std::shared_ptr<Conductor> conductor,
                                                  boost::asio::io_context &ioc) {
@@ -20,7 +90,7 @@ WhepService::WhepService(Args args, std::shared_ptr<Conductor> conductor,
 WhepService::~WhepService() { Disconnect(); }
 
 void WhepService::Connect() {
-    INFO_PRINT("Http server is running on http://*:%d", port_);
+    INFO_PRINT("WHEP server is running on http://*:%d", port_);
     peer_registry_.Start();
     AcceptConnection();
 }
@@ -44,6 +114,9 @@ webrtc::scoped_refptr<RtcPeer> WhepService::CreatePeer(PeerConfig config) {
     }
 
     auto peer = conductor_->CreatePeerConnection(config);
+    if (!peer) {
+        return nullptr;
+    }
     peer_registry_.Add(peer);
     return peer;
 }
@@ -73,6 +146,11 @@ std::shared_ptr<HttpSession> HttpSession::Create(tcp::socket socket,
                                                  std::shared_ptr<WhepService> whep_service) {
     return std::make_shared<HttpSession>(std::move(socket), whep_service);
 }
+
+HttpSession::HttpSession(tcp::socket socket, std::shared_ptr<WhepService> whep_service)
+    : whep_service_(std::move(whep_service)),
+      stream_(std::move(socket)),
+      answer_timer_(stream_.get_executor()) {}
 
 HttpSession::~HttpSession() {}
 
@@ -109,14 +187,10 @@ void HttpSession::CloseConnection() {
 }
 
 void HttpSession::HandleRequest() {
-    DEBUG_PRINT("Receive http method: %d", req_.method());
-
-    if (req_.method() != http::verb::options && req_.find("Content-Type") == req_.end()) {
-        ResponseUnprocessableEntity("Without content type.");
-        return;
-    } else {
-        content_type_.assign(req_["Content-Type"].begin(), req_["Content-Type"].size());
-    }
+    target_ = ParseWhepTarget(std::string(req_.target().data(), req_.target().size()));
+    DEBUG_PRINT("Receive http method: %s %s",
+                std::string(req_.method_string().data(), req_.method_string().size()).c_str(),
+                std::string(req_.target().data(), req_.target().size()).c_str());
 
     switch (req_.method()) {
         case http::verb::post:
@@ -128,182 +202,247 @@ void HttpSession::HandleRequest() {
         case http::verb::options:
             HandleOptionsRequest();
             break;
+        case http::verb::head:
+            HandleHeadRequest();
+            break;
         case http::verb::delete_:
             HandleDeleteRequest();
             break;
         default:
-            ResponseMethodNotAllowed();
+            RespondMethodNotAllowed();
             break;
     }
 }
 
 void HttpSession::HandlePostRequest() {
-    if (content_type_ == "application/sdp") {
-        PeerConfig config;
-        config.has_candidates_in_sdp = true;
-        auto peer = whep_service_->CreatePeer(config);
-        if (!peer) {
-            ResponseUnprocessableEntity("Failed to create the peer connection.");
+    if (target_.kind != WhepTarget::Kind::Endpoint) {
+        target_.kind == WhepTarget::Kind::Session
+            ? RespondMethodNotAllowed()
+            : RespondError(http::status::not_found, "No WHEP endpoint at this path.");
+        return;
+    }
+
+    if (MediaTypeOf(Header(http::field::content_type)) != kSdpType) {
+        RespondError(http::status::unsupported_media_type,
+                     "The offer must be sent with Content-Type `application/sdp`.");
+        return;
+    }
+
+    PeerConfig config;
+    config.has_candidates_in_sdp = true;
+    auto peer = whep_service_->CreatePeer(config);
+    if (!peer) {
+        RespondError(http::status::internal_server_error, "Failed to create the peer connection.");
+        return;
+    }
+    auto peer_id = peer->id();
+
+    peer->OnLocalSdp([weak_self = weak_from_this()](const std::string &id, const std::string &sdp,
+                                                    const std::string &type) {
+        auto self = weak_self.lock();
+        if (!self) {
             return;
         }
-
-        peer->OnLocalSdp([self = shared_from_this()](const std::string &peer_id,
-                                                     const std::string &sdp,
-                                                     const std::string &type) {
-            std::string host(self->req_["Host"].begin(), self->req_["Host"].size());
-            std::string location = "https://" + host + "/resource/" + peer_id;
-            self->res_ = std::make_shared<http::response<http::string_body>>(http::status::created,
-                                                                             self->req_.version());
-            self->SetCommonHeader(self->res_);
-            self->res_->set(http::field::content_type, "application/sdp");
-            self->res_->set(http::field::location, location);
-            self->res_->body() = sdp;
-            self->res_->prepare_payload();
-            self->WriteResponse();
+        boost::asio::post(self->stream_.get_executor(), [self, id, sdp]() {
+            self->RespondCreated(id, sdp);
         });
+    });
 
-        auto sdp = std::string(req_.body());
-        peer->SetRemoteSdp(sdp, "offer");
-    } else {
-        ResponseUnprocessableEntity("The Content-Type only allow `application/sdp`.");
-    }
+    answer_timer_.expires_after(std::chrono::seconds(kAnswerTimeoutSec));
+    answer_timer_.async_wait([self = shared_from_this(), peer_id](beast::error_code ec) {
+        if (ec || self->responded_) {
+            return;
+        }
+        ERROR_PRINT("Peer (%s) produced no answer within %d seconds.", peer_id.c_str(),
+                    kAnswerTimeoutSec);
+        self->whep_service_->RemovePeer(peer_id);
+        self->RespondError(http::status::service_unavailable,
+                           "Timed out creating the SDP answer for this offer.");
+    });
+
+    peer->SetRemoteSdp(std::string(req_.body()), "offer");
 }
 
 void HttpSession::HandlePatchRequest() {
-    auto routes = ParseRoutes(std::string(req_.target().data(), req_.target().size()));
-
-    if (content_type_ != "application/trickle-ice-sdpfrag" ||
-        (routes.size() < 2 && routes[0] != "resource")) {
-        ResponseUnprocessableEntity("The Content-Type only allow `trickle-ice-sdpfrag`.");
-        return;
-    }
-
-    if (req_.find("If-Match") == req_.end()) {
-        ResponsePreconditionFailed();
-        return;
-    }
-    auto if_match = std::string(req_["If-Match"].data(), req_["If-Match"].size());
-
-    auto peer_id = routes[1];
-    auto peer = whep_service_->GetPeer(peer_id);
+    auto peer = FindSessionPeer();
     if (!peer) {
-        ResponseUnprocessableEntity("The peer does not exist.");
         return;
     }
 
-    auto sdp = std::string(req_.body());
-    auto ice_group = ParseCandidates(sdp);
+    auto content_type = MediaTypeOf(Header(http::field::content_type));
+    if (content_type == kSdpType) {
+        RespondError(http::status::unprocessable_entity,
+                     "This session sent no counter-offer, so it expects no SDP answer.");
+        return;
+    }
+    if (content_type != kTrickleIceType) {
+        RespondError(http::status::unsupported_media_type,
+                     "ICE updates must be sent with Content-Type "
+                     "`application/trickle-ice-sdpfrag`.");
+        return;
+    }
+
+    if (req_.find(http::field::if_match) == req_.end()) {
+        RespondError(http::status::precondition_required,
+                     "PATCH requires an If-Match header with the session's ETag, or `*` to "
+                     "restart ICE.");
+        return;
+    }
+    auto if_match = Header(http::field::if_match);
+    auto ice_group = ParseCandidates(std::string(req_.body()));
+
+    if (if_match == "*") {
+        DEBUG_PRINT("peer (%s) ice restart!", target_.peer_id.c_str());
+        auto local_sdp = peer->RestartIce(ice_group.ice_ufrag, ice_group.ice_pwd);
+        if (local_sdp.empty()) {
+            RespondError(http::status::unprocessable_entity, "The ICE restart failed.");
+            return;
+        }
+        for (const auto &candidate : ice_group.candidates) {
+            peer->SetRemoteIce("0", 0, candidate);
+        }
+
+        auto res = CreateResponse(http::status::ok);
+        res->set(http::field::content_type, kTrickleIceType);
+        auto etag = EntityTagOf(local_sdp);
+        if (!etag.empty()) {
+            res->set(http::field::etag, etag);
+        }
+        res->body() = local_sdp;
+        Send(res);
+        return;
+    }
+
+    if (if_match != EntityTagOf(LocalSdpOf(peer))) {
+        RespondError(http::status::precondition_failed,
+                     "If-Match does not name this session's current ICE session.");
+        return;
+    }
+
     for (const auto &candidate : ice_group.candidates) {
         DEBUG_PRINT("  Set remote ice: %s", candidate.c_str());
         peer->SetRemoteIce("0", 0, candidate);
     }
+    DEBUG_PRINT("Set received candidates into peer (%s)!", target_.peer_id.c_str());
 
-    DEBUG_PRINT("Set received candidates into peer (%s)!", peer_id.c_str());
-
-    if (if_match == "*") {
-        DEBUG_PRINT("peer (%s) ice restart!", peer_id.c_str());
-        auto local_sdp = peer->RestartIce(ice_group.ice_ufrag, ice_group.ice_pwd);
-        res_ =
-            std::make_shared<http::response<http::string_body>>(http::status::ok, req_.version());
-
-        res_->set(http::field::content_type, "application/trickle-ice-sdpfrag");
-        res_->body() = local_sdp;
-
-    } else {
-        res_ = std::make_shared<http::response<http::string_body>>(http::status::no_content,
-                                                                   req_.version());
-    }
-
-    SetCommonHeader(res_);
-    res_->prepare_payload();
-    WriteResponse();
+    Send(CreateResponse(http::status::no_content));
 }
 
 void HttpSession::HandleOptionsRequest() {
-    res_ = std::make_shared<http::response<http::string_body>>(http::status::no_content,
-                                                               req_.version());
-    SetCommonHeader(res_);
-    res_->set(http::field::access_control_allow_headers,
-              "Origin, X-Requested-With, Content-Type, Accept, Authorization");
-    res_->set(http::field::access_control_allow_methods, "DELETE, OPTIONS, PATCH, POST");
-    res_->set(http::field::access_control_allow_origin, "*");
-    res_->prepare_payload();
-    WriteResponse();
+    auto res = CreateResponse(http::status::ok);
+    res->set(http::field::access_control_allow_methods, "OPTIONS, HEAD, POST, PATCH, DELETE");
+    res->set(http::field::access_control_allow_headers, "Content-Type, Authorization, If-Match");
+    res->set(http::field::access_control_max_age, "86400");
+    if (target_.kind == WhepTarget::Kind::Endpoint) {
+        res->set("Accept-Post", kSdpType);
+    }
+    // Older browser builds preflight requests into a private network with this header.
+    if (req_.find("Access-Control-Request-Private-Network") != req_.end()) {
+        res->set("Access-Control-Allow-Private-Network", "true");
+    }
+    Send(res);
+}
+
+void HttpSession::HandleHeadRequest() {
+    if (target_.kind != WhepTarget::Kind::Endpoint) {
+        target_.kind == WhepTarget::Kind::Session
+            ? RespondMethodNotAllowed()
+            : RespondError(http::status::not_found, "No WHEP endpoint at this path.");
+        return;
+    }
+
+    auto res = CreateResponse(http::status::ok);
+    res->set(http::field::content_type, kSdpType);
+    Send(res);
 }
 
 void HttpSession::HandleDeleteRequest() {
-    auto routes = ParseRoutes(std::string(req_.target().data(), req_.target().size()));
-
-    if (routes.size() < 2 && routes[0] != "resource") {
-        ResponseUnprocessableEntity("The resource is not appplicable.");
-        return;
-    }
-
-    auto peer_id = routes[1];
-    auto peer = whep_service_->GetPeer(peer_id);
+    auto peer = FindSessionPeer();
     if (!peer) {
-        ResponseUnprocessableEntity("The peer does not exist.");
         return;
     }
 
-    whep_service_->RemovePeer(peer_id); // terminates the peer
-    DEBUG_PRINT("Close peer (%s)!", peer_id.c_str());
+    whep_service_->RemovePeer(target_.peer_id); // terminates the peer
+    DEBUG_PRINT("Close peer (%s)!", target_.peer_id.c_str());
 
-    res_ =
-        std::make_shared<http::response<http::string_body>>(http::status::accepted, req_.version());
-    SetCommonHeader(res_);
-    res_->prepare_payload();
-    WriteResponse();
+    Send(CreateResponse(http::status::ok));
 }
 
-void HttpSession::ResponseUnprocessableEntity(const char *message) {
-    res_ = std::make_shared<http::response<http::string_body>>(http::status::unprocessable_entity,
-                                                               req_.version());
-    SetCommonHeader(res_);
-    res_->set(http::field::content_type, "text/plain");
-    res_->body() = message;
-    res_->prepare_payload();
-    WriteResponse();
-}
-
-void HttpSession::ResponseMethodNotAllowed() {
-    res_ = std::make_shared<http::response<http::string_body>>(http::status::method_not_allowed,
-                                                               req_.version());
-    SetCommonHeader(res_);
-    res_->set(http::field::content_type, "text/plain");
-    res_->body() = "Only POST, DELETE, OPTIONS and PATCH method are allowed.";
-    res_->prepare_payload();
-    WriteResponse();
-}
-
-void HttpSession::ResponsePreconditionFailed() {
-    res_ = std::make_shared<http::response<http::string_body>>(http::status::precondition_failed,
-                                                               req_.version());
-    SetCommonHeader(res_);
-    res_->prepare_payload();
-    WriteResponse();
-}
-
-void HttpSession::SetCommonHeader(
-    std::shared_ptr<boost::beast::http::response<boost::beast::http::string_body>> res) {
-    res->set(http::field::server, "piwebrtc.whep");
-    res->set(http::field::access_control_allow_origin, "*");
-}
-
-std::vector<std::string> HttpSession::ParseRoutes(std::string target) {
-    std::string tmp;
-    std::vector<std::string> routes;
-    std::stringstream ss(target);
-    while (std::getline(ss, tmp, '/')) {
-        if (!tmp.empty()) {
-            routes.push_back(tmp);
-        }
+webrtc::scoped_refptr<RtcPeer> HttpSession::FindSessionPeer() {
+    if (target_.kind != WhepTarget::Kind::Session) {
+        target_.kind == WhepTarget::Kind::Endpoint
+            ? RespondMethodNotAllowed()
+            : RespondError(http::status::not_found, "No WHEP session at this path.");
+        return nullptr;
     }
-    return routes;
+
+    auto peer = whep_service_->GetPeer(target_.peer_id);
+    if (!peer) {
+        RespondError(http::status::not_found, "The WHEP session does not exist.");
+    }
+    return peer;
+}
+
+std::string HttpSession::Header(http::field field) const {
+    auto it = req_.find(field);
+    if (it == req_.end()) {
+        return "";
+    }
+    return std::string(it->value().data(), it->value().size());
+}
+
+std::shared_ptr<HttpSession::Response> HttpSession::CreateResponse(http::status status) {
+    auto res = std::make_shared<Response>(status, req_.version());
+    res->set(http::field::server, "pi-webrtc.whep");
+    res->set(http::field::access_control_allow_origin, "*");
+    // Without this, a cross-origin player cannot read the session URL it needs for DELETE.
+    res->set(http::field::access_control_expose_headers, "Location, ETag, Link, Accept-Post");
+    return res;
+}
+
+void HttpSession::Send(std::shared_ptr<Response> res) {
+    responded_ = true;
+    res->keep_alive(false);
+    res->prepare_payload();
+    res_ = std::move(res);
+    WriteResponse();
+}
+
+void HttpSession::RespondCreated(const std::string &peer_id, const std::string &sdp) {
+    if (responded_) {
+        return;
+    }
+    answer_timer_.cancel();
+
+    auto res = CreateResponse(http::status::created);
+    res->set(http::field::content_type, kSdpType);
+    res->set(http::field::location, std::string("/") + kSessionSegment + "/" + peer_id);
+    auto etag = EntityTagOf(sdp);
+    if (!etag.empty()) {
+        res->set(http::field::etag, etag);
+    }
+    res->body() = sdp;
+    Send(res);
+}
+
+void HttpSession::RespondError(http::status status, const char *message) {
+    auto res = CreateResponse(status);
+    res->set(http::field::content_type, "text/plain");
+    res->body() = message;
+    Send(res);
+}
+
+void HttpSession::RespondMethodNotAllowed() {
+    auto res = CreateResponse(http::status::method_not_allowed);
+    res->set(http::field::allow, target_.kind == WhepTarget::Kind::Session
+                                     ? "OPTIONS, PATCH, DELETE"
+                                     : "OPTIONS, HEAD, POST");
+    res->set(http::field::content_type, "text/plain");
+    res->body() = "This method is not allowed on this path.";
+    Send(res);
 }
 
 IceCandidates HttpSession::ParseCandidates(const std::string &sdp) {
-    std::regex midRegex(R"(a=mid:(\d+))");
     std::regex iceUfragRegex(R"(a=ice-ufrag:([^\s]+))");
     std::regex icePwdRegex(R"(a=ice-pwd:([^\s]+))");
     std::regex candidateRegex(R"(a=candidate:(.*))");

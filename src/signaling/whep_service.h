@@ -2,6 +2,8 @@
 #define WHEP_SERVICE_H_
 
 #include <memory>
+#include <string>
+#include <vector>
 
 #include <boost/asio.hpp>
 #include <boost/beast/core.hpp>
@@ -22,6 +24,21 @@ struct IceCandidates {
     std::string ice_pwd;
     std::vector<std::string> candidates;
 };
+
+// WHEP endpoint (`/` or `/<stream>`) or session (`/sessions/<peer_id>`).
+struct WhepTarget {
+    enum class Kind {
+        Invalid,
+        Endpoint,
+        Session
+    };
+
+    Kind kind = Kind::Invalid;
+    std::string stream;  // Endpoint; empty for `/`.
+    std::string peer_id; // Session.
+};
+
+WhepTarget ParseWhepTarget(const std::string &target);
 
 class WhepService : public SignalingService,
                     public std::enable_shared_from_this<WhepService> {
@@ -50,12 +67,12 @@ class WhepService : public SignalingService,
 
 class HttpSession : public std::enable_shared_from_this<HttpSession> {
   public:
+    using Response = http::response<http::string_body>;
+
     static std::shared_ptr<HttpSession> Create(tcp::socket socket,
                                                std::shared_ptr<WhepService> whep_service);
 
-    HttpSession(tcp::socket socket, std::shared_ptr<WhepService> whep_service)
-        : stream_(std::move(socket)),
-          whep_service_(whep_service) {}
+    HttpSession(tcp::socket socket, std::shared_ptr<WhepService> whep_service);
     ~HttpSession();
 
     void Start() { ReadRequest(); }
@@ -64,10 +81,13 @@ class HttpSession : public std::enable_shared_from_this<HttpSession> {
     std::shared_ptr<WhepService> whep_service_;
 
     beast::tcp_stream stream_;
+    boost::asio::steady_timer answer_timer_;
     beast::flat_buffer buffer_;
     http::request<http::string_body> req_;
-    std::shared_ptr<http::response<http::string_body>> res_;
-    std::string content_type_;
+    std::shared_ptr<Response> res_;
+    WhepTarget target_;
+
+    bool responded_ = false;
 
     void ReadRequest();
     void WriteResponse();
@@ -77,13 +97,18 @@ class HttpSession : public std::enable_shared_from_this<HttpSession> {
     void HandlePostRequest();
     void HandlePatchRequest();
     void HandleOptionsRequest();
+    void HandleHeadRequest();
     void HandleDeleteRequest();
-    void ResponseUnprocessableEntity(const char *message);
-    void ResponseMethodNotAllowed();
-    void ResponsePreconditionFailed();
-    void SetCommonHeader(
-        std::shared_ptr<boost::beast::http::response<boost::beast::http::string_body>> req);
-    std::vector<std::string> ParseRoutes(std::string target);
+
+    webrtc::scoped_refptr<RtcPeer> FindSessionPeer();
+    std::string Header(http::field field) const;
+
+    std::shared_ptr<Response> CreateResponse(http::status status);
+    void Send(std::shared_ptr<Response> res);
+    void RespondCreated(const std::string &peer_id, const std::string &sdp);
+    void RespondError(http::status status, const char *message);
+    void RespondMethodNotAllowed();
+
     IceCandidates ParseCandidates(const std::string &sdp);
 };
 
