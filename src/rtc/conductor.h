@@ -5,6 +5,7 @@
 #include <functional>
 #include <iostream>
 #include <memory>
+#include <optional>
 #include <string>
 
 #include <api/peer_connection_interface.h>
@@ -28,6 +29,7 @@ class Conductor {
 
     Args config() const;
     webrtc::scoped_refptr<RtcPeer> CreatePeerConnection(PeerConfig peer_config);
+    std::optional<std::string> ResolveWebrtcAlias(const std::string &requested) const;
     std::shared_ptr<AudioCapturer> AudioSource() const;
     std::shared_ptr<VideoCapturer> VideoSource() const;
     void EnsureTracksAdded(webrtc::scoped_refptr<RtcPeer> peer);

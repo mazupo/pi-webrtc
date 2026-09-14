@@ -256,11 +256,11 @@ Things worth knowing:
 
 <sup>[\*](COMMERCIAL.md#licensing)</sup> Commercial version.
 
-A `cameras:` sequence replaces the flat `camera:` / `fps:` / `width:` fields and runs several
-cameras from one process. Each entry starts from the global settings and overrides only what
-it names.
+Use `cameras:` to run multiple cameras from a single `pi-webrtc` process. Each camera inherits the global camera settings and can override them individually.
 
 ```yaml
+uid: home-jetson-orin
+
 cameras:
   - camera: libargus:0
     alias: front
@@ -280,18 +280,23 @@ cameras:
     height: 720
     webrtc: false
     record: true
+
+record-path: /home/nx/video
+use-whep: true
+whep-port: 8080
 ```
 
-Besides the regular per-camera keys, three flags exist only here:
+Each camera can enable or disable WebRTC and recording independently:
 
 | Key | Default | Description |
 |---|---|---|
-| `alias` | `cam0`, `cam1`, … | Short name used as the recording subdirectory for this camera. |
-| `webrtc` | `true` | Whether this camera is published as a WebRTC track. |
-| `record` | `true` | Whether this camera is recorded. |
+| `alias` | `cam0`, `cam1`, … | Camera name used for the recording directory, WHEP path, and WebRTC stream IDs. Up to 32 letters, digits, `-`, or `_`. Must be unique and cannot be `sessions`. |
+| `webrtc` | `true` | Publish this camera as a WebRTC stream. |
+| `record` | `true` | Record this camera. |
 
-Each camera writes into its own subdirectory, so with `record-path: /mnt/ext_disk/video/` the
-entries above record to `/mnt/ext_disk/video/front/` and `/mnt/ext_disk/video/side/`.
+Each camera is recorded in its own subdirectory. In this example, the `front` camera is recorded to `/home/nx/video/front/`, while the `side` camera is recorded to `/home/nx/video/side/`.
+
+Each camera with `webrtc: true` is available build webrtc connections at its own path. In this example, `http://<device-ip>:8080/front` plays the front camera, while the root path `http://<device-ip>:8080/` plays the first `webrtc: true` camera. The `side` camera is not available through WHEP because of `webrtc:false`.
 
 ---
 

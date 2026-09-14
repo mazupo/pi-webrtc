@@ -37,6 +37,8 @@ struct PeerConfig : public webrtc::PeerConnectionInterface::RTCConfiguration {
     bool has_candidates_in_sdp = false;
     bool data_channel_only = false;
     bool no_data_channels = false;
+    // Publish only the camera with this alias; unset publishes every camera.
+    std::optional<std::string> camera_alias;
 };
 
 class SetSessionDescription : public webrtc::SetSessionDescriptionObserver {
