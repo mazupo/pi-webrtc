@@ -47,9 +47,8 @@ std::vector<webrtc::SdpVideoFormat> CustomVideoEncoderFactory::GetSupportedForma
         supported_codecs.push_back(CreateH264Format(webrtc::H264Profile::kProfileBaseline,
                                                     webrtc::H264Level::kLevel4, "0"));
         // av1
-        supported_codecs.push_back(
-            webrtc::SdpVideoFormat(webrtc::kAv1CodecName, webrtc::CodecParameterMap(),
-                                   webrtc::LibaomAv1EncoderSupportedScalabilityModes()));
+        supported_codecs.push_back(webrtc::SdpVideoFormat(
+            webrtc::kAv1CodecName, webrtc::CodecParameterMap(), {webrtc::ScalabilityMode::kL1T1}));
 #endif
     } else {
         // vp8

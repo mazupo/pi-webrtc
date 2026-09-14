@@ -20,6 +20,14 @@ JetsonVideoEncoder::JetsonVideoEncoder(Args args)
 
 int32_t JetsonVideoEncoder::InitEncode(const webrtc::VideoCodec *codec_settings,
                                        const VideoEncoder::Settings &settings) {
+    auto scalability_mode = codec_settings->GetScalabilityMode();
+    if (scalability_mode && *scalability_mode != webrtc::ScalabilityMode::kL1T1) {
+        auto name = webrtc::ScalabilityModeToString(*scalability_mode);
+        ERROR_PRINT("Unsupported scalability mode: %.*s", static_cast<int>(name.size()),
+                    name.data());
+        return WEBRTC_VIDEO_CODEC_ERR_PARAMETER;
+    }
+
     codec_ = *codec_settings;
     width_ = codec_settings->width;
     height_ = codec_settings->height;
