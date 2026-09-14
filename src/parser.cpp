@@ -235,8 +235,8 @@ void Parser::ParseArgs(int argc, char *argv[], Args &args) {
             "Set the MQTT server password.")
         ("use-whep", bpo::bool_switch(&args.use_whep)->default_value(args.use_whep),
             "Use WHEP (WebRTC-HTTP Egress Protocol) to exchange SDP and ICE candidates.")
-        ("http-port", bpo::value<uint16_t>(&args.http_port)->default_value(args.http_port),
-            "Local HTTP server port to handle signaling when using WHEP.")
+        ("whep-port", bpo::value<uint16_t>(&args.whep_port)->default_value(args.whep_port),
+            "Local HTTP server port that serves WHEP signaling.")
         ("use-livekit", bpo::bool_switch(&args.use_livekit)->default_value(args.use_livekit),
             "Enables the LiveKit client to connect to a LiveKit SFU server.")
         ("livekit-url", bpo::value<std::string>(&args.livekit_url)->default_value(args.livekit_url),

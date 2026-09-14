@@ -162,7 +162,7 @@ At least one signaling transport must be enabled or the process exits. See
 | Option | Default | Description |
 |---|---|---|
 | `--use-whep` | `false` | Serve WHEP (WebRTC-HTTP Egress Protocol) for SDP and ICE exchange. |
-| `--http-port` | `8080` | Local HTTP port handling WHEP signaling. |
+| `--whep-port` | `8080` | Local HTTP port serving WHEP signaling. |
 
 ### LiveKit
 
