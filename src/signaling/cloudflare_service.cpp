@@ -155,15 +155,6 @@ void CloudflareService::CreatePeerAndOffer(uint64_t gen) {
         return;
     }
 
-    // Conductor::AddTracks uses AddTrack, which yields sendrecv. Cloudflare treats a
-    // bidirectional m-line as an explicit opt-in (`bidirectionalMediaStream`), so pin the
-    // publisher's transceivers to sendonly before offering.
-    for (auto &transceiver : peer_->GetPeer()->GetTransceivers()) {
-        if (transceiver->sender() && transceiver->sender()->track()) {
-            transceiver->SetDirectionWithError(webrtc::RtpTransceiverDirection::kSendOnly);
-        }
-    }
-
     peer_->OnLocalSdp([weak_self = weak_from_this(),
                        gen](const std::string &, const std::string &sdp, const std::string &type) {
         auto self = weak_self.lock();

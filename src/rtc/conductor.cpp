@@ -165,6 +165,7 @@ void Conductor::AddTracks(webrtc::scoped_refptr<webrtc::PeerConnectionInterface>
         auto video_res = peer_connection->AddTrack(video_track_, {args.uid});
         if (!video_res.ok()) {
             ERROR_PRINT("Failed to add video track, %s", video_res.error().message());
+            return;
         }
 
         auto video_sender_ = video_res.value();
@@ -175,6 +176,12 @@ void Conductor::AddTracks(webrtc::scoped_refptr<webrtc::PeerConnectionInterface>
             parameters.encodings[0].max_bitrate_bps = args.max_bitrate * 1000;
         }
         video_sender_->SetParameters(parameters);
+    }
+
+    for (auto &transceiver : peer_connection->GetTransceivers()) {
+        if (transceiver->sender() && transceiver->sender()->track()) {
+            transceiver->SetDirectionWithError(webrtc::RtpTransceiverDirection::kSendOnly);
+        }
     }
 }
 
