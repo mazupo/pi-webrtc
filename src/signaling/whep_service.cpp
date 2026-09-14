@@ -127,6 +127,13 @@ webrtc::scoped_refptr<RtcPeer> WhepService::GetPeer(const std::string &peer_id) 
 
 void WhepService::RemovePeer(const std::string &peer_id) { peer_registry_.Remove(peer_id); }
 
+std::optional<std::string> WhepService::ResolveStream(const std::string &stream) const {
+    if (!conductor_) {
+        return std::nullopt;
+    }
+    return conductor_->ResolveWebrtcAlias(stream);
+}
+
 void WhepService::AcceptConnection() {
     acceptor_.async_accept([this](beast::error_code ec, tcp::socket socket) {
         if (!ec) {
@@ -228,8 +235,15 @@ void HttpSession::HandlePostRequest() {
         return;
     }
 
+    auto camera_alias = whep_service_->ResolveStream(target_.stream);
+    if (!camera_alias) {
+        RespondError(http::status::not_found, "No camera is published at this path.");
+        return;
+    }
+
     PeerConfig config;
     config.backend = SignalingBackend::Whep;
+    config.camera_alias = camera_alias;
     config.has_candidates_in_sdp = true;
     config.no_data_channels = true;
     auto peer = whep_service_->CreatePeer(config);
@@ -350,6 +364,11 @@ void HttpSession::HandleHeadRequest() {
         target_.kind == WhepTarget::Kind::Session
             ? RespondMethodNotAllowed()
             : RespondError(http::status::not_found, "No WHEP endpoint at this path.");
+        return;
+    }
+
+    if (!whep_service_->ResolveStream(target_.stream)) {
+        RespondError(http::status::not_found, "No camera is published at this path.");
         return;
     }
 

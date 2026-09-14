@@ -228,6 +228,13 @@ void Conductor::EnsureTracksAdded(webrtc::scoped_refptr<RtcPeer> peer) {
     AddTracks(peer->GetPeer());
 }
 
+std::optional<std::string> Conductor::ResolveWebrtcAlias(const std::string &requested) const {
+    if (requested.empty() && video_track_) {
+        return std::string();
+    }
+    return std::nullopt;
+}
+
 void Conductor::InitializeDataChannels(webrtc::scoped_refptr<RtcPeer> peer) {
     peer->SetIpcEndpoints(ipc_endpoints_);
 

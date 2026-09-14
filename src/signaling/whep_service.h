@@ -55,6 +55,7 @@ class WhepService : public SignalingService,
     webrtc::scoped_refptr<RtcPeer> CreatePeer(PeerConfig config = PeerConfig{});
     webrtc::scoped_refptr<RtcPeer> GetPeer(const std::string &peer_id);
     void RemovePeer(const std::string &peer_id);
+    std::optional<std::string> ResolveStream(const std::string &stream) const;
 
   private:
     std::shared_ptr<Conductor> conductor_;
