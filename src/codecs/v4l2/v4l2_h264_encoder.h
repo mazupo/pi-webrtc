@@ -1,6 +1,8 @@
 #ifndef V4L2_H264_ENCODER_H_
 #define V4L2_H264_ENCODER_H_
 
+#include <atomic>
+
 // WebRTC
 #include <api/video_codecs/video_encoder.h>
 #include <common_video/include/bitrate_adjuster.h>
@@ -32,7 +34,7 @@ class V4L2H264Encoder : public webrtc::VideoEncoder {
     std::string name_;
     webrtc::VideoCodec codec_;
     webrtc::EncodedImage encoded_image_;
-    webrtc::EncodedImageCallback *callback_;
+    std::atomic<webrtc::EncodedImageCallback *> callback_;
     webrtc::BitrateAdjuster bitrate_adjuster_;
     std::unique_ptr<V4L2Encoder> encoder_;
 

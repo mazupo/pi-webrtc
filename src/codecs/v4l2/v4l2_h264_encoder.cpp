@@ -36,11 +36,12 @@ int32_t V4L2H264Encoder::InitEncode(const webrtc::VideoCodec *codec_settings,
 }
 
 int32_t V4L2H264Encoder::RegisterEncodeCompleteCallback(webrtc::EncodedImageCallback *callback) {
-    callback_ = callback;
+    callback_.store(callback, std::memory_order_release);
     return WEBRTC_VIDEO_CODEC_OK;
 }
 
 int32_t V4L2H264Encoder::Release() {
+    callback_.store(nullptr, std::memory_order_release);
     encoder_.reset();
     return WEBRTC_VIDEO_CODEC_OK;
 }
@@ -138,8 +139,13 @@ void V4L2H264Encoder::SendFrame(const webrtc::VideoFrame &frame, V4L2Buffer &enc
                                     ? webrtc::VideoFrameType::kVideoFrameKey
                                     : webrtc::VideoFrameType::kVideoFrameDelta;
 
-    auto result = callback_->OnEncodedImage(encoded_image_, &codec_specific);
+    auto cb = callback_.load(std::memory_order_acquire);
+    if (!cb) {
+        return;
+    }
+
+    auto result = cb->OnEncodedImage(encoded_image_, &codec_specific);
     if (result.error != webrtc::EncodedImageCallback::Result::OK) {
-        ERROR_PRINT("Failed to send the frame => %d", result.error);
+        DEBUG_PRINT("Failed to send the frame => %d", result.error);
     }
 }
