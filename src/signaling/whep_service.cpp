@@ -229,7 +229,9 @@ void HttpSession::HandlePostRequest() {
     }
 
     PeerConfig config;
+    config.backend = SignalingBackend::Whep;
     config.has_candidates_in_sdp = true;
+    config.no_data_channels = true;
     auto peer = whep_service_->CreatePeer(config);
     if (!peer) {
         RespondError(http::status::internal_server_error, "Failed to create the peer connection.");
