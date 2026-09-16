@@ -1,4 +1,4 @@
-name: Build in Docker
+name: Build for Raspberry Pi
 
 on:
   push:

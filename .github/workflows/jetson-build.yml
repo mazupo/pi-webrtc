@@ -1,4 +1,4 @@
-name: Build Jetson Code in Docker
+name: Build for Jetson
 
 on:
   push:
