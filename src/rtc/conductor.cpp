@@ -148,7 +148,8 @@ void Conductor::ApplyBitrateSettings(
     }
 }
 
-void Conductor::AddTracks(webrtc::scoped_refptr<webrtc::PeerConnectionInterface> peer_connection) {
+void Conductor::AddTracks(webrtc::scoped_refptr<RtcPeer> peer) {
+    auto peer_connection = peer->GetPeer();
     if (!peer_connection->GetSenders().empty()) {
         DEBUG_PRINT("Already add tracks.");
         return;
@@ -178,10 +179,17 @@ void Conductor::AddTracks(webrtc::scoped_refptr<webrtc::PeerConnectionInterface>
         video_sender_->SetParameters(parameters);
     }
 
+    const bool audio_is_two_way = !peer->is_sfu_peer();
     for (auto &transceiver : peer_connection->GetTransceivers()) {
-        if (transceiver->sender() && transceiver->sender()->track()) {
-            transceiver->SetDirectionWithError(webrtc::RtpTransceiverDirection::kSendOnly);
+        if (!transceiver->sender() || !transceiver->sender()->track()) {
+            continue;
         }
+
+        auto direction = webrtc::RtpTransceiverDirection::kSendOnly;
+        if (transceiver->media_type() == webrtc::MediaType::AUDIO && audio_is_two_way) {
+            direction = webrtc::RtpTransceiverDirection::kSendRecv;
+        }
+        transceiver->SetDirectionWithError(direction);
     }
 }
 
@@ -217,16 +225,14 @@ webrtc::scoped_refptr<RtcPeer> Conductor::CreatePeerConnection(PeerConfig config
     }
 
     if (!config.data_channel_only) {
-        AddTracks(peer->GetPeer());
+        AddTracks(peer);
     }
 
     DEBUG_PRINT("Peer connection(%s) is created! ", peer->id().c_str());
     return peer;
 }
 
-void Conductor::EnsureTracksAdded(webrtc::scoped_refptr<RtcPeer> peer) {
-    AddTracks(peer->GetPeer());
-}
+void Conductor::EnsureTracksAdded(webrtc::scoped_refptr<RtcPeer> peer) { AddTracks(peer); }
 
 std::optional<std::string> Conductor::ResolveWebrtcAlias(const std::string &requested) const {
     if (requested.empty() && video_track_) {
