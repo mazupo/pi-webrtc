@@ -85,6 +85,8 @@ void Conductor::InitializeTracks() {
             ERROR_PRINT("Audio capturer failed to initialize; skipping audio track creation.");
         } else if (!adm_) {
             ERROR_PRINT("Audio device module is not initialized; cannot set audio capturer.");
+        } else {
+            adm_->SetCapturer(audio_capture_source_);
         }
 
         auto options = peer_connection_factory_->CreateAudioSource(webrtc::AudioOptions());
