@@ -46,7 +46,7 @@ class Conductor {
 
     void
     ApplyBitrateSettings(webrtc::scoped_refptr<webrtc::PeerConnectionInterface> peer_connection);
-    void AddTracks(webrtc::scoped_refptr<webrtc::PeerConnectionInterface> peer_connection);
+    void AddTracks(webrtc::scoped_refptr<RtcPeer> peer);
     void TakeSnapshot(const CommandChannel::Context &ctx);
     void QueryFile(const CommandChannel::Context &ctx);
     void TransferFile(const CommandChannel::Context &ctx);
