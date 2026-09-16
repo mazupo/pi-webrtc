@@ -137,6 +137,15 @@ jobs:
           echo "filename=$FILENAME" >> $GITHUB_OUTPUT
 
       - name: Upload to GitHub
+        if: github.repository != 'mazupo/pi-webrtc-pro'
         uses: softprops/action-gh-release@v2
         with:
+          files: build/${{ steps.zip-binary.outputs.filename }}
+
+      - name: Upload to sponsor repo Release
+        if: github.repository == 'mazupo/pi-webrtc-pro'
+        uses: softprops/action-gh-release@v2
+        with:
+          repository: mazupo/sponsor-pi
+          token: ${{ secrets.SPONSOR_RELEASE_TOKEN }}
           files: build/${{ steps.zip-binary.outputs.filename }}
