@@ -1,8 +1,8 @@
 #include "codecs/v4l2/v4l2_decoder.h"
 #include "common/logging.h"
 
-const char *DECODER_FILE = "/dev/video10";
-const int BUFFER_NUM = 2;
+constexpr const char *DECODER_FILE = "/dev/video10";
+constexpr int BUFFER_NUM = 2;
 
 std::unique_ptr<V4L2Decoder> V4L2Decoder::Create(DecoderConfig config) {
     auto decoder = std::make_unique<V4L2Decoder>(config);

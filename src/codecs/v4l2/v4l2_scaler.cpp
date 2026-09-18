@@ -1,8 +1,8 @@
 #include "codecs/v4l2/v4l2_scaler.h"
 #include "common/logging.h"
 
-const char *SCALER_FILE = "/dev/video12";
-const int BUFFER_NUM = 2;
+constexpr const char *SCALER_FILE = "/dev/video12";
+constexpr int BUFFER_NUM = 2;
 
 std::unique_ptr<V4L2Scaler> V4L2Scaler::Create(ScalerConfig config) {
     auto scaler = std::make_unique<V4L2Scaler>(config);
@@ -12,6 +12,8 @@ std::unique_ptr<V4L2Scaler> V4L2Scaler::Create(ScalerConfig config) {
     scaler->Start();
     return scaler;
 }
+
+bool V4L2Scaler::IsAvailable() { return v4l2_util::IsM2MDeviceReady(SCALER_FILE); }
 
 V4L2Scaler::V4L2Scaler(ScalerConfig config)
     : V4L2Codec(),

@@ -1,8 +1,8 @@
 #include "codecs/v4l2/v4l2_encoder.h"
 #include "common/logging.h"
 
-const char *ENCODER_FILE = "/dev/video11";
-const int BUFFER_NUM = 2;
+constexpr const char *ENCODER_FILE = "/dev/video11";
+constexpr int BUFFER_NUM = 2;
 
 std::unique_ptr<V4L2Encoder> V4L2Encoder::Create(EncoderConfig config) {
     auto encoder = std::make_unique<V4L2Encoder>(config);
@@ -12,6 +12,8 @@ std::unique_ptr<V4L2Encoder> V4L2Encoder::Create(EncoderConfig config) {
     encoder->Start();
     return encoder;
 }
+
+bool V4L2Encoder::IsAvailable() { return v4l2_util::IsM2MDeviceReady(ENCODER_FILE); }
 
 V4L2Encoder::V4L2Encoder(EncoderConfig config)
     : V4L2Codec(),

@@ -1,5 +1,9 @@
 #include "parser.h"
 #include "common/logging.h"
+#if defined(USE_RPI_HW_ENCODER)
+#include "codecs/v4l2/v4l2_encoder.h"
+#include "codecs/v4l2/v4l2_scaler.h"
+#endif
 #include "recorder/recorder_manager.h"
 #include "rtc/rtc_peer.h"
 
@@ -268,8 +272,7 @@ void Parser::ParseArgs(int argc, char *argv[], Args &args) {
         if (!config_path.empty()) {
             YAML::Node yaml = YAML::LoadFile(config_path);
             if (!yaml.IsMap()) {
-                std::cerr << "Config file '" << config_path << "' must be a YAML mapping."
-                          << std::endl;
+                ERROR_PRINT("Config file '%s' must be a YAML mapping.", config_path.c_str());
                 exit(1);
             }
             // Convert YAML map to boost config-file (INI-style key=value).
@@ -289,10 +292,10 @@ void Parser::ParseArgs(int argc, char *argv[], Args &args) {
 
         bpo::notify(vm);
     } catch (const YAML::Exception &ex) {
-        std::cerr << "Error loading config file: " << ex.what() << std::endl;
+        ERROR_PRINT("Loading config file: %s", ex.what());
         exit(1);
     } catch (const bpo::error &ex) {
-        std::cerr << "Error parsing arguments: " << ex.what() << std::endl;
+        ERROR_PRINT("Parsing arguments: %s", ex.what());
         exit(1);
     }
 
@@ -302,6 +305,14 @@ void Parser::ParseArgs(int argc, char *argv[], Args &args) {
         INFO_PRINT("%s", oss.str().c_str());
         exit(1);
     }
+
+#if defined(USE_RPI_HW_ENCODER)
+    if (args.hw_accel && !(V4L2Encoder::IsAvailable() && V4L2Scaler::IsAvailable())) {
+        args.hw_accel = false;
+        WARN_PRINT("Hardware encoder/scaler not found; falling back to software encoding. "
+                   "Set hw-accel to false to silence this warning.");
+    }
+#endif
 
     if (args.sub_height > 0 && args.sub_width > 0) {
         if (args.sub_width > args.width || args.sub_height > args.height) {
@@ -326,7 +337,7 @@ void Parser::ParseArgs(int argc, char *argv[], Args &args) {
     }
 
     if (args.uid.empty()) {
-        std::cerr << "Error: --uid is required." << std::endl;
+        ERROR_PRINT("--uid is required.");
         exit(1);
     }
 
@@ -337,45 +348,40 @@ void Parser::ParseArgs(int argc, char *argv[], Args &args) {
 
     if (args.api_url.empty()) {
         if (!args.api_key.empty()) {
-            std::cerr << "Error: --api-key needs --api-url." << std::endl;
+            ERROR_PRINT("--api-key needs --api-url.");
             exit(1);
         }
     } else {
         if (args.api_url.rfind("https://", 0) != 0 && args.api_url.rfind("http://", 0) != 0) {
-            std::cerr << "Error: --api-url must be a full url, e.g. https://api.mazupo.com."
-                      << std::endl;
+            ERROR_PRINT("--api-url must be a full url, e.g. https://api.mazupo.com.");
             exit(1);
         }
         if (args.api_key.empty()) {
-            std::cerr << "Error: --api-key is required when --api-url is specified." << std::endl;
+            ERROR_PRINT("--api-key is required when --api-url is specified.");
             exit(1);
         }
     }
 
     if (args.use_cloudflare && args.api_url.empty()) {
-        std::cerr << "Error: --api-url is required when --use-cloudflare is specified."
-                  << std::endl;
+        ERROR_PRINT("--api-url is required when --use-cloudflare is specified.");
         exit(1);
     }
 
     if (args.use_mqtt) {
         if (args.mqtt_host.empty()) {
-            std::cerr << "Error: --mqtt-host is required when --use-mqtt is specified."
-                      << std::endl;
+            ERROR_PRINT("--mqtt-host is required when --use-mqtt is specified.");
             exit(1);
         }
     }
 
     if (args.use_livekit) {
         if (args.livekit_url.empty()) {
-            std::cerr << "Error: --livekit-url is required when --use-livekit is specified."
-                      << std::endl;
+            ERROR_PRINT("--livekit-url is required when --use-livekit is specified.");
             exit(1);
         }
         ParseWsUrl(args);
         if (args.livekit_room.empty()) {
-            std::cerr << "Error: --livekit-room is required when --use-livekit is specified."
-                      << std::endl;
+            ERROR_PRINT("--livekit-room is required when --use-livekit is specified.");
             exit(1);
         }
     }
@@ -470,8 +476,7 @@ void Parser::ParseArgs(int argc, char *argv[], Args &args) {
 
 void Parser::ParseWsUrl(Args &args) {
     auto invalid = [&args](const std::string &reason) {
-        std::cerr << "Error: invalid --livekit-url \"" << args.livekit_url << "\": " << reason
-                  << std::endl;
+        ERROR_PRINT("Invalid --livekit-url \"%s\": %s", args.livekit_url.c_str(), reason.c_str());
         exit(1);
     };
 

@@ -85,30 +85,19 @@ format, since that decides which of the pipelines below you end up on.
 
 ### Hardware Encoding
 
-With `--hw-accel`, what `pi-webrtc` advertises in the SDP depends on the platform: only `H264`
-on the Raspberry Pi, and both `H264` and `AV1` on Jetson. Either way the client's SDP picks the
-winner, so a client that cannot decode `AV1` simply negotiates `H264`.
+With `--hw-accel`, `pi-webrtc` uses hardware video encoding when available.
 
-On the **Raspberry Pi**, this uses the V4L2 M2M codecs, available on the Pi 3, 4, and Zero 2.
-**The Pi 5 has no hardware encoder** — leave `--hw-accel` off there. Other single-board
-computers may have H264 hardware encoding, but unless their codecs implement the V4L2 driver
-you should use [software encoding](#software-encoding). The Pi codec device nodes are
-[[ref](https://github.com/raspberrypi/documentation/blob/develop/documentation/asciidoc/computers/camera/v4l2.adoc)]:
+| Platform                    | Hardware codecs   |
+| --------------------------- | ----------------- |
+| Raspberry Pi 3 / 4 / Zero 2 | H264 (V4L2 M2M)   |
+| Raspberry Pi 5              | None              |
+| NVIDIA Jetson               | H264, AV1         |
 
-| Codec | Location |
-|---|---|
-| decoder | `/dev/video10` |
-| encoder | `/dev/video11` |
-| scaler | `/dev/video12` |
+The client selects the codec during SDP negotiation. On Jetson, both H264 and AV1 are hardware-encoded; AV1 requires an Orin-generation module.
 
-On **Jetson**, `--hw-accel` uses NVENC instead, with the equivalent GPU scaler. NVENC encodes
-both `H264` and `AV1`, so whichever the client negotiates still runs in hardware. `AV1` encode
-needs an Orin-generation module; earlier Jetsons only encode `H264`.
+Recording uses the same hardware encoder when available. H264 sources can be recorded directly, while other formats are re-encoded as needed. Without hardware encoding, recording falls back to OpenH264.
 
-Recording follows the same choice. An `h264` camera source is written into the MP4 as-is;
-anything else is encoded by a second hardware encoder instance owned by the recorder. Only when
-`--hw-accel` is off, or the binary was built for a platform with no hardware encoder, does
-recording fall back to `OpenH264`.
+On platforms without hardware encoding, `--hw-accel` automatically falls back to software encoding.
 
 #### `h264` camera source
 

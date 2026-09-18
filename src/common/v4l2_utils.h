@@ -60,6 +60,7 @@ std::string FourccToString(uint32_t fourcc);
 int OpenDevice(const char *file);
 void CloseDevice(int fd);
 bool QueryCapabilities(int fd, v4l2_capability *cap);
+bool IsM2MDeviceReady(const char *file);
 bool InitBuffer(int fd, V4L2BufferGroup *gbuffer, v4l2_buf_type type, v4l2_memory memory,
                 bool has_dmafd = false);
 bool DequeueBuffer(int fd, v4l2_buffer *buffer);

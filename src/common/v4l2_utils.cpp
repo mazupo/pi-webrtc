@@ -157,6 +157,24 @@ bool QueryCapabilities(int fd, v4l2_capability *cap) {
     return true;
 }
 
+bool IsM2MDeviceReady(const char *file) {
+    int fd = open(file, O_RDWR);
+    if (fd < 0) {
+        return false;
+    }
+
+    v4l2_capability cap = {};
+    bool ok = false;
+    if (ioctl(fd, VIDIOC_QUERYCAP, &cap) >= 0) {
+        const uint32_t caps =
+            (cap.capabilities & V4L2_CAP_DEVICE_CAPS) ? cap.device_caps : cap.capabilities;
+        ok = caps & (V4L2_CAP_VIDEO_M2M | V4L2_CAP_VIDEO_M2M_MPLANE);
+    }
+
+    close(fd);
+    return ok;
+}
+
 bool InitBuffer(int fd, V4L2BufferGroup *gbuffer, v4l2_buf_type type, v4l2_memory memory,
                 bool has_dmafd) {
     v4l2_capability cap = {};

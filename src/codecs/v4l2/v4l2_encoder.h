@@ -11,6 +11,7 @@
 class V4L2Encoder : public V4L2Codec {
   public:
     static std::unique_ptr<V4L2Encoder> Create(EncoderConfig config);
+    static bool IsAvailable();
     V4L2Encoder(EncoderConfig config);
 
     void ForceKeyFrame();

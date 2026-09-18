@@ -6,6 +6,7 @@
 class V4L2Scaler : public V4L2Codec {
   public:
     static std::unique_ptr<V4L2Scaler> Create(ScalerConfig config);
+    static bool IsAvailable();
 
     V4L2Scaler(ScalerConfig config);
 
