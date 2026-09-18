@@ -15,6 +15,11 @@ V4L2Codec::V4L2Codec()
 V4L2Codec::~V4L2Codec() {
     abort_ = true;
     worker_.reset();
+
+    if (fd_ < 0) {
+        return;
+    }
+
     v4l2_util::StreamOff(fd_, output_.type);
     v4l2_util::StreamOff(fd_, capture_.type);
 

@@ -42,7 +42,8 @@ V4L2Capturer::~V4L2Capturer() {
 
 void V4L2Capturer::Initialize() {
     if (!hw_accel_ && format_ == V4L2_PIX_FMT_H264) {
-        INFO_PRINT("Software decoding H264 camera source is not supported.");
+        ERROR_PRINT("H264 camera input requires hardware decoding. Use other v4l2 formats or a "
+                    "libcamera source on boards without hardware decoding.");
         exit(EXIT_FAILURE);
     }
 
