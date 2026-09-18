@@ -52,7 +52,13 @@ Conductor::~Conductor() {
     video_track_ = nullptr;
     video_capture_source_ = nullptr;
     peer_connection_factory_ = nullptr;
-    adm_ = nullptr;
+
+    worker_thread_->BlockingCall([this]() {
+        if (adm_) {
+            adm_->Terminate();
+        }
+        adm_ = nullptr;
+    });
 
     network_thread_->Stop();
     worker_thread_->Stop();
@@ -501,7 +507,11 @@ void Conductor::InitializePeerConnectionFactory() {
             INFO_PRINT("Audio mode: PulseAudio");
         }
 
-        adm_ = AudioDeviceBridge::Create();
+        const auto audio_layer = args.no_audio ? webrtc::AudioDeviceModule::kDummyAudio
+                                 : use_alsa_audio_capture_
+                                     ? webrtc::AudioDeviceModule::kLinuxAlsaAudio
+                                     : webrtc::AudioDeviceModule::kLinuxPulseAudio;
+        adm_ = AudioDeviceBridge::Create(audio_layer);
         if (!adm_ || adm_->Init() != 0) {
             ERROR_PRINT("Failed to initialize audio device.");
             std::exit(EXIT_FAILURE);
