@@ -112,6 +112,7 @@ add_subdirectory(src/common)
 add_subdirectory(src/recorder)
 add_subdirectory(src/rtc)
 add_subdirectory(src/ipc)
+add_subdirectory(src/player)
 add_subdirectory(src/signaling)
 add_subdirectory(src/track)
 

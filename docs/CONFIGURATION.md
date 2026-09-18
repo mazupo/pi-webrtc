@@ -58,9 +58,9 @@ exceeds the main stream's dimensions it is clamped to the main stream.
 
 | Option | Default | Description |
 |---|---|---|
-| `--sample-rate` | `48000` | Audio sample rate, in Hz. |
+| `--sample-rate` | `48000` | Microphone sample rate, in Hz. |
 | `--no-audio` | `false` | Run without an audio source. |
-| `--force-alsa` | `false` | Capture through ALSA instead of PulseAudio. |
+| `--force-alsa` | `false` | Capture and play audio through ALSA instead of PulseAudio. |
 
 ## Image Controls
 

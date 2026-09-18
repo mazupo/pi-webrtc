@@ -125,10 +125,10 @@ void Parser::ParseArgs(int argc, char *argv[], Args &args) {
             "Which capture stream WebRTC publishes: 'main' or 'sub'. "
             "'sub' needs --sub-width and --sub-height.")
         ("sample-rate", bpo::value<int>(&args.sample_rate)->default_value(args.sample_rate),
-            "Set the audio sample rate (in Hz).")
+            "Set the microphone sample rate (in Hz).")
         ("no-audio", bpo::bool_switch(&args.no_audio)->default_value(args.no_audio), "Runs without audio source.")
         ("force-alsa", bpo::bool_switch(&args.force_alsa)->default_value(args.force_alsa),
-            "Force using ALSA for audio capture instead of PulseAudio.")
+            "Force using ALSA for audio capture and playout instead of PulseAudio.")
 #if defined(USE_LIBCAMERA_CAPTURE)
         ("sharpness", bpo::value<float>(&args.sharpness)->default_value(args.sharpness),
             "Adjust the sharpness of the libcamera output in range 0.0 to 15.99")

@@ -215,6 +215,8 @@ Skip this step if you run with the `--no-audio` flag.
 
 Remove the `--no-audio` flag to enable two-way audio. If PulseAudio is available, run [`pulseaudio`](#1-run-pulseaudio-as-a-system-wide-daemon) in the background. On systems without PulseAudio, use `--force-alsa`.
 
+Two-way audio works for peer-to-peer connections. Audio sent through an SFU is one-way, from the device to the viewers. Remote audio plays on the default output device. With `--force-alsa`, make sure the ALSA `default` device points to your speaker.
+
 The device needs a microphone and speaker. USB audio devices are the easiest option. For GPIO/I2S devices, see:
 
 - **Microphone** — [wiring and testing an I2S MEMS mic](https://learn.adafruit.com/adafruit-i2s-mems-microphone-breakout/raspberry-pi-wiring-test)
