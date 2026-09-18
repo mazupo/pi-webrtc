@@ -2,7 +2,7 @@
 
 `pi-webrtc` is one process that pulls frames from a camera once and fans them out to three
 consumers: the WebRTC encoder, the recorder, and — in the
-[commercial version](COMMERCIAL.md#licensing) — the detector. Everything else is arranged
+[sponsor build](SPONSORS.md#sponsor-benefits) — the detector. Everything else is arranged
 around avoiding a second copy of that frame.
 
 ```mermaid
