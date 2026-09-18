@@ -46,7 +46,7 @@ YUV 4:2:0 needs 12 bits per pixel, so 4Kp60 is `3840 × 2160 × 60 × 12` = 5.56
 The CSI camera path on Jetson. Like libcamera it delivers `yuv420` and ignores
 `--v4l2-format`, so the same bandwidth arithmetic applies. Frames arrive as EGL images and
 stay on the GPU, which is what lets the encoder — and, in the
-[commercial build](COMMERCIAL.md#licensing), the detector — read them without a copy through
+[sponsor build](SPONSORS.md#sponsor-benefits), the detector — read them without a copy through
 the CPU.
 
 ```bash

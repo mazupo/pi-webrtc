@@ -33,7 +33,7 @@ Both have a free endpoint below for testing.
 | --- | --- |
 | `wss://api.mazupo.com` | `APIWnQTs4tmUZvA` |
 
-⚠️ Shared testing server: Limited to 100 concurrent connections, 5,000 minutes, and 50 GB of transfer per month across all users. For a dedicated environment, see [COMMERCIAL.md](COMMERCIAL.md#contact).
+⚠️ Shared testing server: Limited to 100 concurrent connections, 5,000 minutes, and 50 GB of transfer per month across all users. For a dedicated environment, see [SPONSORS.md](SPONSORS.md#commercial--oem-notes).
 
 ### 1. Run on the device
 
@@ -55,7 +55,7 @@ The device connects to LiveKit using `--livekit-url`, `--livekit-key`, `--liveki
 - `--livekit-key` is the LiveKit API key.
 - `--livekit-room` specifies the room to publish to.
 - `--uid` is the device's identity in the room.
-- [`--livekit-secret`*](COMMERCIAL.md#direct-livekit-connection) lets the device generate a LiveKit access token locally, so no separate token server is required.
+- [`--livekit-secret`*](SPONSORS.md#sponsor-benefits) lets the device generate a LiveKit access token locally, so no separate token server is required.
 
 Anyone who joins the same room can watch the stream.
 
@@ -74,7 +74,7 @@ With `--enable-ipc`, DataChannel messages are also broadcast to all participants
 | --- | --- | --- |
 | `https://api.mazupo.com` | `81f899b8fab5692b0faa76c3372b7ae6` | `ec0478c67e729b6f429eda1e97829af0` |
 
-⚠️ Shared demo environment: The free Cloudflare quota is shared by all users and stops when the monthly limit is reached. Use a unique `--uid` to avoid conflicts with other users. For a dedicated environment, see [COMMERCIAL.md](COMMERCIAL.md#contact).
+⚠️ Shared demo environment: The free Cloudflare quota is shared by all users and stops when the monthly limit is reached. Use a unique `--uid` to avoid conflicts with other users. For a dedicated environment, see [SPONSORS.md](SPONSORS.md#commercial--oem-notes).
 
 ### 1. Run on the device
 
@@ -325,7 +325,7 @@ The [gamepad_socket.py](../examples/gamepad_socket.py) example reads gamepad inp
 To enhance images, run AI recognition, or preprocess frames before streaming, process the camera frames and write the result to a [V4L2 loopback](https://github.com/umlaeute/v4l2loopback) device. `pi-webrtc` can then open it as a normal V4L2 camera.
 
 > [!TIP]
-> On Jetson, the [commercial version](COMMERCIAL.md#licensing) runs detection and tracking
+> On Jetson, the [sponsor build](SPONSORS.md#sponsor-benefits) runs detection and tracking
 > in-process on the GPU instead, with no loopback device and no copy through the CPU.
 
 1. Install the packages:

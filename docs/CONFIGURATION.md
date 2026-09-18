@@ -172,7 +172,7 @@ At least one signaling transport must be enabled or the process exits. See
 | `--livekit-url` | | SFU server URL, e.g. `ws://127.0.0.1:7880` or `wss://your-sfu-host.example.com`. The scheme selects TLS; the port defaults to `443` for `wss` and `80` otherwise. **Required** with `--use-livekit`. |
 | `--livekit-room` | | Room name to join. **Required** with `--use-livekit`. |
 | `--livekit-key` | | API key used to authenticate with the SFU server. |
-| `--livekit-secret` <sup>[\*](COMMERCIAL.md#licensing)</sup> | | LiveKit API secret paired with `--livekit-key`. Signs access tokens on-device, which is what lets the commercial build connect to a LiveKit deployment of your own. **Required** with `--use-livekit`. |
+| `--livekit-secret` <sup>[\*](SPONSORS.md#sponsor-benefits)</sup> | | LiveKit API secret paired with `--livekit-key`. Signs access tokens on-device, which is what lets the sponsor build connect to a LiveKit deployment of your own. **Required** with `--use-livekit`. |
 
 ### Cloudflare Realtime SFU
 
@@ -184,22 +184,22 @@ The device API relays the handshake and holds the session a viewer has to pull. 
 | `--use-cloudflare` | `false` | Publish to a Cloudflare Realtime SFU over its HTTPS API. |
 | `--api-url` | | Base URL of the device API, e.g. `https://api.mazupo.com`. Every Realtime call goes to `<api-url>/sfu/...`, and the session is published to `PUT <api-url>/devices/<uid>/session` on connect and refreshed every 15 minutes. **Required** with `--use-cloudflare`. |
 | `--api-key` | | Bearer token authenticating this device against `--api-url`. **Required** with `--api-url`. |
-| `--cloudflare-url` <sup>[\*](COMMERCIAL.md#licensing)</sup> | | Base URL of the Realtime API, including the API version path. Defaults to `https://rtc.live.cloudflare.com/v1`; only worth setting when Cloudflare publishes a newer version. |
-| `--cloudflare-app-id` <sup>[\*](COMMERCIAL.md#licensing)</sup> | | Realtime App ID to publish into. **Required** with `--use-cloudflare` in the commercial build. |
-| `--cloudflare-app-secret` <sup>[\*](COMMERCIAL.md#licensing)</sup> | | Realtime App Secret, sent as the bearer token. **Required** with `--use-cloudflare` in the commercial build. |
+| `--cloudflare-url` <sup>[\*](SPONSORS.md#sponsor-benefits)</sup> | | Base URL of the Realtime API, including the API version path. Defaults to `https://rtc.live.cloudflare.com/v1`; only worth setting when Cloudflare publishes a newer version. |
+| `--cloudflare-app-id` <sup>[\*](SPONSORS.md#sponsor-benefits)</sup> | | Realtime App ID to publish into. **Required** with `--use-cloudflare` in the sponsor build. |
+| `--cloudflare-app-secret` <sup>[\*](SPONSORS.md#sponsor-benefits)</sup> | | Realtime App Secret, sent as the bearer token. **Required** with `--use-cloudflare` in the sponsor build. |
 
-The App ID and Secret are what let a device handshake with Cloudflare itself instead of going through the relay, and only the commercial build carries that logic.
+The App ID and Secret are what let a device handshake with Cloudflare itself instead of going through the relay, and only the sponsor build carries that logic.
 
 ## Object Detection and Tracking
 
-Available in the [commercial version](COMMERCIAL.md#licensing) on NVIDIA Jetson.
+Available in the [sponsor build](SPONSORS.md#sponsor-benefits) on NVIDIA Jetson.
 
 | Option | Default | Description |
 |---|---|---|
-| `--detector-model` <sup>[\*](COMMERCIAL.md#licensing)</sup> | | TensorRT engine file for YOLO detection. Empty disables the detector. |
-| `--detector-labels` <sup>[\*](COMMERCIAL.md#licensing)</sup> | | Class-name file, one per line. Defaults to the COCO 80 classes. |
-| `--detector-confidence` <sup>[\*](COMMERCIAL.md#licensing)</sup> | `0.5` | Minimum detection confidence, `0.0` to `1.0`. |
-| `--tracker-config` <sup>[\*](COMMERCIAL.md#licensing)</sup> | | NvMOT YAML config selecting the tracker, e.g. NvDCF or DeepSORT. |
+| `--detector-model` <sup>[\*](SPONSORS.md#sponsor-benefits)</sup> | | TensorRT engine file for YOLO detection. Empty disables the detector. |
+| `--detector-labels` <sup>[\*](SPONSORS.md#sponsor-benefits)</sup> | | Class-name file, one per line. Defaults to the COCO 80 classes. |
+| `--detector-confidence` <sup>[\*](SPONSORS.md#sponsor-benefits)</sup> | `0.5` | Minimum detection confidence, `0.0` to `1.0`. |
+| `--tracker-config` <sup>[\*](SPONSORS.md#sponsor-benefits)</sup> | | NvMOT YAML config selecting the tracker, e.g. NvDCF or DeepSORT. |
 
 ## Config File
 
@@ -254,7 +254,7 @@ Things worth knowing:
 
 ## Multi-camera
 
-<sup>[\*](COMMERCIAL.md#licensing)</sup> Commercial version.
+<sup>[\*](SPONSORS.md#sponsor-benefits)</sup> Sponsor build.
 
 Use `cameras:` to run multiple cameras from a single `pi-webrtc` process. Each camera inherits the global camera settings and can override them individually.
 
@@ -300,7 +300,7 @@ Each camera with `webrtc: true` is available build webrtc connections at its own
 
 ---
 
-# Commercial Version
+# Sponsor Build
 
-Options marked <sup>[\*](COMMERCIAL.md#licensing)</sup> above are part of the commercial
-build. See [COMMERCIAL.md](COMMERCIAL.md) for what is included and how to license it.
+Options marked <sup>[\*](SPONSORS.md#sponsor-benefits)</sup> above are part of the sponsor
+build. See [SPONSORS.md](SPONSORS.md) for what is included.
