@@ -40,14 +40,15 @@ enum class Stage : int {
 enum class Counter : int {
     kFramesCaptured = 0,
     kFramesEncoded,
-    kAdaptDrop,        // AdaptFrame() returned false
-    kEncoderQueueDrop, // handed to OnFrame() but never reached Encode()
-    kScalerNoBuffer,   // scaler had no free buffer
-    kScalerQueueFull,  // scaler task queue rejected the push
-    kV4L2NoBuffer,     // v4l2 codec had no free output buffer
-    kDecoderNoBuffer,  // decoder had no free frame buffer
-    kDecoderDqTimeout, // hw decoder dqBuffer() timed out
-    kEncoderDqTimeout, // hw encoder dqBuffer() timed out
+    kAdaptDrop,         // AdaptFrame() returned false
+    kEncoderQueueDrop,  // handed to OnFrame() but never reached Encode()
+    kScalerNoBuffer,    // scaler had no free buffer
+    kScalerQueueFull,   // scaler task queue rejected the push
+    kV4L2NoBuffer,      // v4l2 codec had no free output buffer
+    kDecoderNoBuffer,   // decoder had no free frame buffer
+    kDecoderDqTimeout,  // hw decoder dqBuffer() timed out
+    kEncoderDqTimeout,  // hw encoder dqBuffer() timed out
+    kRecorderQueueFull, // recorder queue was full, the frame never reached the recording encoder
 
     kCounterCount,
 };
