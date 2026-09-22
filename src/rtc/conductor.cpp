@@ -181,8 +181,11 @@ void Conductor::AddTracks(webrtc::scoped_refptr<RtcPeer> peer) {
         webrtc::RtpParameters parameters = video_sender_->GetParameters();
         parameters.degradation_preference = webrtc::DegradationPreference::MAINTAIN_FRAMERATE;
 
-        if (args.max_bitrate > 0 && !parameters.encodings.empty()) {
-            parameters.encodings[0].max_bitrate_bps = args.max_bitrate * 1000;
+        if (!parameters.encodings.empty()) {
+            if (args.max_bitrate > 0) {
+                parameters.encodings[0].max_bitrate_bps = args.max_bitrate * 1000;
+            }
+            parameters.encodings[0].max_framerate = args.fps;
         }
         video_sender_->SetParameters(parameters);
     }
