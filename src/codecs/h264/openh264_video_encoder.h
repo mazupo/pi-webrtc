@@ -5,6 +5,7 @@
 #include <optional>
 
 // WebRTC
+#include <api/video/video_timing.h>
 #include <api/video_codecs/video_encoder.h>
 #include <common_video/h264/h264_bitstream_parser.h>
 #include <common_video/include/bitrate_adjuster.h>
@@ -34,6 +35,7 @@ class Openh264VideoEncoder : public webrtc::VideoEncoder {
     int target_bitrate_bps_;
     int number_of_cores_;
     std::optional<int> encoder_thread_limit_;
+    std::optional<webrtc::VideoPlayoutDelay> playout_delay_;
     webrtc::VideoCodec codec_;
     webrtc::EncodedImage encoded_image_;
     webrtc::H264BitstreamParser bitstream_parser_;

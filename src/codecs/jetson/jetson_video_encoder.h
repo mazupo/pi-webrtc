@@ -2,10 +2,12 @@
 #define JETSON_VIDEO_ENCODER_H_
 
 // WebRTC
+#include <api/video/video_timing.h>
 #include <api/video_codecs/video_encoder.h>
 #include <common_video/include/bitrate_adjuster.h>
 
 #include <atomic>
+#include <optional>
 
 #include "args.h"
 #include "codecs/jetson/jetson_encoder.h"
@@ -35,6 +37,7 @@ class JetsonVideoEncoder : public webrtc::VideoEncoder {
     webrtc::EncodedImage encoded_image_;
     std::atomic<webrtc::EncodedImageCallback *> callback_;
     webrtc::BitrateAdjuster bitrate_adjuster_;
+    std::optional<webrtc::VideoPlayoutDelay> playout_delay_;
     std::unique_ptr<JetsonEncoder> encoder_;
 
     virtual void SendFrame(const webrtc::VideoFrame &frame, V4L2Buffer &encoded_buffer);

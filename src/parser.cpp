@@ -8,6 +8,7 @@
 #include "rtc/rtc_peer.h"
 
 #include <algorithm>
+#include <api/video/video_timing.h>
 #include <boost/program_options.hpp>
 #include <iostream>
 #include <sstream>
@@ -202,6 +203,14 @@ void Parser::ParseArgs(int argc, char *argv[], Args &args) {
         ("no-adaptive", bpo::bool_switch(&args.no_adaptive)->default_value(args.no_adaptive),
             "Disable WebRTC's adaptive resolution scaling. When enabled, "
             "the output resolution will remain fixed regardless of network or device conditions.")
+        ("min-playout-delay-ms", bpo::value<int>(&args.min_playout_delay_ms)->default_value(args.min_playout_delay_ms),
+            "Lower bound of the playout delay requested from the receiver, in milliseconds. "
+            "Only takes effect together with --max-playout-delay-ms.")
+        ("max-playout-delay-ms", bpo::value<int>(&args.max_playout_delay_ms)->default_value(args.max_playout_delay_ms),
+            "Upper bound of the playout delay requested from the receiver via the playout-delay "
+            "RTP header extension, in milliseconds. The receiver adapts its jitter buffer "
+            "within [min, max]; 0 for both asks it to render as soon as possible. "
+            "-1 (default) does not send the extension.")
         ("latency-trace", bpo::bool_switch(&args.latency_trace)->default_value(args.latency_trace),
             "Measure per-frame latency from the sensor timestamp through capture, scaling, "
             "encoding and the handoff to WebRTC, and print p50/p95/max for each stage.")
@@ -448,6 +457,12 @@ void Parser::ParseArgs(int argc, char *argv[], Args &args) {
 
     args.jpeg_quality = std::clamp(args.jpeg_quality, 0, 100);
     args.latency_trace_interval = std::clamp(args.latency_trace_interval, 1, 3600);
+    if (args.max_playout_delay_ms >= 0) {
+        args.max_playout_delay_ms = std::clamp(
+            args.max_playout_delay_ms, 0, static_cast<int>(webrtc::VideoPlayoutDelay::kMax.ms()));
+        args.min_playout_delay_ms =
+            std::clamp(args.min_playout_delay_ms, 0, args.max_playout_delay_ms);
+    }
 
     // BitrateSettings is rejected outright unless 0 <= min <= start <= max, so an inconsistent
     // pair is pulled into range rather than silently disabling every bound.

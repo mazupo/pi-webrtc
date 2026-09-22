@@ -2,8 +2,10 @@
 #define V4L2_H264_ENCODER_H_
 
 #include <atomic>
+#include <optional>
 
 // WebRTC
+#include <api/video/video_timing.h>
 #include <api/video_codecs/video_encoder.h>
 #include <common_video/include/bitrate_adjuster.h>
 #include <modules/video_coding/codecs/h264/include/h264.h>
@@ -36,6 +38,7 @@ class V4L2H264Encoder : public webrtc::VideoEncoder {
     webrtc::EncodedImage encoded_image_;
     std::atomic<webrtc::EncodedImageCallback *> callback_;
     webrtc::BitrateAdjuster bitrate_adjuster_;
+    std::optional<webrtc::VideoPlayoutDelay> playout_delay_;
     std::unique_ptr<V4L2Encoder> encoder_;
 
     virtual void SendFrame(const webrtc::VideoFrame &frame, V4L2Buffer &encoded_buffer);

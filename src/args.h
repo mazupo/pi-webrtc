@@ -153,6 +153,8 @@ struct Args {
     int max_bitrate = 0;
     bool hw_accel = false;
     bool no_adaptive = false;
+    int min_playout_delay_ms = 0;
+    int max_playout_delay_ms = -1;
     bool latency_trace = false;
     int latency_trace_interval = 5;
     std::string uid = "";
