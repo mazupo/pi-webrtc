@@ -41,8 +41,9 @@ static_assert(sizeof(kStageNames) / sizeof(kStageNames[0]) ==
               "kStageNames must stay in sync with Stage");
 
 const char *const kCounterNames[] = {
-    "captured",     "encoded",    "adapt_drop",    "encoder_queue_drop", "scaler_nobuf",
-    "scaler_qfull", "v4l2_nobuf", "decoder_nobuf", "decoder_dq_timeout", "dq_timeout",
+    "captured",           "encoded",      "adapt_drop",     "encoder_queue_drop",
+    "scaler_nobuf",       "scaler_qfull", "v4l2_nobuf",     "decoder_nobuf",
+    "decoder_dq_timeout", "dq_timeout",   "recorder_qfull",
 };
 static_assert(sizeof(kCounterNames) / sizeof(kCounterNames[0]) ==
                   static_cast<size_t>(Counter::kCounterCount),

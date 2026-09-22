@@ -2,6 +2,7 @@
 
 #include <memory>
 
+#include "common/latency_tracer.h"
 #include "common/logging.h"
 
 namespace {
@@ -34,7 +35,9 @@ void VideoRecorder::InitializeEncoderCtx(AVCodecContext *&encoder) {
 
 void VideoRecorder::OnBuffer(V4L2FrameBufferRef frame_buffer) {
     if (frame_buffer_queue.full()) {
-        DEBUG_PRINT("Skip a frame because the buffer is full.");
+        if (latency::Enabled()) {
+            latency::Count(latency::Counter::kRecorderQueueFull);
+        }
         return;
     }
 
