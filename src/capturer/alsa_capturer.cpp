@@ -7,6 +7,8 @@
 
 #include "common/logging.h"
 
+constexpr unsigned int kTargetLatencyUs = 40000;
+
 std::shared_ptr<AudioCapturer> AlsaCapturer::Create(Args args) {
     auto ptr = std::make_shared<AlsaCapturer>(args);
     if (!ptr->CreateFloat32Source()) {
@@ -31,7 +33,7 @@ AlsaCapturer::~AlsaCapturer() {
 bool AlsaCapturer::CreateFloat32Source() {
     const auto try_set_params = [this](snd_pcm_format_t alsa_fmt, SampleFormat fmt) -> bool {
         const int ret = snd_pcm_set_params(pcm_handle_, alsa_fmt, SND_PCM_ACCESS_RW_INTERLEAVED,
-                                           channels_, sample_rate_, 1, 500000);
+                                           channels_, sample_rate_, 1, kTargetLatencyUs);
         if (ret < 0) {
             return false;
         }
