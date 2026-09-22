@@ -15,11 +15,14 @@ class Openh264Encoder {
     Openh264Encoder(EncoderConfig config);
     ~Openh264Encoder();
     bool Init();
-    void Encode(webrtc::scoped_refptr<webrtc::I420BufferInterface> frame_buffer,
+    bool Encode(webrtc::scoped_refptr<webrtc::I420BufferInterface> frame_buffer,
                 std::function<void(uint8_t *, int, bool is_keyframe)> on_capture);
+    void ForceIntraFrame();
+    void SetRates(int bitrate_bps, float fps);
 
   private:
     EncoderConfig config_;
+    int max_bitrate_;
     ISVCEncoder *encoder_;
     SSourcePicture src_pic_;
     std::vector<uint8_t> encoded_buf_;

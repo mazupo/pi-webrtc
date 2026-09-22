@@ -3,6 +3,8 @@
 #include "common/latency_tracer.h"
 #include "rtc/tracing_video_encoder.h"
 
+#include "codecs/h264/openh264_video_encoder.h"
+
 #if defined(USE_RPI_HW_ENCODER)
 #include "codecs/v4l2/v4l2_h264_encoder.h"
 #elif defined(USE_JETSON_HW_ENCODER)
@@ -96,8 +98,7 @@ CustomVideoEncoderFactory::CreateEncoder(const webrtc::Environment &env,
             return V4L2H264Encoder::Create(args_);
         }
 #endif
-        auto settings = webrtc::H264EncoderSettings::Parse(format);
-        return webrtc::CreateH264Encoder(env, settings);
+        return Openh264VideoEncoder::Create(args_);
     } else if (absl::EqualsIgnoreCase(format.name, webrtc::kVp8CodecName)) {
         return webrtc::CreateVp8Encoder(env);
     } else if (absl::EqualsIgnoreCase(format.name, webrtc::kVp9CodecName)) {

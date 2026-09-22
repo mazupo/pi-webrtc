@@ -12,8 +12,11 @@ struct EncoderConfig {
     int height;
     int fps = 30;
     int bitrate = 2 * 1024 * 1024;
+    int max_bitrate = 0;
     int keyframe_interval = 600;
     int idr_interval = 256;
+    bool frame_dropping = true;
+    int thread_count = 4;
     bool is_dma_src = false;
     uint32_t src_pix_fmt = 0;
     uint32_t dst_pix_fmt = 0;
