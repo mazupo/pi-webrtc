@@ -32,7 +32,13 @@ Openh264VideoEncoder::Openh264VideoEncoder(Args args)
       target_bitrate_bps_(0),
       number_of_cores_(1),
       bitrate_adjuster_(webrtc::Clock::GetRealTimeClock(), .85, 1),
-      callback_(nullptr) {}
+      callback_(nullptr) {
+    if (args.max_playout_delay_ms >= 0) {
+        playout_delay_ =
+            webrtc::VideoPlayoutDelay(webrtc::TimeDelta::Millis(args.min_playout_delay_ms),
+                                      webrtc::TimeDelta::Millis(args.max_playout_delay_ms));
+    }
+}
 
 int32_t Openh264VideoEncoder::InitEncode(const webrtc::VideoCodec *codec_settings,
                                          const VideoEncoder::Settings &settings) {
@@ -180,6 +186,7 @@ void Openh264VideoEncoder::SendFrame(const webrtc::VideoFrame &frame, uint8_t *b
     encoded_image_.capture_time_ms_ = frame.render_time_ms();
     encoded_image_.ntp_time_ms_ = frame.ntp_time_ms();
     encoded_image_.rotation_ = frame.rotation();
+    encoded_image_.SetPlayoutDelay(playout_delay_);
     encoded_image_._frameType = is_keyframe ? webrtc::VideoFrameType::kVideoFrameKey
                                             : webrtc::VideoFrameType::kVideoFrameDelta;
 

@@ -16,7 +16,13 @@ std::unique_ptr<webrtc::VideoEncoder> JetsonVideoEncoder::Create(Args args) {
 JetsonVideoEncoder::JetsonVideoEncoder(Args args)
     : fps_adjuster_(args.fps),
       bitrate_adjuster_(webrtc::Clock::GetRealTimeClock(), .85, 1),
-      callback_(nullptr) {}
+      callback_(nullptr) {
+    if (args.max_playout_delay_ms >= 0) {
+        playout_delay_ =
+            webrtc::VideoPlayoutDelay(webrtc::TimeDelta::Millis(args.min_playout_delay_ms),
+                                      webrtc::TimeDelta::Millis(args.max_playout_delay_ms));
+    }
+}
 
 int32_t JetsonVideoEncoder::InitEncode(const webrtc::VideoCodec *codec_settings,
                                        const VideoEncoder::Settings &settings) {
@@ -141,6 +147,7 @@ void JetsonVideoEncoder::SendFrame(const webrtc::VideoFrame &frame, V4L2Buffer &
     encoded_image_.capture_time_ms_ = frame.render_time_ms();
     encoded_image_.ntp_time_ms_ = frame.ntp_time_ms();
     encoded_image_.rotation_ = frame.rotation();
+    encoded_image_.SetPlayoutDelay(playout_delay_);
     encoded_image_._frameType = encoded_buffer.flags & V4L2_BUF_FLAG_KEYFRAME
                                     ? webrtc::VideoFrameType::kVideoFrameKey
                                     : webrtc::VideoFrameType::kVideoFrameDelta;
