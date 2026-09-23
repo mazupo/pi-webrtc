@@ -1,7 +1,6 @@
 # Advanced Usage
 
 - [Broadcasting a Live Stream to Many Viewers via SFU](#broadcasting-a-live-stream-to-many-viewers-via-sfu)
-- [Using the Legacy V4L2 Driver](#using-the-legacy-v4l2-driver)
 - [Running as a Linux Service](#running-as-a-linux-service)
 - [Two-way Audio Communication](#two-way-audio-communication)
 - [DataChannels](#datachannels)
@@ -103,46 +102,6 @@ DataChannel/IPC traffic is not supported yet. But `--enable-ipc` still applies t
 - See the [example](https://github.com/mazupo/client-sdk-js/blob/main/docs/EXAMPLES.md#pull-from-the-cloudflare-realtime-sfu) in [client-sdk-js](https://github.com/mazupo/client-sdk-js)
 - Try it on the Web demo: [https://app.mazupo.com/cloudflare](https://app.mazupo.com/cloudflare). Enter the URL and the **Viewer API Key** under **Settings → Network**, add a device with the same `uid`, then select your device. The viewer only needs the device's `uid`. 
 
-# Using the Legacy V4L2 Driver
-
-**You probably do not need this.** On Raspberry Pi OS Trixie and later, leaving the default
-`camera_auto_detect=1` in place is enough for a USB camera to show up as a V4L2 device, so
-`--camera=v4l2:0` works with no configuration at all — see
-[Camera and Encoding](CAMERA_AND_ENCODING.md#v4l2).
-
-The steps below are only for driving a **CSI** camera through the legacy driver instead of
-libcamera, and they turn that auto-detection off.
-
-1. Edit `/boot/firmware/config.txt`:
-
-    ```ini
-    # camera_auto_detect=1  # Default setting
-    camera_auto_detect=0    # Turn off default libcamera
-    ```
-
-2. Run with `--camera=v4l2:0` for the camera at `/dev/video0`:
-
-    ```bash
-    ./pi-webrtc --camera=v4l2:0 \
-        --uid=your-custom-uid \
-        --v4l2-format=mjpeg \
-        --fps=60 \
-        --width=1280 \
-        --height=720 \
-        --hw-accel \
-        --no-audio \
-        --use-mqtt \
-        --mqtt-host=your.mqtt.cloud \
-        --mqtt-port=8883 \
-        --mqtt-username=hakunamatata \
-        --mqtt-password=Wonderful
-    ```
-
-> [!CAUTION]
-> At 1920x1080 with the legacy V4L2 driver, the hardware decoder firmware may round up to
-> 1920x1088 while the ISP/encoder stays at 1920x1080 on the 6.6.31 kernel, which can cause
-> memory out-of-range issues. Setting 1920x1088 avoids it.
-
 # Running as a Linux Service
 
 ## 1. Set up `pulseaudio` as a system-wide daemon
@@ -233,7 +192,16 @@ The device needs a microphone and speaker. USB audio devices are the easiest opt
 | `_lossy` | no | unreliable | IPC messages where old data can be dropped. |
 | `_reliable` | yes | reliable | IPC messages that must be delivered. |
 
-The `command` and `stream` are always available. The `_lossy` and `_reliable` channels are enabled with [`--enable-ipc`](CONFIGURATION.md#ipc).
+Which channels a peer gets depends on the signaling it arrived through:
+
+| Label | MQTT | WHEP | LiveKit | Cloudflare |
+| --- |:---:|:---:|:---:|:---:|
+| `command` | ✅ | ❌ | ❌ | ❌ |
+| `stream` | ✅ | ❌ | ❌ | ❌ |
+| `_lossy` | ✅ | ❌ | ✅ | ❌ |
+| `_reliable` | ✅ | ❌ | ✅ | ❌ |
+
+`_lossy` and `_reliable` also need [`--enable-ipc`](CONFIGURATION.md#ipc). WHEP and Cloudflare peers carry no DataChannel traffic at all, and SFU peers never get the built-in `command` and `stream` channels, so snapshots, recording, camera control, and file transfers are only available over MQTT. More than one signaling can be enabled at a time, so running `--use-mqtt` alongside an SFU keeps those commands available while the SFU carries the viewers.
 
 Large transfers use the stream channel so they do not block commands. Multiple transfers can run at the same time.
 

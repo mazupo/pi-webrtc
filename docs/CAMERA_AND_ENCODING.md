@@ -56,7 +56,7 @@ the CPU.
 ### V4L2
 
 On a modern Raspberry Pi OS, USB cameras are picked up as V4L2 devices with no changes to
-`config.txt`. For the legacy CSI driver, see [Advanced Usage](ADVANCED.md#using-the-legacy-v4l2-driver).
+`config.txt`. For the legacy CSI driver, see [QUICK_START.md](QUICK_START.md#csi-camera-through-the-legacy-v4l2-driver).
 
 **1. Find the camera index.** List the V4L2 devices to get the `/dev/videoX` node:
 
