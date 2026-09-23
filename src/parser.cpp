@@ -311,8 +311,8 @@ void Parser::ParseArgs(int argc, char *argv[], Args &args) {
     if (vm.count("help")) {
         std::ostringstream oss;
         oss << opts;
-        INFO_PRINT("%s", oss.str().c_str());
-        exit(1);
+        printf("%s\n", oss.str().c_str());
+        exit(0);
     }
 
 #if defined(USE_RPI_HW_ENCODER)
