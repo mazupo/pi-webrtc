@@ -1,10 +1,8 @@
 # Signaling
 
-Before two WebRTC peers can send media they have to exchange an SDP offer/answer and a set of
-ICE candidates. `pi-webrtc` can do that over three transports, and more than one can be
-enabled at a time. If none is enabled the process exits — there would be no way to reach it.
+Before two WebRTC peers can send media they have to exchange an SDP offer/answer and a set of ICE candidates. `pi-webrtc` can do that over three signaling transports, and more than one can be enabled at a time. If none is enabled the process exits — there would be no way to reach it.
 
-| Transport | Needs | Good for |
+| Signaling | Needs | Good for |
 |---|---|---|
 | [MQTT](#mqtt) | MQTT broker | P2P viewing from anywhere without a public hostname |
 | [WHEP](#whep) | HTTP port | Standard WebRTC player |
@@ -77,7 +75,7 @@ Clients:
 
 ![rpi-whep](https://github.com/user-attachments/assets/6b999188-f97c-4bcb-b081-85fa7c63dcaf)
 
-Play WebRTC streams directly using a standard WHEP URL, with no third-party broker or registration.
+Play WebRTC streams directly using a [WHEP standard](https://www.ietf.org/archive/id/draft-ietf-wish-whep-04.html) URL, with no third-party broker or registration.
 
 ```bash
 /path/to/pi-webrtc --camera=libcamera:0 \
@@ -100,7 +98,7 @@ Clients:
 
 With MQTT or WHEP, each viewer connects directly to the device. More viewers means more connections, bandwidth, and encoding load on the device.
 
-An SFU lets the device send the stream once. The SFU forwards it to all viewers, making it much easier to support many viewers without overloading the device. See [broadcasting to many viewers](ADVANCED.md#broadcasting-a-live-stream-to-many-viewers-via-sfu) for a worked example.
+With an SFU, the device sends the stream once, and the SFU forwards it to all viewers. See [broadcasting to many viewers](ADVANCED.md#broadcasting-a-live-stream-to-many-viewers-via-sfu) for a worked example.
 
 Supported SFU backends:
 - [LiveKit](https://livekit.com/) — self-hosted, or LiveKit cloud.
