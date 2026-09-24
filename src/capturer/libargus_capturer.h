@@ -20,7 +20,7 @@
 
 class StreamHandler : public Subject<V4L2FrameBufferRef> {
   public:
-    static constexpr int kBufferCount = 4;
+    static constexpr int kBufferCount = 6;
 
     static std::unique_ptr<StreamHandler> Create(int stream_idx, Argus::Size2D<uint32_t> size) {
         return std::make_unique<StreamHandler>(stream_idx, size);
