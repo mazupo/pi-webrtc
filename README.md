@@ -11,7 +11,15 @@
 
 ## What is pi-webrtc?
 
-A single binary that streams a camera from a Raspberry Pi or Jetson to a browser over WebRTC, and carries control messages back to the device. It works over WiFi, LTE, or 5G with no public IP.
+A single binary that streams a camera from a Raspberry Pi or Jetson to a browser over WebRTC, and carries control messages back to the device. It delivers sub-100ms latency on LAN and works remotely over WiFi, LTE, or 5G with no public IP.
+
+<p align="center">
+  <img width="600" alt="Raspberry Pi 5 streaming to a browser over WebRTC with gamepad control" src="https://github.com/user-attachments/assets/ee31a2ad-99ad-4be1-9b17-ff5b0522ecde" />
+</p>
+
+<p align="center">
+  <a href="https://youtu.be/TEWzM436vuc">▶ Watch the full demo</a>
+</p>
 
 ## Features
 
