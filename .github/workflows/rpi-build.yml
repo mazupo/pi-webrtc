@@ -76,6 +76,8 @@ jobs:
             mkdir -p /usr/local/include/webrtc &&
             mv include/* /usr/local/include/webrtc &&
             mv lib/* /usr/local/lib &&
+            mkdir -p /usr/local/share/doc/libwebrtc &&
+            mv LICENSE NOTICE /usr/local/share/doc/libwebrtc &&
             mkdir -p /usr/local/include/nlohmann &&
             curl -L https://raw.githubusercontent.com/nlohmann/json/v3.11.3/single_include/nlohmann/json.hpp -o /usr/local/include/nlohmann/json.hpp
           "
@@ -133,10 +135,14 @@ jobs:
       - name: Zip binary
         id: zip-binary
         run: |
-          cd build
           SUFFIX=$([ "${{ matrix.build_type }}" == "Release" ] && echo "" || echo "_debug")
           FILENAME="pi-webrtc_${{ needs.prepare-env.outputs.raspios_version }}${SUFFIX}.tar.gz"
-          sudo tar -czvf $FILENAME pi-webrtc
+          # The package NOTICE is ours followed by libwebrtc-builder's for the bundled libwebrtc.a.
+          docker run --rm rpi-docker-env cat /usr/local/share/doc/libwebrtc/NOTICE > NOTICE.libwebrtc
+          mkdir -p pkg
+          cp build/pi-webrtc LICENSE pkg/
+          { cat NOTICE; printf '\n%78s\n\n' | tr ' ' '='; cat NOTICE.libwebrtc; } > pkg/NOTICE
+          sudo tar -C pkg -czvf "build/$FILENAME" pi-webrtc LICENSE NOTICE
           echo "filename=$FILENAME" >> $GITHUB_OUTPUT
 
       - name: Upload to GitHub
