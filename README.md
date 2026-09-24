@@ -2,7 +2,7 @@
 
 
 <p align="center">
-    <a href="https://chromium.googlesource.com/external/webrtc/+/branch-heads/7680"><img src="https://img.shields.io/badge/libwebrtc-m146.7680-red.svg" alt="WebRTC Version"></a>
+    <a href="https://chromium.googlesource.com/external/webrtc/+/branch-heads/7727"><img src="https://img.shields.io/badge/libwebrtc-m147.7727-red.svg" alt="WebRTC Version"></a>
     <img src="https://img.shields.io/github/downloads/mazupo/pi-webrtc/total.svg?color=yellow" alt="Download">
     <img src="https://img.shields.io/badge/C%2B%2B-20-brightgreen?logo=cplusplus">
     <img src="https://img.shields.io/github/v/release/mazupo/pi-webrtc?color=blue" alt="Release">
