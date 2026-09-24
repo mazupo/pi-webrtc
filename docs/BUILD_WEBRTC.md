@@ -26,10 +26,10 @@
     gclient sync -D
     ```
 
-    To check out the m146 (stable) version:
+    To check out the m147 (stable) version:
 
     ```
-    git checkout -b local-7680 branch-heads/7680
+    git checkout -b local-7727 branch-heads/7727
     git gc --aggressive
     gclient sync -D --force --reset --with_branch_heads --no-history
     ```
@@ -52,8 +52,6 @@
     rtc_build_examples=false 
     is_component_build=false 
     is_component_ffmpeg=true 
-    ffmpeg_branding="Chrome" 
-    proprietary_codecs=true 
     clang_use_chrome_plugins=false'
     ```
 
