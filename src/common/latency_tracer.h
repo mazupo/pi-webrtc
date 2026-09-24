@@ -26,7 +26,7 @@ enum class Stage : int {
     kCaptureCallback, // libcamera RequestComplete entry -> queueRequest (buffer starvation window)
     kArgusCopy,       // IImageNativeBuffer::copyToNvBuffer
     kI420Scale,       // ToI420() + I420Buffer::ScaleFrom
-    kNvTransform,     // NvBufSurf::NvTransform
+    kNvTransform,     // NvBufSurfTransform
     kScalerDwell,     // scaler queue push -> pop on the worker thread
     kHwDecodeDwell,   // buffer queued to the hw decoder -> dequeued from the capture plane
     kHwEncodeDwell,   // buffer queued to the hw encoder -> dequeued from the capture plane

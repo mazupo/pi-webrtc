@@ -29,9 +29,9 @@ JetsonScaler::~JetsonScaler() {
     }
 
     while (auto item = free_buffers_.pop()) {
-        int fd = item.value();
-        int ret = NvBufSurf::NvDestroy(fd);
-        if (ret < 0) {
+        NvBufSurface *surface = nullptr;
+        if (NvBufSurfaceFromFd(item.value(), (void **)(&surface)) != 0 ||
+            NvBufSurfaceDestroy(surface) != 0) {
             ERROR_PRINT("Failed to Destroy NvBuffer");
         }
     }
@@ -40,34 +40,36 @@ JetsonScaler::~JetsonScaler() {
 }
 
 bool JetsonScaler::Initialize() {
-    memset(&transform_params_, 0, sizeof(transform_params_));
-    transform_params_.src_top = 0;
-    transform_params_.src_left = 0;
-    transform_params_.src_width = config_.src_width;
-    transform_params_.src_height = config_.src_height;
-    transform_params_.dst_top = 0;
-    transform_params_.dst_left = 0;
-    transform_params_.dst_width = config_.dst_width;
-    transform_params_.dst_height = config_.dst_height;
-    transform_params_.flip = NvBufSurfTransform_None;
-    transform_params_.filter = NvBufSurfTransformInter_Nearest;
+    src_rect_ = {};
+    src_rect_.width = config_.src_width;
+    src_rect_.height = config_.src_height;
+    dst_rect_ = {};
+    dst_rect_.width = config_.dst_width;
+    dst_rect_.height = config_.dst_height;
+
+    transform_params_ = {};
+    transform_params_.transform_flip = NvBufSurfTransform_None;
+    transform_params_.transform_filter = NvBufSurfTransformInter_Nearest;
+    transform_params_.src_rect = &src_rect_;
+    transform_params_.dst_rect = &dst_rect_;
 
     for (int i = 0; i < num_buffer_; ++i) {
-        int dmafd;
-        NvBufSurf::NvCommonAllocateParams cParams{};
-        cParams.width = config_.dst_width;
-        cParams.height = config_.dst_height;
-        cParams.layout = NVBUF_LAYOUT_BLOCK_LINEAR;
-        cParams.colorFormat = NVBUF_COLOR_FORMAT_NV12;
-        cParams.memtag = NvBufSurfaceTag_VIDEO_ENC;
-        cParams.memType = NVBUF_MEM_SURFACE_ARRAY;
+        NvBufSurfaceAllocateParams params{};
+        params.params.width = config_.dst_width;
+        params.params.height = config_.dst_height;
+        params.params.layout = NVBUF_LAYOUT_BLOCK_LINEAR;
+        params.params.colorFormat = NVBUF_COLOR_FORMAT_NV12;
+        params.params.memType = NVBUF_MEM_SURFACE_ARRAY;
+        params.memtag = NvBufSurfaceTag_VIDEO_ENC;
 
-        if (NvBufSurf::NvAllocate(&cParams, 1, &dmafd) < 0) {
+        NvBufSurface *surface = nullptr;
+        if (NvBufSurfaceAllocate(&surface, 1, &params) != 0) {
             ERROR_PRINT("Failed to allocate NvBuffer");
             return false;
         }
+        surface->numFilled = 1;
 
-        free_buffers_.push(dmafd);
+        free_buffers_.push(static_cast<int>(surface->surfaceList[0].bufferDesc));
     }
 
     return true;
@@ -99,12 +101,18 @@ void JetsonScaler::EmplaceBuffer(V4L2FrameBufferRef frame_buffer,
     int dst_dma_fd = item.value();
 
     const int64_t transform_start_us = traced ? latency::NowUs() : 0;
-    int ret = NvBufSurf::NvTransform(&transform_params_, frame_buffer->GetDmaFd(), dst_dma_fd);
+    NvBufSurface *src_surface = nullptr;
+    NvBufSurface *dst_surface = nullptr;
+    int ret = -1;
+    if (NvBufSurfaceFromFd(frame_buffer->GetDmaFd(), (void **)(&src_surface)) == 0 &&
+        NvBufSurfaceFromFd(dst_dma_fd, (void **)(&dst_surface)) == 0) {
+        ret = NvBufSurfTransform(src_surface, dst_surface, &transform_params_);
+    }
     if (traced) {
         latency::RecordSince(latency::Stage::kNvTransform, transform_start_us);
     }
     if (ret < 0) {
-        ERROR_PRINT("NvTransform failed to tranform from fd(%d) to fd(%d)",
+        ERROR_PRINT("NvBufSurfTransform failed to tranform from fd(%d) to fd(%d)",
                     frame_buffer->GetDmaFd(), dst_dma_fd);
         free_buffers_.push(dst_dma_fd);
         return;

@@ -5,8 +5,6 @@
 
 #include "common/latency_tracer.h"
 
-#include <NvBufSurface.h>
-
 namespace {
 
 constexpr uint64_t kAcquireBufferTimeoutNs = 3'000'000'000;
@@ -201,23 +199,20 @@ bool StreamHandler::PrepareBuffers() {
         CaptureBuffer &buffer = *buffers_.back();
 
         // NV12 block-linear is what NVENC consumes, so nothing downstream has to convert.
-        NvBufSurf::NvCommonAllocateParams params{};
+        NvBufSurfaceAllocateParams params{};
+        params.params.width = size_.width();
+        params.params.height = size_.height();
+        params.params.colorFormat = NVBUF_COLOR_FORMAT_NV12;
+        params.params.layout = NVBUF_LAYOUT_BLOCK_LINEAR;
+        params.params.memType = NVBUF_MEM_SURFACE_ARRAY;
         params.memtag = NvBufSurfaceTag_CAMERA;
-        params.width = size_.width();
-        params.height = size_.height();
-        params.colorFormat = NVBUF_COLOR_FORMAT_NV12;
-        params.layout = NVBUF_LAYOUT_BLOCK_LINEAR;
-        params.memType = NVBUF_MEM_SURFACE_ARRAY;
 
-        if (NvBufSurf::NvAllocate(&params, 1, &buffer.dma_fd) < 0) {
+        if (NvBufSurfaceAllocate(&buffer.surface, 1, &params) != 0 || !buffer.surface) {
             ERROR_PRINT("Failed to allocate NvBuffer for the capture pool");
             return false;
         }
-
-        if (NvBufSurfaceFromFd(buffer.dma_fd, (void **)(&buffer.surface)) != 0 || !buffer.surface) {
-            ERROR_PRINT("NvBufSurfaceFromFd failed for fd %d", buffer.dma_fd);
-            return false;
-        }
+        buffer.surface->numFilled = 1;
+        buffer.dma_fd = static_cast<int>(buffer.surface->surfaceList[0].bufferDesc);
 
         if (NvBufSurfaceMapEglImage(buffer.surface, 0) != 0) {
             ERROR_PRINT("NvBufSurfaceMapEglImage failed for fd %d", buffer.dma_fd);
@@ -327,10 +322,8 @@ void StreamHandler::ReleaseBuffers() {
 
         if (buffer->surface) {
             NvBufSurfaceUnMapEglImage(buffer->surface, 0);
+            NvBufSurfaceDestroy(buffer->surface);
             buffer->surface = nullptr;
-        }
-        if (buffer->dma_fd >= 0) {
-            NvBufSurf::NvDestroy(buffer->dma_fd);
             buffer->dma_fd = -1;
         }
     }
