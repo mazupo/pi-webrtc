@@ -1,16 +1,27 @@
 # Build the project
 
 ## Preparation
-1. Follow [SETUP_ARM64_ENV](SETUP_ARM64_ENV.md) to prepare an arm64 env for compilation. (Optional)
-2. Follow [BUILD_WEBRTC](BUILD_WEBRTC.md) to compile a `libwebrtc.a`.
-3. Prepare the MQTT development library.
+1. Download the prebuilt `libwebrtc.a` from [libwebrtc-builder](https://github.com/mazupo/libwebrtc-builder/releases) and install it to `/usr/local`. To compile it yourself instead, follow [BUILD_WEBRTC](BUILD_WEBRTC.md).
+    ```bash
+    LIBWEBRTC_VERSION=7727
+    wget https://github.com/mazupo/libwebrtc-builder/releases/download/${LIBWEBRTC_VERSION}/libwebrtc-arm64.tar.gz
+    mkdir -p libwebrtc
+    tar -xzf libwebrtc-arm64.tar.gz -C libwebrtc
+
+    # Remove the headers of a previously installed version, if any
+    sudo rm -rf /usr/local/include/webrtc
+    sudo mkdir -p /usr/local/include/webrtc
+    sudo cp -r libwebrtc/include/* /usr/local/include/webrtc/
+    sudo cp libwebrtc/lib/libwebrtc.a /usr/local/lib/
+    ```
+2. Prepare the MQTT development library.
     * Follow [BUILD_MOSQUITTO](BUILD_MOSQUITTO.md) to compile `mosquitto`.
     * Install the lib from official repo [[tutorial](https://repo.mosquitto.org/debian/README.txt)]. (recommended)
-4. Install essential packages
+3. Install essential packages
     ```bash
     sudo apt install cmake clang clang-format lld mosquitto-dev libboost-program-options-dev libavformat-dev libavcodec-dev libavutil-dev libswscale-dev libpulse-dev libasound2-dev libjpeg-dev libcamera-dev libmosquitto-dev
     ```
-5. Install clang-20 and lld-20 (or newer versions). Set them as default using `update-alternatives`:
+4. Install clang-20 and lld-20 (or newer versions). Set them as default using `update-alternatives`:
     ```bash
     wget https://apt.llvm.org/llvm.sh
     chmod +x llvm.sh
@@ -21,7 +32,7 @@
     sudo update-alternatives --install /usr/bin/ld.lld ld.lld /usr/bin/ld.lld-20 100
     sudo update-alternatives --install /usr/bin/clang-format clang-format /usr/bin/clang-format-20 100
     ```
-6. Install Protobuf compiler (protoc) v33.0 to match the protobuf bundled in libwebrtc.a.
+5. Install Protobuf compiler (protoc) v33.0 to match the protobuf bundled in libwebrtc.a.
     ```bash
     # Download pre-built protoc v33.0 (adjust the URL for your architecture)
     # For arm64:
@@ -36,7 +47,7 @@
     # Verify installation
     protoc --version  # should print "libprotoc 33.0"
     ```
-7. Copy the [nlohmann/json.hpp](https://github.com/nlohmann/json/blob/develop/single_include/nlohmann/json.hpp) to `/usr/local/include`
+6. Copy the [nlohmann/json.hpp](https://github.com/nlohmann/json/blob/develop/single_include/nlohmann/json.hpp) to `/usr/local/include`
     ```bash
     sudo mkdir -p /usr/local/include/nlohmann
     sudo curl -L https://raw.githubusercontent.com/nlohmann/json/develop/single_include/nlohmann/json.hpp -o /usr/local/include/nlohmann/json.hpp
