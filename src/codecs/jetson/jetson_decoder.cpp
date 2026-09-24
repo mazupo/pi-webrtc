@@ -36,6 +36,8 @@ JetsonDecoder::JetsonDecoder(DecoderConfig config, std::string name)
       frame_size_(config.width * config.height * 3 / 2),
       abort_(true),
       capture_ready_(false),
+      src_rect_({}),
+      dst_rect_({}),
       transform_params_({}),
       free_buffers_(FRAME_BUFFER_NUM) {}
 
@@ -54,7 +56,9 @@ JetsonDecoder::~JetsonDecoder() {
     }
 
     while (auto item = free_buffers_.pop()) {
-        if (NvBufSurf::NvDestroy(item.value()) < 0) {
+        NvBufSurface *surface = nullptr;
+        if (NvBufSurfaceFromFd(item.value(), (void **)(&surface)) != 0 ||
+            NvBufSurfaceDestroy(surface) != 0) {
             ERROR_PRINT("Failed to destroy NvBuffer");
         }
     }
@@ -100,29 +104,32 @@ bool JetsonDecoder::CreateVideoDecoder() {
 }
 
 bool JetsonDecoder::AllocateFrameBuffers() {
-    transform_params_.src_width = config_.width;
-    transform_params_.src_height = config_.height;
-    transform_params_.dst_width = config_.width;
-    transform_params_.dst_height = config_.height;
-    transform_params_.flip = NvBufSurfTransform_None;
-    transform_params_.filter = NvBufSurfTransformInter_Nearest;
+    src_rect_.width = config_.width;
+    src_rect_.height = config_.height;
+    dst_rect_.width = config_.width;
+    dst_rect_.height = config_.height;
+    transform_params_.transform_flip = NvBufSurfTransform_None;
+    transform_params_.transform_filter = NvBufSurfTransformInter_Nearest;
+    transform_params_.src_rect = &src_rect_;
+    transform_params_.dst_rect = &dst_rect_;
 
     for (int i = 0; i < FRAME_BUFFER_NUM; ++i) {
-        int dmafd;
-        NvBufSurf::NvCommonAllocateParams params{};
-        params.width = config_.width;
-        params.height = config_.height;
-        params.layout = NVBUF_LAYOUT_BLOCK_LINEAR;
-        params.colorFormat = NVBUF_COLOR_FORMAT_NV12;
+        NvBufSurfaceAllocateParams params{};
+        params.params.width = config_.width;
+        params.params.height = config_.height;
+        params.params.layout = NVBUF_LAYOUT_BLOCK_LINEAR;
+        params.params.colorFormat = NVBUF_COLOR_FORMAT_NV12;
+        params.params.memType = NVBUF_MEM_SURFACE_ARRAY;
         params.memtag = NvBufSurfaceTag_VIDEO_DEC;
-        params.memType = NVBUF_MEM_SURFACE_ARRAY;
 
-        if (NvBufSurf::NvAllocate(&params, 1, &dmafd) < 0) {
+        NvBufSurface *surface = nullptr;
+        if (NvBufSurfaceAllocate(&surface, 1, &params) != 0) {
             ERROR_PRINT("Failed to allocate NvBuffer");
             return false;
         }
+        surface->numFilled = 1;
 
-        free_buffers_.push(dmafd);
+        free_buffers_.push(static_cast<int>(surface->surfaceList[0].bufferDesc));
     }
 
     return true;
@@ -163,8 +170,8 @@ bool JetsonDecoder::EnsureCapturePlane() {
                                         format.fmt.pix_mp.height) < 0)
         ORIGINATE_ERROR("Could not set capture plane format");
 
-    transform_params_.src_width = crop.c.width;
-    transform_params_.src_height = crop.c.height;
+    src_rect_.width = crop.c.width;
+    src_rect_.height = crop.c.height;
 
     int min_buffers = 0;
     if (decoder_->getMinimumCapturePlaneBuffers(min_buffers) < 0)
@@ -282,12 +289,18 @@ void JetsonDecoder::Transform(int src_dma_fd,
     int dst_dma_fd = item.value();
 
     const int64_t transform_start_us = traced ? latency::NowUs() : 0;
-    int ret = NvBufSurf::NvTransform(&transform_params_, src_dma_fd, dst_dma_fd);
+    NvBufSurface *src_surface = nullptr;
+    NvBufSurface *dst_surface = nullptr;
+    int ret = -1;
+    if (NvBufSurfaceFromFd(src_dma_fd, (void **)(&src_surface)) == 0 &&
+        NvBufSurfaceFromFd(dst_dma_fd, (void **)(&dst_surface)) == 0) {
+        ret = NvBufSurfTransform(src_surface, dst_surface, &transform_params_);
+    }
     if (traced) {
         latency::RecordSince(latency::Stage::kNvTransform, transform_start_us);
     }
     if (ret < 0) {
-        ERROR_PRINT("NvTransform failed to transform from fd(%d) to fd(%d)", src_dma_fd,
+        ERROR_PRINT("NvBufSurfTransform failed to transform from fd(%d) to fd(%d)", src_dma_fd,
                     dst_dma_fd);
         free_buffers_.push(dst_dma_fd);
         return;

@@ -6,7 +6,6 @@
 
 #include "Error.h"
 #include "NvBuffer.h"
-#include <NvBufSurface.h>
 
 const int BUFFER_NUM = 4;
 

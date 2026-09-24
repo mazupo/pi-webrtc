@@ -8,7 +8,7 @@
 #include "common/thread_safe_queue.h"
 #include "common/worker.h"
 
-#include <NvBufSurface.h>
+#include <nvbufsurftransform.h>
 
 class JetsonScaler : public IFrameProcessor {
   public:
@@ -36,7 +36,9 @@ class JetsonScaler : public IFrameProcessor {
     int num_buffer_;
     std::atomic<bool> abort_;
     std::unique_ptr<Worker> worker_;
-    NvBufSurf::NvCommonTransformParams transform_params_;
+    NvBufSurfTransformRect src_rect_;
+    NvBufSurfTransformRect dst_rect_;
+    NvBufSurfTransformParams transform_params_;
     ThreadSafeQueue<int> free_buffers_;
     ThreadSafeQueue<CaptureTask> capturing_tasks_;
 };

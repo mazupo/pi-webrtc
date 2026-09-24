@@ -3,8 +3,8 @@
 
 #include <third_party/libyuv/include/libyuv.h>
 #if defined(USE_LIBARGUS_CAPTURE)
-#include <NvBufSurface.h>
 #include <nvbufsurface.h>
+#include <nvbufsurftransform.h>
 #endif
 
 #include <chrono>
@@ -57,42 +57,37 @@ int ReadDmaBuffer(int src_dma_fd, uint8_t *dst_addr, size_t dst_size) {
 }
 
 int NvConvertToI420(int src_dma_fd, uint8_t *dst_addr, size_t dst_size, int width, int height) {
-    int dst_dma_fd;
-    NvBufSurf::NvCommonAllocateParams cParams;
-    cParams.width = width;
-    cParams.height = height;
-    cParams.layout = NVBUF_LAYOUT_PITCH;
-    cParams.colorFormat = NVBUF_COLOR_FORMAT_YUV420;
-    cParams.memtag = NvBufSurfaceTag_CAMERA;
-    cParams.memType = NVBUF_MEM_SURFACE_ARRAY;
-    int ret = NvBufSurf::NvAllocate(&cParams, 1, &dst_dma_fd);
-    if (ret < 0) {
-        return ret;
+    NvBufSurface *src_surface = nullptr;
+    if (NvBufSurfaceFromFd(src_dma_fd, (void **)(&src_surface)) != 0) {
+        return -1;
     }
 
-    NvBufSurf::NvCommonTransformParams transform_params;
-    memset(&transform_params, 0, sizeof(transform_params));
-    transform_params.src_top = 0;
-    transform_params.src_left = 0;
-    transform_params.src_width = width;
-    transform_params.src_height = height;
-    transform_params.dst_top = 0;
-    transform_params.dst_left = 0;
-    transform_params.dst_width = width;
-    transform_params.dst_height = height;
-    transform_params.flag = NVBUFSURF_TRANSFORM_FILTER;
-    transform_params.flip = NvBufSurfTransform_None;
-    transform_params.filter = NvBufSurfTransformInter_Algo3;
+    NvBufSurfaceAllocateParams params{};
+    params.params.width = width;
+    params.params.height = height;
+    params.params.layout = NVBUF_LAYOUT_PITCH;
+    params.params.colorFormat = NVBUF_COLOR_FORMAT_YUV420;
+    params.params.memType = NVBUF_MEM_SURFACE_ARRAY;
+    params.memtag = NvBufSurfaceTag_CAMERA;
 
-    ret = NvBufSurf::NvTransform(&transform_params, src_dma_fd, dst_dma_fd);
-    if (ret < 0) {
-        NvBufSurf::NvDestroy(dst_dma_fd);
-        return ret;
+    NvBufSurface *dst_surface = nullptr;
+    if (NvBufSurfaceAllocate(&dst_surface, 1, &params) != 0) {
+        return -1;
+    }
+    dst_surface->numFilled = 1;
+
+    NvBufSurfTransformParams transform_params{};
+    transform_params.transform_flag = NVBUFSURF_TRANSFORM_FILTER;
+    transform_params.transform_flip = NvBufSurfTransform_None;
+    transform_params.transform_filter = NvBufSurfTransformInter_Algo3;
+
+    int ret = NvBufSurfTransform(src_surface, dst_surface, &transform_params);
+    if (ret == NvBufSurfTransformError_Success) {
+        ret = ReadDmaBuffer(static_cast<int>(dst_surface->surfaceList[0].bufferDesc), dst_addr,
+                            dst_size);
     }
 
-    ret = ReadDmaBuffer(dst_dma_fd, dst_addr, dst_size);
-
-    NvBufSurf::NvDestroy(dst_dma_fd);
+    NvBufSurfaceDestroy(dst_surface);
 
     return ret;
 }

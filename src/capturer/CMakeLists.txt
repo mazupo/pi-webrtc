@@ -19,7 +19,6 @@ if(USE_LIBARGUS_CAPTURE)
 
         ${MULTIMEDIA_API_BASE}/samples/common/classes/NvBuffer.cpp
         ${MULTIMEDIA_API_BASE}/samples/common/classes/NvLogging.cpp
-        ${MULTIMEDIA_API_BASE}/samples/common/classes/NvBufSurface.cpp
         ${MULTIMEDIA_API_BASE}/samples/common/classes/NvV4l2ElementPlane.cpp
         ${MULTIMEDIA_API_BASE}/samples/common/classes/NvVideoEncoder.cpp
         ${MULTIMEDIA_API_BASE}/samples/common/classes/NvElement.cpp

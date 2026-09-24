@@ -7,7 +7,6 @@ if(USE_JETSON_HW_ENCODER)
     set(MULTIMEDIA_API_BASE /usr/src/jetson_multimedia_api)
     list(APPEND FILES
         ${MULTIMEDIA_API_BASE}/samples/common/classes/NvBuffer.cpp
-        ${MULTIMEDIA_API_BASE}/samples/common/classes/NvBufSurface.cpp
         ${MULTIMEDIA_API_BASE}/samples/common/classes/NvElement.cpp
         ${MULTIMEDIA_API_BASE}/samples/common/classes/NvElementProfiler.cpp
         ${MULTIMEDIA_API_BASE}/samples/common/classes/NvV4l2Element.cpp

@@ -10,8 +10,8 @@
 #include "common/thread_safe_queue.h"
 #include "common/v4l2_frame_buffer.h"
 
-#include <NvBufSurface.h>
 #include <NvVideoDecoder.h>
+#include <nvbufsurftransform.h>
 
 class JetsonDecoder : public IFrameProcessor {
   public:
@@ -33,7 +33,9 @@ class JetsonDecoder : public IFrameProcessor {
     uint32_t frame_size_;
     std::atomic<bool> abort_;
     std::atomic<bool> capture_ready_;
-    NvBufSurf::NvCommonTransformParams transform_params_;
+    NvBufSurfTransformRect src_rect_;
+    NvBufSurfTransformRect dst_rect_;
+    NvBufSurfTransformParams transform_params_;
     ThreadSafeQueue<int> free_buffers_;
     ThreadSafeQueue<std::function<void(V4L2FrameBufferRef)>> capturing_tasks_;
 
