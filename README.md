@@ -94,4 +94,4 @@ Sponsors help fund continued development and receive access to additional releas
 
 ## License
 
-Apache-2.0 — see [LICENSE](LICENSE).
+Apache-2.0 — see [LICENSE](LICENSE). Third-party notices: see [NOTICE](NOTICE).
