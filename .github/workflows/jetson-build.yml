@@ -10,12 +10,86 @@ permissions:
   contents: write
 
 env:
-  # Must match the libwebrtc installed on the self-hosted runner.
   LIBWEBRTC_VERSION: "7727"
+  L4T_RELEASE: "r36.5"
 
 jobs:
+  prepare-env:
+    runs-on: ubuntu-24.04-arm
+    steps:
+      - name: Install dependencies
+        # The flag file skips nvidia-l4t-core's preinst check for a Jetson device tree.
+        run: |
+          docker run --name jetson-container -e DEBIAN_FRONTEND=noninteractive -v ${{ github.workspace }}:/app ubuntu:22.04 /usr/bin/bash -c "
+            apt-get update &&
+            apt-get install -y --no-install-recommends ca-certificates curl &&
+            curl -fsSL https://repo.download.nvidia.com/jetson/jetson-ota-public.asc -o /etc/apt/trusted.gpg.d/jetson-ota-public.asc &&
+            echo 'deb https://repo.download.nvidia.com/jetson/common ${{ env.L4T_RELEASE }} main' > /etc/apt/sources.list.d/nvidia-l4t-apt-source.list &&
+            echo 'deb https://repo.download.nvidia.com/jetson/t234 ${{ env.L4T_RELEASE }} main' >> /etc/apt/sources.list.d/nvidia-l4t-apt-source.list &&
+            curl -fsSL https://apt.llvm.org/llvm-snapshot.gpg.key -o /etc/apt/trusted.gpg.d/apt.llvm.org.asc &&
+            echo 'deb https://apt.llvm.org/jammy/ llvm-toolchain-jammy-20 main' > /etc/apt/sources.list.d/llvm.list &&
+            mkdir -p /opt/nvidia/l4t-packages &&
+            touch /opt/nvidia/l4t-packages/.nv-l4t-disable-boot-fw-update-in-preinstall &&
+            apt-get update &&
+            apt-get install -y --no-install-recommends \
+              nvidia-l4t-jetson-multimedia-api \
+              wget \
+              unzip \
+              cmake \
+              clang-20 \
+              lld-20 \
+              libclang-rt-20-dev \
+              build-essential \
+              mosquitto-dev \
+              libboost-program-options-dev \
+              libyaml-cpp-dev \
+              libavformat-dev \
+              libavcodec-dev \
+              libavutil-dev \
+              libswscale-dev \
+              libpulse-dev \
+              libasound2-dev \
+              libjpeg-dev \
+              libmosquitto-dev &&
+            update-alternatives --install /usr/bin/clang clang /usr/bin/clang-20 100 &&
+            update-alternatives --install /usr/bin/clang++ clang++ /usr/bin/clang++-20 100 &&
+            update-alternatives --install /usr/bin/ld.lld ld.lld /usr/bin/ld.lld-20 100 &&
+            curl -sLO https://github.com/protocolbuffers/protobuf/releases/download/v33.0/protoc-33.0-linux-aarch_64.zip &&
+            unzip protoc-33.0-linux-aarch_64.zip -d protoc-33.0 &&
+            cp protoc-33.0/bin/protoc /usr/local/bin/protoc &&
+            cp -r protoc-33.0/include/* /usr/local/include/ &&
+            rm -rf protoc-33.0 protoc-33.0-linux-aarch_64.zip &&
+            cd /app &&
+            wget -q https://github.com/mazupo/libwebrtc-builder/releases/download/${{ env.LIBWEBRTC_VERSION }}/libwebrtc-arm64.tar.gz &&
+            tar -xzf libwebrtc-arm64.tar.gz &&
+            mkdir -p /usr/local/include/webrtc &&
+            mv include/* /usr/local/include/webrtc &&
+            mv lib/* /usr/local/lib &&
+            mkdir -p /usr/local/share/doc/libwebrtc &&
+            mv LICENSE NOTICE /usr/local/share/doc/libwebrtc &&
+            mkdir -p /usr/local/include/nlohmann &&
+            curl -L https://raw.githubusercontent.com/nlohmann/json/v3.11.3/single_include/nlohmann/json.hpp -o /usr/local/include/nlohmann/json.hpp
+          "
+
+      - name: Commit Docker Image
+        run: |
+          docker commit jetson-container jetson-docker-env
+          docker rm jetson-container
+
+      - name: Save Docker image
+        run: docker save jetson-docker-env -o jetson-docker-env.tar
+
+      - name: Cache Docker Image
+        uses: actions/cache@v4
+        with:
+          path: jetson-docker-env.tar
+          key: jetson-docker-env-${{ runner.os }}-${{ hashFiles('**/Dockerfile', '.github/workflows/**') }}
+          restore-keys: |
+            jetson-docker-env-${{ runner.os }}-
+
   build:
-    runs-on: self-hosted
+    runs-on: ubuntu-24.04-arm
+    needs: prepare-env
     strategy:
       matrix:
         build_type: [Debug, Release]
@@ -26,20 +100,34 @@ jobs:
         with:
           submodules: recursive
 
+      - name: Restore Docker Image from Cache
+        uses: actions/cache@v4
+        with:
+          path: jetson-docker-env.tar
+          key: jetson-docker-env-${{ runner.os }}-${{ hashFiles('**/Dockerfile', '.github/workflows/**') }}
+          restore-keys: |
+            jetson-docker-env-${{ runner.os }}-
+
+      - name: Load Docker Image
+        run: docker load -i jetson-docker-env.tar
+
       - name: Get L4T Version
         id: l4t
         run: |
-          RAW=$(head -n 1 /etc/nv_tegra_release)
+          RAW=$(docker run --rm jetson-docker-env head -n 1 /etc/nv_tegra_release)
           MAJOR=$(echo $RAW | sed -n 's/^# R\([0-9]*\).*/\1/p')
           REVISION=$(echo $RAW | sed -n 's/.*REVISION: \([0-9]*\.[0-9]*\).*/\1/p')
           echo "version=${MAJOR}.${REVISION}" >> $GITHUB_OUTPUT
 
-      - name: Create build directory
+      - name: Build inside Docker
         run: |
-          mkdir -p build
-          cd build
-          cmake .. -DCMAKE_BUILD_TYPE=${{ matrix.build_type }}
-          make -j$(nproc)
+          docker run --rm -v ${{ github.workspace }}:/app jetson-docker-env /usr/bin/bash -c "
+            cd /app &&
+            mkdir -p build &&
+            cd build &&
+            cmake .. -DCMAKE_CXX_COMPILER=clang++ -DCMAKE_BUILD_TYPE=${{ matrix.build_type }} &&
+            make -j$(nproc)
+          "
 
       - name: Zip binary
         id: zip-binary
@@ -47,7 +135,7 @@ jobs:
           SUFFIX=$([ "${{ matrix.build_type }}" == "Release" ] && echo "" || echo "_debug")
           FILENAME="pi-webrtc_jetson-l4t-${{ steps.l4t.outputs.version }}${SUFFIX}.tar.gz"
           # The package NOTICE is ours followed by libwebrtc-builder's for the bundled libwebrtc.a.
-          curl -fsSL "https://raw.githubusercontent.com/mazupo/libwebrtc-builder/refs/tags/${{ env.LIBWEBRTC_VERSION }}/NOTICE" -o NOTICE.libwebrtc
+          docker run --rm jetson-docker-env cat /usr/local/share/doc/libwebrtc/NOTICE > NOTICE.libwebrtc
           mkdir -p pkg
           cp build/pi-webrtc LICENSE pkg/
           { cat NOTICE; printf '\n%78s\n\n' | tr ' ' '='; cat NOTICE.libwebrtc; } > pkg/NOTICE
