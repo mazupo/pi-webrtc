@@ -203,7 +203,7 @@ jobs:
           mkdir -p pkg
           cp pi-webrtc LICENSE pkg/
           { cat NOTICE; printf '\n%78s\n\n' | tr ' ' '='; cat NOTICE.libwebrtc; } > pkg/NOTICE
-          sudo tar -C pkg -czvf "$FILENAME" pi-webrtc LICENSE NOTICE
+          tar -C pkg -czvf "$FILENAME" pi-webrtc LICENSE NOTICE
           echo "filename=$FILENAME" >> $GITHUB_OUTPUT
 
       - name: Upload to GitHub
