@@ -4,6 +4,7 @@ on:
   push:
     tags:
       - 'v[0-9]+.[0-9]+.[0-9]+'
+  workflow_dispatch:
 
 permissions:
   contents: write
@@ -53,14 +54,22 @@ jobs:
           tar -C pkg -czvf "$FILENAME" pi-webrtc LICENSE NOTICE
           echo "filename=$FILENAME" >> $GITHUB_OUTPUT
 
+      - name: Upload build artifact
+        if: github.event_name == 'workflow_dispatch'
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ steps.zip-binary.outputs.filename }}
+          path: ${{ steps.zip-binary.outputs.filename }}
+          retention-days: 1
+
       - name: Upload to GitHub Release
-        if: startsWith(github.ref, 'refs/tags/') && github.repository != 'mazupo/pi-webrtc-pro'
+        if: github.event_name == 'push' && github.repository != 'mazupo/pi-webrtc-pro'
         uses: softprops/action-gh-release@v2
         with:
           files: ${{ steps.zip-binary.outputs.filename }}
 
       - name: Upload to sponsor repo Release
-        if: startsWith(github.ref, 'refs/tags/') && github.repository == 'mazupo/pi-webrtc-pro'
+        if: github.event_name == 'push' && github.repository == 'mazupo/pi-webrtc-pro'
         uses: softprops/action-gh-release@v2
         with:
           repository: mazupo/sponsor-jetson
