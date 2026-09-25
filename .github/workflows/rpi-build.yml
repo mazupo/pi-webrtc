@@ -142,14 +142,14 @@ jobs:
           mkdir -p pkg
           cp build/pi-webrtc LICENSE pkg/
           { cat NOTICE; printf '\n%78s\n\n' | tr ' ' '='; cat NOTICE.libwebrtc; } > pkg/NOTICE
-          sudo tar -C pkg -czvf "build/$FILENAME" pi-webrtc LICENSE NOTICE
+          tar -C pkg -czvf "$FILENAME" pi-webrtc LICENSE NOTICE
           echo "filename=$FILENAME" >> $GITHUB_OUTPUT
 
       - name: Upload to GitHub
         if: github.repository != 'mazupo/pi-webrtc-pro'
         uses: softprops/action-gh-release@v2
         with:
-          files: build/${{ steps.zip-binary.outputs.filename }}
+          files: ${{ steps.zip-binary.outputs.filename }}
 
       - name: Upload to sponsor repo Release
         if: github.repository == 'mazupo/pi-webrtc-pro'
@@ -157,4 +157,4 @@ jobs:
         with:
           repository: mazupo/sponsor-pi
           token: ${{ secrets.SPONSOR_RELEASE_TOKEN }}
-          files: build/${{ steps.zip-binary.outputs.filename }}
+          files: ${{ steps.zip-binary.outputs.filename }}
