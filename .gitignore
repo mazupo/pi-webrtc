@@ -12,7 +12,8 @@ Makefile
 
 # folder
 build
-proto
+/proto/*
+!/proto/CMakeLists.txt
 models
 
 !/docs/*.jpg

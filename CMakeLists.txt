@@ -103,6 +103,7 @@ message(STATUS "WEBRTC_LIBRARY: ${WEBRTC_LIBRARY_PATH}")
 
 include_directories(${CMAKE_CURRENT_SOURCE_DIR}/src)
 
+add_subdirectory(proto)
 add_subdirectory(src/capturer)
 add_subdirectory(src/codecs/h264)
 add_subdirectory(src/codecs/v4l2)
