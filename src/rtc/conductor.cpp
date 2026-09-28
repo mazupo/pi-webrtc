@@ -29,6 +29,7 @@
 #include "capturer/v4l2_capturer.h"
 #include "common/jpeg_util.h"
 #include "common/logging.h"
+#include "ipc/ipc_endpoint.h"
 #include "recorder/media_query.h"
 #include "rtc/custom_video_encoder_factory.h"
 #include "track/v4l2dma_track_source.h"
@@ -37,7 +38,7 @@ std::shared_ptr<Conductor> Conductor::Create(Args args) {
     auto ptr = std::make_shared<Conductor>(args);
     ptr->InitializePeerConnectionFactory();
     ptr->InitializeTracks();
-    ptr->InitializeIpcEndpoints();
+    ptr->InitializeEndpointRegistry();
     return ptr;
 }
 
@@ -45,8 +46,8 @@ Conductor::Conductor(Args args)
     : args(args) {}
 
 Conductor::~Conductor() {
-    if (ipc_endpoints_) {
-        ipc_endpoints_->StopAll();
+    if (endpoint_registry_) {
+        endpoint_registry_->StopAll();
     }
     audio_track_ = nullptr;
     video_track_ = nullptr;
@@ -253,7 +254,7 @@ std::optional<std::string> Conductor::ResolveWebrtcAlias(const std::string &requ
 }
 
 void Conductor::InitializeDataChannels(webrtc::scoped_refptr<RtcPeer> peer) {
-    peer->SetIpcEndpoints(ipc_endpoints_);
+    peer->SetEndpointRegistry(endpoint_registry_);
 
     if (peer->is_sfu_peer() && !peer->is_publisher()) {
         // A LiveKit subscriber peer opens via onDataChannel.
@@ -540,7 +541,7 @@ void Conductor::InitializePeerConnectionFactory() {
     peer_connection_factory_ = webrtc::CreateModularPeerConnectionFactory(std::move(deps));
 }
 
-void Conductor::InitializeIpcEndpoints() {
+void Conductor::InitializeEndpointRegistry() {
     if (!args.enable_ipc) {
         if (args.enable_gamepad) {
             ERROR_PRINT("--enable-gamepad needs --enable-ipc: without it there are no data "
@@ -549,14 +550,8 @@ void Conductor::InitializeIpcEndpoints() {
         return;
     }
 
-    ipc_endpoints_ = std::make_shared<IpcEndpoints>();
-    ipc_endpoints_->Add(IpcEndpoints::kDefault, UnixSocketServer::Create(args.socket_path),
-                        /*length_prefixed=*/false, /*bidirectional=*/true);
-    if (args.enable_gamepad) {
-        ipc_endpoints_->Add(IpcEndpoints::kGamepad,
-                            UnixSocketServer::Create(args.gamepad_socket_path),
-                            /*length_prefixed=*/true, /*bidirectional=*/false);
-    }
+    endpoint_registry_ = std::make_shared<EndpointRegistry>();
+    endpoint_registry_->Add(IpcEndpoint::Create(args.socket_path));
 
-    ipc_endpoints_->StartAll();
+    endpoint_registry_->StartAll();
 }

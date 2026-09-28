@@ -117,7 +117,7 @@ class RtcPeer : public webrtc::PeerConnectionObserver,
     void SetSink(webrtc::VideoSinkInterface<webrtc::VideoFrame> *video_sink_obj);
     void SetPeer(webrtc::scoped_refptr<webrtc::PeerConnectionInterface> peer);
     webrtc::scoped_refptr<webrtc::PeerConnectionInterface> GetPeer();
-    void SetIpcEndpoints(std::shared_ptr<IpcEndpoints> endpoints);
+    void SetEndpointRegistry(std::shared_ptr<EndpointRegistry> registry);
     std::shared_ptr<RtcChannel> CreateDataChannel(ChannelRole role,
                                                   std::optional<int> id = std::nullopt);
     std::shared_ptr<RtcChannel> GetChannel(ChannelRole role) const;
@@ -180,7 +180,7 @@ class RtcPeer : public webrtc::PeerConnectionObserver,
     std::unique_ptr<webrtc::SessionDescriptionInterface> modified_desc_;
     std::unique_ptr<webrtc::SessionDescriptionInterface> rollback_desc_;
 
-    std::shared_ptr<IpcEndpoints> ipc_endpoints_;
+    std::shared_ptr<EndpointRegistry> endpoint_registry_;
     mutable std::mutex channels_mutex_;
     std::map<ChannelRole, std::shared_ptr<RtcChannel>> channels_;
     webrtc::scoped_refptr<webrtc::PeerConnectionInterface> peer_connection_;

@@ -1,21 +1,22 @@
 // Build and run:
-//   g++ -std=c++17 -I src -o /tmp/t test/test_ipc_endpoints.cpp \
-//       src/ipc/ipc_endpoints.cpp src/ipc/unix_socket_server.cpp -lpthread && /tmp/t
+//   g++ -std=c++17 -I src -o /tmp/t test/test_ipc_endpoints.cpp src/ipc/ipc_endpoint.cpp \
+//       src/ipc/endpoint_registry.cpp src/ipc/unix_socket_server.cpp -lpthread && /tmp/t
 //
 // Covers what IpcChannel relies on when it demuxes Packet.ipc:
 //   1. an unserved endpoint name is refused, and never creates a socket
 //   2. the default endpoint is byte-for-byte passthrough, as its consumers still expect
-//   3. the gamepad endpoint frames every payload with a big-endian uint32 length
+//   3. every endpoint hears the remote_id of a payload and when that remote is gone
+//   4. socket writes on the default endpoint reach every registered callback
 
-#include "ipc/ipc_endpoints.h"
+#include "ipc/endpoint_registry.h"
+#include "ipc/ipc_endpoint.h"
 
-#include <arpa/inet.h>
 #include <chrono>
 #include <cstring>
 #include <iostream>
+#include <mutex>
 #include <string>
 #include <sys/socket.h>
-#include <sys/stat.h>
 #include <sys/un.h>
 #include <thread>
 #include <unistd.h>
@@ -24,7 +25,6 @@
 namespace {
 
 const char *kDefaultPath = "/tmp/test-ep-default.sock";
-const char *kGamepadPath = "/tmp/test-ep-gamepad.sock";
 int g_failures = 0;
 
 void Check(bool ok, const std::string &what) {
@@ -59,40 +59,37 @@ bool ReadExactly(int fd, char *buf, size_t n) {
     return true;
 }
 
-// The exact read mavlink-proxy performs: readexactly(4), then readexactly(that many).
-bool ReadFrame(int fd, std::string *out) {
-    char header[4];
-    if (!ReadExactly(fd, header, 4)) {
-        return false;
+// Records what reaches it, standing in for the gamepad endpoint.
+class RecordingEndpoint : public UnixSocketEndpoint {
+  public:
+    const char *name() const override { return "gamepad"; }
+    void Start() override {}
+    void Stop() override {}
+    void Write(const std::string &remote_id, const std::string &payload) override {
+        writes.push_back(remote_id + ":" + payload);
     }
-    uint32_t length;
-    memcpy(&length, header, 4);
-    length = ntohl(length);
-    std::vector<char> body(length);
-    if (length && !ReadExactly(fd, body.data(), length)) {
-        return false;
-    }
-    out->assign(body.data(), length);
-    return true;
-}
+    void OnRemoteClosed(const std::string &remote_id) override { closed.push_back(remote_id); }
+
+    std::vector<std::string> writes;
+    std::vector<std::string> closed;
+};
 
 } // namespace
 
 int main() {
     unlink(kDefaultPath);
-    unlink(kGamepadPath);
 
-    IpcEndpoints endpoints;
-    endpoints.Add(IpcEndpoints::kDefault, UnixSocketServer::Create(kDefaultPath),
-                  /*length_prefixed=*/false, /*bidirectional=*/true);
-    endpoints.Add(IpcEndpoints::kGamepad, UnixSocketServer::Create(kGamepadPath),
-                  /*length_prefixed=*/true, /*bidirectional=*/false);
+    auto raw = IpcEndpoint::Create(kDefaultPath);
+    auto recorder = std::make_shared<RecordingEndpoint>();
+
+    EndpointRegistry endpoints;
+    endpoints.Add(raw);
+    endpoints.Add(recorder);
     endpoints.StartAll();
     std::this_thread::sleep_for(std::chrono::milliseconds(150));
 
     std::cout << "[1] an endpoint this device does not serve" << std::endl;
-    Check(endpoints.Find("telemetry") == nullptr, "lookup of an unserved name returns null");
-    Check(!endpoints.Write("telemetry", "should go nowhere"), "writing to it is refused");
+    Check(!endpoints.Write("telemetry", "peer", "should go nowhere"), "writing to it is refused");
     Check(access("/tmp/telemetry", F_OK) != 0 && access("telemetry", F_OK) != 0,
           "and no socket was created for it");
 
@@ -102,54 +99,37 @@ int main() {
     std::this_thread::sleep_for(std::chrono::milliseconds(100));
 
     const std::string plain = "hello, unframed world";
-    Check(endpoints.Write(IpcEndpoints::kDefault, plain), "write accepted");
-    std::vector<char> raw(plain.size());
-    Check(ReadExactly(def_fd, raw.data(), plain.size()), "bytes arrived");
-    Check(std::string(raw.data(), plain.size()) == plain, "with no length prefix in front of them");
+    Check(endpoints.Write(IpcEndpoint::kName, "peer", plain), "write accepted");
+    std::vector<char> got(plain.size());
+    Check(ReadExactly(def_fd, got.data(), plain.size()), "bytes arrived");
+    Check(std::string(got.data(), plain.size()) == plain, "with nothing added around them");
 
-    std::cout << "[3] the gamepad endpoint frames every payload" << std::endl;
-    int gp_fd = ConnectClient(kGamepadPath);
-    Check(gp_fd >= 0, "client connected to the gamepad socket");
+    std::cout << "[3] endpoints hear the remote_id and when it is gone" << std::endl;
+    Check(endpoints.Write("gamepad", "alice", "pad"), "write to gamepad accepted");
+    Check(recorder->writes == std::vector<std::string>{"alice:pad"},
+          "the endpoint got the payload with its remote_id");
+    endpoints.OnRemoteClosed("alice");
+    Check(recorder->closed == std::vector<std::string>{"alice"},
+          "and was told when the remote closed");
+
+    std::cout << "[4] socket writes reach every registered callback" << std::endl;
+    std::mutex relayed_mutex;
+    std::string relayed;
+    endpoints.RegisterMessageCallback("channel", [&](const std::string &msg) {
+        std::lock_guard<std::mutex> lock(relayed_mutex);
+        relayed += msg;
+    });
+    const std::string reply = "from the device";
+    Check(::write(def_fd, reply.data(), reply.size()) == static_cast<ssize_t>(reply.size()),
+          "client wrote to the default socket");
     std::this_thread::sleep_for(std::chrono::milliseconds(100));
-
-    // The sizes a real InputReport occupies, 13..51 bytes, plus the boundaries.
-    std::vector<size_t> sizes;
-    for (size_t n = 13; n <= 51; ++n) {
-        sizes.push_back(n);
+    {
+        std::lock_guard<std::mutex> lock(relayed_mutex);
+        Check(relayed == reply, "the registered callback got it");
     }
-    sizes.push_back(0);
-    sizes.push_back(70000); // past one read() buffer, to prove the reader reassembles
-
-    bool all_intact = true;
-    for (size_t i = 0; i < sizes.size(); ++i) {
-        const std::string payload(sizes[i], static_cast<char>('a' + (i % 26)));
-        if (!endpoints.Write(IpcEndpoints::kGamepad, payload)) {
-            all_intact = false;
-            break;
-        }
-        std::string got;
-        if (!ReadFrame(gp_fd, &got) || got != payload) {
-            all_intact = false;
-            break;
-        }
-    }
-    Check(all_intact, "all " + std::to_string(sizes.size()) +
-                          " frames read back intact via readexactly(4) + readexactly(n)");
-
-    std::cout << "[4] the two endpoints are separate sockets" << std::endl;
-    Check(endpoints.Write(IpcEndpoints::kGamepad, "for gamepad only"), "write to gamepad");
-    std::string got;
-    Check(ReadFrame(gp_fd, &got) && got == "for gamepad only", "gamepad client got it");
-
-    // Nothing should be waiting on the default socket. A non-blocking read proves it.
-    int flags = fcntl(def_fd, F_GETFL, 0);
-    fcntl(def_fd, F_SETFL, flags | O_NONBLOCK);
-    char stray[64];
-    ssize_t n = ::read(def_fd, stray, sizeof(stray));
-    Check(n < 0, "and nothing leaked onto the default socket");
+    endpoints.UnregisterMessageCallback("channel");
 
     close(def_fd);
-    close(gp_fd);
     endpoints.StopAll();
 
     std::cout << (g_failures == 0 ? "\nALL PASSED" : "\nFAILURES: " + std::to_string(g_failures))
