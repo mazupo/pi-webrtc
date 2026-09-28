@@ -29,6 +29,7 @@
 #include "capturer/v4l2_capturer.h"
 #include "common/jpeg_util.h"
 #include "common/logging.h"
+#include "ipc/gamepad_endpoint.h"
 #include "ipc/ipc_endpoint.h"
 #include "recorder/media_query.h"
 #include "rtc/custom_video_encoder_factory.h"
@@ -552,6 +553,9 @@ void Conductor::InitializeEndpointRegistry() {
 
     endpoint_registry_ = std::make_shared<EndpointRegistry>();
     endpoint_registry_->Add(IpcEndpoint::Create(args.socket_path));
+    if (args.enable_gamepad) {
+        endpoint_registry_->Add(GamepadEndpoint::Create(args.gamepad_socket_path));
+    }
 
     endpoint_registry_->StartAll();
 }
