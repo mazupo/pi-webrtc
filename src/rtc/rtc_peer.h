@@ -183,7 +183,6 @@ class RtcPeer : public webrtc::PeerConnectionObserver,
     webrtc::PeerConnectionInterface::SignalingState signaling_state_ =
         webrtc::PeerConnectionInterface::SignalingState::kStable;
     std::unique_ptr<webrtc::SessionDescriptionInterface> modified_desc_;
-    std::unique_ptr<webrtc::SessionDescriptionInterface> rollback_desc_;
 
     std::shared_ptr<EndpointRegistry> endpoint_registry_;
     mutable std::mutex channels_mutex_;

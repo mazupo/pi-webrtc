@@ -75,7 +75,6 @@ void RtcPeer::Terminate() {
         peer_connection_ = nullptr;
     }
     modified_desc_.release();
-    rollback_desc_.reset();
 
     TerminateChannels();
 }
@@ -459,7 +458,7 @@ void RtcPeer::SetRemoteSdp(const std::string &sdp, const std::string &sdp_type) 
         if (can_renegotiate()) {
             needs_renegotiation_ = true;
         }
-        rollback_desc_ = webrtc::CreateRollbackSessionDescription();
+        // The peer connection takes ownership of the rollback description.
         peer_connection_->SetLocalDescription(SetSessionDescription::Create(
                                                   [this, sdp, sdp_type]() {
                                                       SetRemoteSdp(sdp, sdp_type);
@@ -468,7 +467,7 @@ void RtcPeer::SetRemoteSdp(const std::string &sdp, const std::string &sdp_type) 
                                                       OnFailure(error);
                                                   })
                                                   .get(),
-                                              rollback_desc_.get());
+                                              webrtc::CreateRollbackSessionDescription().release());
         return;
     }
 
