@@ -1,0 +1,52 @@
+name: Release notes
+
+on:
+  push:
+    tags:
+      - 'v[0-9]+.[0-9]+.[0-9]+'
+
+permissions:
+  contents: write
+
+jobs:
+  notes:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # git log needs history and tags
+
+      - name: Write release notes
+        run: |
+          prev=$(git describe --tags --abbrev=0 HEAD^)
+          {
+            git log --no-merges --format='- %s (%h)' "$prev..HEAD"
+            echo
+            echo "**Full Changelog**: https://github.com/${{ github.repository }}/compare/$prev...${{ github.ref_name }}"
+          } > notes.md
+          # Sponsors can't open the pro repo, so no hashes or compare link
+          git log --no-merges --format='- %s' "$prev..HEAD" > sponsor-notes.md
+
+      # The build workflows upload to the same releases and keep this body.
+      - name: Set release notes
+        if: github.repository != 'mazupo/pi-webrtc-pro'
+        uses: softprops/action-gh-release@v2
+        with:
+          body_path: notes.md
+
+      - name: Set sponsor-pi release notes
+        if: github.repository == 'mazupo/pi-webrtc-pro'
+        uses: softprops/action-gh-release@v2
+        with:
+          repository: mazupo/sponsor-pi
+          token: ${{ secrets.SPONSOR_RELEASE_TOKEN }}
+          body_path: sponsor-notes.md
+
+      - name: Set sponsor-jetson release notes
+        if: github.repository == 'mazupo/pi-webrtc-pro'
+        uses: softprops/action-gh-release@v2
+        with:
+          repository: mazupo/sponsor-jetson
+          token: ${{ secrets.SPONSOR_RELEASE_TOKEN }}
+          body_path: sponsor-notes.md
