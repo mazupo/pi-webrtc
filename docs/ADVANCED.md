@@ -63,7 +63,7 @@ With `--enable-ipc`, DataChannel messages are also broadcast to all participants
 ### 2. Join the room
 
 - See the [example](https://github.com/mazupo/client-sdk-js/blob/main/docs/EXAMPLES.md#play-through-the-livekit-sfu) in [client-sdk-js](https://github.com/mazupo/client-sdk-js)
-- Try it on the Web demo: [https://app.mazupo.com/room](https://app.mazupo.com/room)
+- Try it in the Web demo: [https://app.mazupo.com/room](https://app.mazupo.com/room)
 
 ## Cloudflare Realtime
 
@@ -100,7 +100,7 @@ DataChannel/IPC traffic is not supported yet. But `--enable-ipc` still applies t
 ### 2. Watch streams
 
 - See the [example](https://github.com/mazupo/client-sdk-js/blob/main/docs/EXAMPLES.md#pull-from-the-cloudflare-realtime-sfu) in [client-sdk-js](https://github.com/mazupo/client-sdk-js)
-- Try it on the Web demo: [https://app.mazupo.com/cloudflare](https://app.mazupo.com/cloudflare). Enter the URL and the **Viewer API Key** under **Settings → Network**, add a device with the same `uid`, then select your device. The viewer only needs the device's `uid`. 
+- Try it in the Web demo: [https://app.mazupo.com/cloudflare](https://app.mazupo.com/cloudflare). Enter the URL and the **Viewer API Key** under **Settings → Network**, add a device with the same `uid`, then select your device. The viewer only needs the device's `uid`. 
 
 # Running as a Linux Service
 
@@ -238,55 +238,84 @@ The client can choose the channel for each message. [client-sdk-js](https://gith
 3. On the client side, use `onMessage()`, `sendText()`, or `sendData()` to receive and send messages.
 
 - See [examples](https://github.com/mazupo/client-sdk-js/blob/main/docs/EXAMPLES.md#send-and-receive-ipc-messages) in [client-sdk-js](https://github.com/mazupo/client-sdk-js)
-- Try it on Web demo: [http://app.mazupo.com/interaction](http://app.mazupo.com/interaction)
+- Try it in Web demo: [http://app.mazupo.com/interaction](http://app.mazupo.com/interaction)
 
 # Gamepad Input
 
-[`--enable-gamepad`](CONFIGURATION.md#ipc) lets a browser gamepad control a process on the device through an IPC endpoint named `gamepad`. It requires [`--enable-ipc`](#two-way-datachannel-messaging).
+[`--enable-gamepad`](CONFIGURATION.md#ipc) lets browser gamepads control a process on the device. It also enables [`--enable-ipc`](#two-way-datachannel-messaging).
 
-The gamepad input is forwarded over a lossy DataChannel, so the device always receives the latest input available.
+Gamepad state is sent about 60 times per second over a lossy DataChannel. `pi-webrtc` exposes the latest state on a Unix socket as newline-delimited JSON, so clients do not need to know anything about the WebRTC or protobuf layer.
 
-## Button mapping
+## Reading from Python
+The [gamepad_socket.py](../examples/gamepad_socket.py) example prints every gamepad state received by `pi-webrtc`. The socket path can be changed with `--gamepad-socket-path`.
 
-The browser uses the W3C standard gamepad mapping when available. Buttons pack into one big-endian `uint32`, `buttons[N].pressed` as bit N.
-
-| Bit | Button | Bit | Button | Bit | Button |
-| --- | --- | --- | --- | --- | --- |
-| 0 | A | 6 | LT | 12 | D-pad up |
-| 1 | B | 7 | RT | 13 | D-pad down |
-| 2 | X | 8 | Back/View | 14 | D-pad left |
-| 3 | Y | 9 | Start/Menu | 15 | D-pad right |
-| 4 | LB | 10 | L3 | 16 | Guide |
-| 5 | RB | 11 | R3 | | |
-
-## Reading Gamepad Input
-
-The [gamepad_socket.py](../examples/gamepad_socket.py) example reads gamepad input from the device's `gamepad` IPC endpoint. The gamepad socket path can be changed with `--gamepad-socket-path`.
-
-1. Install the protobuf tools:
+1. Start `pi-webrtc` with gamepad support:
     ```bash
-    pip install protobuf
-    sudo apt install protobuf-compiler
+    /path/to/pi-webrtc --camera=libcamera:0 --fps=60 ... --enable-gamepad
     ```
 
-2. Generate the Python bindings:
-    ```bash
-    protoc -I external/protocol/protos --python_out=examples input.proto common.proto
-    ```
-
-3. Start `pi-webrtc` with IPC and gamepad support:
-    ```bash
-    /path/to/pi-webrtc --camera=libcamera:0 --fps=60 ... --enable-ipc --enable-gamepad
-    ```
-
-4. Run the example and connect a gamepad in the browser:
+2. Run the example and connect a gamepad in the browser:
     ```bash
     python ./examples/gamepad_socket.py
     ```
 
-- See the [example](https://github.com/mazupo/client-sdk-js/blob/main/docs/EXAMPLES.md#drive-a-device-with-a-gamepad). The sender polls the browser's
+- See the [example](https://github.com/mazupo/client-sdk-js/blob/main/docs/EXAMPLES.md#drive-a-device-with-a-gamepad) for a complete client. The sender polls the browser's
 [Gamepad API](https://developer.mozilla.org/en-US/docs/Web/API/Gamepad_API).
-- Try it on Web demo: [http://app.mazupo.com/gamepad](http://app.mazupo.com/gamepad)
+- Try it in the Web demo: [http://app.mazupo.com/gamepad](http://app.mazupo.com/gamepad)
+
+## Snapshots
+
+Each line contains the latest state of all connected gamepads:
+
+```json
+{"device_monotonic_ns":81234567890123,"gamepads":{"alice":{"sequence":1234,"timestamp":{"monotonic_ns":5023000000},"left_x":0.12,"left_y":-0.5,"right_x":0.0,"right_y":0.0,"left_trigger":0.0,"right_trigger":0.87,"buttons":129,"pressed":["a","rt"],"standard_mapping":true}}}
+```
+
+| Field | Description |
+| --- | --- |
+| `device_monotonic_ns` | When this snapshot was created, using the device's monotonic clock. Python's `time.monotonic_ns()` reads the same clock. |
+| `gamepads` | One entry per sender. Empty when no gamepad is sending. |
+| `sequence` | The sender's report counter. Gaps mean snapshots were dropped. |
+| `timestamp.monotonic_ns` | The browser's timestamp when provided. It is not comparable with `device_monotonic_ns`. |
+| `left_x`, `left_y`, `right_x`, `right_y` | Sticks, -1 to 1, `+y` down. |
+| `left_trigger`, `right_trigger` | 0 to 1. |
+| `buttons` | Contains the button state as a bitmask. |
+| `pressed` | Contains names for the standard buttons (bits 0–16). |
+| `standard_mapping` | `false` when the browser does not recognize the standard mapping; button names may not match the physical buttons. |
+
+The gamepad key is the peer ID `pi-webrtc` assigns to each MQTT client, kept across WebRTC reconnects within `--peer-timeout`, or the LiveKit participant identity.
+
+Unknown fields should be ignored; new fields may be added in future releases.
+
+## Button mapping
+
+The browser uses the W3C standard gamepad mapping when available.
+
+| Bit | Name | Xbox | PlayStation |
+| --- | --- | --- | --- |
+| 0 | `a` | A | Cross |
+| 1 | `b` | B | Circle |
+| 2 | `x` | X | Square |
+| 3 | `y` | Y | Triangle |
+| 4 | `lb` | LB | L1 |
+| 5 | `rb` | RB | R1 |
+| 6 | `lt` | LT | L2 |
+| 7 | `rt` | RT | R2 |
+| 8 | `back` | View | Create |
+| 9 | `start` | Menu | Options |
+| 10 | `l3` | Left stick press | L3 |
+| 11 | `r3` | Right stick press | R3 |
+| 12 | `dpad_up` | D-pad up | D-pad up |
+| 13 | `dpad_down` | D-pad down | D-pad down |
+| 14 | `dpad_left` | D-pad left | D-pad left |
+| 15 | `dpad_right` | D-pad right | D-pad right |
+| 16 | `guide` | Xbox button | PS button |
+
+## Disconnects and stale input
+
+- A gamepad is removed immediately when `pi-webrtc` tears down its connection.
+- It is also removed once no input has arrived from it for 500 ms. This covers cases such as a backgrounded browser tab, an unplugged gamepad, or a lost network connection.
+- If nobody else is sending, no new snapshot is produced. Check the age of the last one, `time.monotonic_ns() - device_monotonic_ns`, against a limit of your own.
 
 # Stream AI or Any Custom Feed to a Virtual Camera
 

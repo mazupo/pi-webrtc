@@ -131,16 +131,14 @@ DataChannel commands that drive on-demand capture.
 
 ## IPC
 
-Bridges a WebRTC DataChannel to a local Unix socket, so processes on the device can exchange
-messages with the browser. See [Advanced Usage](ADVANCED.md#two-way-datachannel-messaging)
-and [Gamepad Input](ADVANCED.md#gamepad-input).
+Bridges WebRTC DataChannels to local Unix sockets. See [Advanced Usage](ADVANCED.md#two-way-datachannel-messaging) and [Gamepad Input](ADVANCED.md#gamepad-input).
 
 | Option | Default | Description |
 |---|---|---|
-| `--enable-ipc` | `false` | Enable the IPC relay over DataChannels. Opens both a lossy (UDP-like) and a reliable (TCP-like) channel; the client picks one per message. |
-| `--socket-path` | `/tmp/pi-webrtc-ipc.sock` | Unix domain socket used to bridge the DataChannel to local applications. |
-| `--enable-gamepad` | `false` | Serve the `gamepad` endpoint on its own socket, carrying operator input as length-prefixed `protocol.InputReport`. Requires `--enable-ipc`. See [Gamepad Input](ADVANCED.md#gamepad-input). |
-| `--gamepad-socket-path` | `/tmp/pi-webrtc-gamepad.sock` | Where `--enable-gamepad` puts its socket. |
+| `--enable-ipc` | `false` | Enable IPC over WebRTC DataChannels. |
+| `--socket-path` | `/tmp/pi-webrtc-ipc.sock` | Unix socket for IPC messages. |
+| `--enable-gamepad` | `false` | Enable browser gamepad input. Implies `--enable-ipc`. |
+| `--gamepad-socket-path` | `/tmp/pi-webrtc-gamepad.sock` | Unix socket for gamepad input. |
 
 ## Signaling
 
