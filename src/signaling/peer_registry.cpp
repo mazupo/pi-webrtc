@@ -1,11 +1,18 @@
 #include "signaling/peer_registry.h"
 
-#include <chrono>
 #include <vector>
 
 #include "common/logging.h"
 
 PeerRegistry::~PeerRegistry() { Stop(); }
+
+void PeerRegistry::Cleaner::Wake() {
+    {
+        std::lock_guard<std::mutex> lock(mutex);
+        expiry_pending = true;
+    }
+    cv.notify_one();
+}
 
 void PeerRegistry::Start() {
     if (worker_) {
@@ -13,21 +20,22 @@ void PeerRegistry::Start() {
     }
 
     {
-        std::lock_guard<std::mutex> lock(cleaner_mutex_);
-        stopped_ = false;
+        std::lock_guard<std::mutex> lock(cleaner_->mutex);
+        cleaner_->stopped = false;
     }
 
     worker_ = std::make_unique<Worker>("cleaner", [this]() {
-        std::unique_lock<std::mutex> lock(cleaner_mutex_);
+        std::unique_lock<std::mutex> lock(cleaner_->mutex);
 
-        cleaner_cv_.wait_for(lock, std::chrono::seconds(kCleanupIntervalSec), [this] {
-            return stopped_;
+        cleaner_->cv.wait(lock, [this] {
+            return cleaner_->stopped || cleaner_->expiry_pending;
         });
 
-        if (stopped_) {
+        if (cleaner_->stopped) {
             return;
         }
 
+        cleaner_->expiry_pending = false;
         lock.unlock();
 
         Sweep();
@@ -37,10 +45,10 @@ void PeerRegistry::Start() {
 
 void PeerRegistry::Stop() {
     {
-        std::lock_guard<std::mutex> lock(cleaner_mutex_);
-        stopped_ = true;
+        std::lock_guard<std::mutex> lock(cleaner_->mutex);
+        cleaner_->stopped = true;
     }
-    cleaner_cv_.notify_all();
+    cleaner_->cv.notify_all();
     worker_.reset();
 
     std::unordered_map<std::string, webrtc::scoped_refptr<RtcPeer>> peers;
@@ -60,6 +68,12 @@ void PeerRegistry::Add(webrtc::scoped_refptr<RtcPeer> peer) {
     if (!peer) {
         return;
     }
+
+    peer->OnExpired([cleaner = std::weak_ptr<Cleaner>(cleaner_)](const std::string &) {
+        if (auto c = cleaner.lock()) {
+            c->Wake();
+        }
+    });
 
     std::lock_guard<std::mutex> lock(mutex_);
     peers_[peer->id()] = std::move(peer);

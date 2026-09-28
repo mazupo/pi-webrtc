@@ -28,7 +28,14 @@ class PeerRegistry {
     void Remove(const std::string &peer_id);
 
   private:
-    static constexpr int kCleanupIntervalSec = 60;
+    struct Cleaner {
+        std::mutex mutex;
+        std::condition_variable cv;
+        bool stopped = false;
+        bool expiry_pending = false;
+
+        void Wake();
+    };
 
     void Sweep();
 
@@ -37,10 +44,7 @@ class PeerRegistry {
     std::mutex mutex_;
     std::unordered_map<std::string, webrtc::scoped_refptr<RtcPeer>> peers_;
 
-    std::mutex cleaner_mutex_;
-    std::condition_variable cleaner_cv_;
-    bool stopped_ = false;
-
+    std::shared_ptr<Cleaner> cleaner_ = std::make_shared<Cleaner>();
     std::unique_ptr<Worker> worker_;
 };
 
