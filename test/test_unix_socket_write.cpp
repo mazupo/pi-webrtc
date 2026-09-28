@@ -2,10 +2,13 @@
 //   g++ -std=c++17 -I src -o /tmp/t test/test_unix_socket_write.cpp src/ipc/unix_socket_server.cpp
 //   -lpthread && /tmp/t
 
-// Regression test for the UnixSocketServer write path.
+// Regression test for the UnixSocketServer write paths.
 //
 //   1. framing survives a long run of length-prefixed messages
 //   2. a consumer that stops reading no longer stalls a healthy one
+//   3. PublishLatest leaves at most one unread message per client
+//   4. a client that connects later gets the latest message at once
+//   5. a client that stopped reading for good is dropped without SIGPIPE
 //
 // Before the fix (2) hangs forever: Write() blocked on the stalled client while holding
 // the mutex, with no send timeout to break it out.
@@ -17,6 +20,7 @@
 #include <chrono>
 #include <cstring>
 #include <iostream>
+#include <poll.h>
 #include <string>
 #include <sys/socket.h>
 #include <sys/un.h>
@@ -159,11 +163,93 @@ void TestStalledConsumerDoesNotStarveHealthyOne() {
     server->Stop();
 }
 
+bool Readable(int fd, int timeout_ms) {
+    pollfd pfd{fd, POLLIN, 0};
+    return poll(&pfd, 1, timeout_ms) > 0;
+}
+
+bool ReadLine(int fd, std::string *line) {
+    line->clear();
+    char c;
+    while (::read(fd, &c, 1) == 1) {
+        if (c == '\n') {
+            return true;
+        }
+        line->push_back(c);
+    }
+    return false;
+}
+
+std::string Line(int n) { return "v" + std::to_string(n) + "\n"; }
+
+void TestLatestKeepsOneUnread() {
+    std::cout << "[3] PublishLatest leaves at most one unread message per client" << std::endl;
+    auto server = UnixSocketServer::Create(kPath);
+    server->Start();
+    std::this_thread::sleep_for(std::chrono::milliseconds(100));
+
+    int fd = ConnectClient();
+    Check(fd >= 0, "client connected");
+    std::this_thread::sleep_for(std::chrono::milliseconds(100));
+
+    for (int v = 1; v <= 100; ++v) {
+        server->PublishLatest(Line(v));
+    }
+    std::string line;
+    Check(ReadLine(fd, &line) && line == "v1", "the first publish went out at once");
+    Check(!Readable(fd, 100), "the next 99 waited instead of queueing behind it");
+
+    server->PublishLatest(Line(101));
+    Check(ReadLine(fd, &line) && line == "v101", "once read, the next publish is the newest");
+
+    close(fd);
+    server->Stop();
+}
+
+void TestLateClientGetsLatest() {
+    std::cout << "[4] a client that connects later gets the latest message at once" << std::endl;
+    auto server = UnixSocketServer::Create(kPath);
+    server->Start();
+    server->PublishLatest(Line(7));
+    std::this_thread::sleep_for(std::chrono::milliseconds(100));
+
+    int fd = ConnectClient();
+    std::string line;
+    Check(Readable(fd, 1000) && ReadLine(fd, &line) && line == "v7",
+          "the late client got the latest message");
+
+    close(fd);
+    server->Stop();
+}
+
+void TestGoneClientIsDropped() {
+    std::cout << "[5] a client that stopped reading for good is dropped without SIGPIPE"
+              << std::endl;
+    auto server = UnixSocketServer::Create(kPath);
+    server->Start();
+    std::this_thread::sleep_for(std::chrono::milliseconds(100));
+
+    int fd = ConnectClient();
+    std::this_thread::sleep_for(std::chrono::milliseconds(100));
+    shutdown(fd, SHUT_RD); // the server's next send gets EPIPE
+
+    server->PublishLatest(Line(1));
+    char c;
+    Check(Readable(fd, 1000) && ::read(fd, &c, 1) == 0, "the server closed its end");
+    std::cout << "  ok   still running, so no SIGPIPE" << std::endl;
+
+    close(fd);
+    server->Stop();
+}
+
 } // namespace
 
 int main() {
     TestFramingIntact();
     TestStalledConsumerDoesNotStarveHealthyOne();
+    TestLatestKeepsOneUnread();
+    TestLateClientGetsLatest();
+    TestGoneClientIsDropped();
     std::cout << (g_failures == 0 ? "\nALL PASSED" : "\nFAILURES: " + std::to_string(g_failures))
               << std::endl;
     return g_failures == 0 ? 0 : 1;

@@ -1,5 +1,7 @@
 #include "ipc/unix_socket_server.h"
 
+#include <linux/sockios.h>
+#include <sys/ioctl.h>
 #include <sys/time.h>
 #include <vector>
 
@@ -16,14 +18,14 @@ UnixSocketServer::UnixSocketServer(const std::string &socket_path)
 
 UnixSocketServer::~UnixSocketServer() { Stop(); }
 
-void UnixSocketServer::RegisterPeerCallback(const std::string &id, MessageCallback callback) {
+void UnixSocketServer::RegisterMessageCallback(const std::string &id, MessageCallback callback) {
     std::lock_guard<std::mutex> lock(mutex_);
-    peer_callbacks_[id] = std::move(callback);
+    message_callbacks_[id] = std::move(callback);
 }
 
-void UnixSocketServer::UnregisterPeerCallback(const std::string &id) {
+void UnixSocketServer::UnregisterMessageCallback(const std::string &id) {
     std::lock_guard<std::mutex> lock(mutex_);
-    peer_callbacks_.erase(id);
+    message_callbacks_.erase(id);
 }
 
 bool UnixSocketServer::WriteAll(int fd, const std::string &message) {
@@ -46,26 +48,80 @@ bool UnixSocketServer::WriteAll(int fd, const std::string &message) {
 }
 
 void UnixSocketServer::Write(const std::string &message) {
+    SendToAll([this, &message](int fd, Client &) {
+        return WriteAll(fd, message);
+    });
+}
+
+void UnixSocketServer::SendToAll(const std::function<bool(int, Client &)> &send) {
     std::vector<int> stale;
     {
         std::lock_guard<std::mutex> lock(mutex_);
-        for (auto it = client_threads_.begin(); it != client_threads_.end();) {
-            if (WriteAll(it->first, message)) {
+        for (auto it = clients_.begin(); it != clients_.end();) {
+            if (send(it->first, it->second)) {
                 ++it;
                 continue;
             }
 
             stale.push_back(it->first);
-            if (it->second.joinable()) {
-                it->second.detach();
+            if (it->second.thread.joinable()) {
+                it->second.thread.detach();
             }
-            it = client_threads_.erase(it);
+            it = clients_.erase(it);
         }
     }
 
     for (int fd : stale) {
         shutdown(fd, SHUT_RDWR);
     }
+}
+
+bool UnixSocketServer::SendLatest(int fd, Client &client) {
+    if (latest_version_ == 0 || client.sent_version == latest_version_) {
+        return true;
+    }
+
+    // Still holding the previous message unread: the next publish tries again.
+    int unread = 0;
+    if (ioctl(fd, SIOCOUTQ, &unread) < 0) {
+        return false;
+    }
+    if (unread > 0) {
+        return true;
+    }
+
+    // MSG_DONTWAIT leaves the fd blocking, so HandleClient's read() is unaffected.
+    ssize_t n = ::send(fd, latest_.data(), latest_.size(), MSG_DONTWAIT | MSG_NOSIGNAL);
+    if (n == static_cast<ssize_t>(latest_.size())) {
+        client.sent_version = latest_version_;
+        return true;
+    }
+    if (n < 0 && (errno == EAGAIN || errno == EWOULDBLOCK || errno == EINTR)) {
+        return true;
+    }
+
+    if (n < 0) {
+        DEBUG_PRINT("Dropping client fd=%d: %s", fd, strerror(errno));
+    } else {
+        // A short write would leave half a message behind.
+        ERROR_PRINT("Dropping client fd=%d after writing %zd of %zu bytes", fd, n, latest_.size());
+    }
+    return false;
+}
+
+void UnixSocketServer::FlushLatest() {
+    SendToAll([this](int fd, Client &client) {
+        return SendLatest(fd, client);
+    });
+}
+
+void UnixSocketServer::PublishLatest(const std::string &message) {
+    {
+        std::lock_guard<std::mutex> lock(mutex_);
+        latest_ = message;
+        ++latest_version_;
+    }
+    FlushLatest();
 }
 
 void UnixSocketServer::Start() {
@@ -109,19 +165,19 @@ void UnixSocketServer::Stop() {
     if (accept_thread_.joinable())
         accept_thread_.join();
 
-    std::unordered_map<int, std::thread> local_clients;
+    std::unordered_map<int, Client> local_clients;
     {
         std::lock_guard<std::mutex> lock(mutex_);
-        for (const auto &[fd, _] : client_threads_) {
+        for (const auto &[fd, _] : clients_) {
             shutdown(fd, SHUT_RDWR);
         }
 
-        local_clients.swap(client_threads_);
+        local_clients.swap(clients_);
     }
 
-    for (auto &[fd, thread] : local_clients) {
-        if (thread.joinable())
-            thread.join(); // already detached ones won't be in here
+    for (auto &[fd, client] : local_clients) {
+        if (client.thread.joinable())
+            client.thread.join(); // already detached ones won't be in here
         close(fd);
     }
 
@@ -144,11 +200,13 @@ void UnixSocketServer::AcceptLoop() {
         send_timeout.tv_usec = 200 * 1000;
         setsockopt(client_fd, SOL_SOCKET, SO_SNDTIMEO, &send_timeout, sizeof(send_timeout));
 
-        std::thread t(&UnixSocketServer::HandleClient, this, client_fd);
         {
             std::lock_guard<std::mutex> lock(mutex_);
-            client_threads_[client_fd] = std::move(t);
+            clients_[client_fd].thread =
+                std::thread(&UnixSocketServer::HandleClient, this, client_fd);
         }
+
+        FlushLatest();
     }
 }
 
@@ -164,7 +222,7 @@ void UnixSocketServer::HandleClient(int client_fd) {
         DEBUG_PRINT("[%d] Received: %s", client_fd, msg.c_str());
 
         std::lock_guard<std::mutex> lock(mutex_);
-        for (const auto &[_, callback] : peer_callbacks_) {
+        for (const auto &[_, callback] : message_callbacks_) {
             if (callback) {
                 callback(msg);
             }
@@ -173,12 +231,12 @@ void UnixSocketServer::HandleClient(int client_fd) {
 
     {
         std::lock_guard<std::mutex> lock(mutex_);
-        auto it = client_threads_.find(client_fd);
-        if (it != client_threads_.end()) {
-            if (std::this_thread::get_id() == it->second.get_id()) {
-                it->second.detach();
+        auto it = clients_.find(client_fd);
+        if (it != clients_.end()) {
+            if (std::this_thread::get_id() == it->second.thread.get_id()) {
+                it->second.thread.detach();
             }
-            client_threads_.erase(it);
+            clients_.erase(it);
         }
     }
 
