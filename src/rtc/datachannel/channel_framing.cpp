@@ -4,12 +4,17 @@
 
 #include "common/logging.h"
 
+PlainFraming::PlainFraming(std::string remote_id)
+    : remote_id_(std::move(remote_id)) {}
+
 std::string PlainFraming::Encode(const uint8_t *data, size_t size) {
     return std::string(reinterpret_cast<const char *>(data), size);
 }
 
-bool PlainFraming::Decode(const webrtc::DataBuffer &buffer, std::string *out) {
+bool PlainFraming::Decode(const webrtc::DataBuffer &buffer, std::string *out,
+                          std::string *remote_id) {
     out->assign(reinterpret_cast<const char *>(buffer.data.data<uint8_t>()), buffer.data.size());
+    *remote_id = remote_id_;
     return true;
 }
 
@@ -30,7 +35,8 @@ std::string LiveKitFraming::Encode(const uint8_t *data, size_t size) {
     return serialized;
 }
 
-bool LiveKitFraming::Decode(const webrtc::DataBuffer &buffer, std::string *out) {
+bool LiveKitFraming::Decode(const webrtc::DataBuffer &buffer, std::string *out,
+                            std::string *remote_id) {
     livekit::DataPacket packet;
     if (!packet.ParseFromArray(buffer.data.data(), buffer.data.size())) {
         DEBUG_PRINT("Failed to parse LiveKit DataPacket");
@@ -47,5 +53,6 @@ bool LiveKitFraming::Decode(const webrtc::DataBuffer &buffer, std::string *out) 
                 packet.participant_identity().c_str(), user.topic().c_str());
 
     *out = user.payload();
+    *remote_id = packet.participant_identity();
     return true;
 }

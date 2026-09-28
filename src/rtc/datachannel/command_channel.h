@@ -45,7 +45,7 @@ class CommandChannel : public RtcChannel {
     void Send(const std::string &request_id, const protocol::Response &response);
 
   protected:
-    void OnPacket(const protocol::Packet &packet) override;
+    void OnPacket(const protocol::Packet &packet, const std::string &remote_id) override;
 
   private:
     std::weak_ptr<StreamChannel> stream_;

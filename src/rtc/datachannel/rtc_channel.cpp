@@ -83,7 +83,8 @@ void RtcChannel::Terminate() {
 
 void RtcChannel::OnMessage(const webrtc::DataBuffer &buffer) {
     std::string payload;
-    if (!framing_->Decode(buffer, &payload)) {
+    std::string remote_id;
+    if (!framing_->Decode(buffer, &payload, &remote_id)) {
         return;
     }
 
@@ -96,7 +97,7 @@ void RtcChannel::OnMessage(const webrtc::DataBuffer &buffer) {
     DEBUG_PRINT("(%s) Received packet body case: %d", label_.c_str(),
                 static_cast<int>(packet.body_case()));
 
-    OnPacket(packet);
+    OnPacket(packet, remote_id);
 }
 
 void RtcChannel::Send(const protocol::Packet &packet) {

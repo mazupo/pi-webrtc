@@ -110,8 +110,7 @@ class RtcChannel : public webrtc::DataChannelObserver {
     void OnMessage(const webrtc::DataBuffer &buffer) override;
 
   protected:
-    // What a packet arriving on this channel means.
-    virtual void OnPacket(const protocol::Packet &packet) = 0;
+    virtual void OnPacket(const protocol::Packet &packet, const std::string &remote_id) = 0;
 
     void Send(const protocol::Packet &packet);
 

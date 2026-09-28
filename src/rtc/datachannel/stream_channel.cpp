@@ -12,7 +12,7 @@ StreamChannel::StreamChannel(webrtc::scoped_refptr<webrtc::DataChannelInterface>
                              std::unique_ptr<ChannelFraming> framing)
     : RtcChannel(ChannelRole::Stream, std::move(data_channel), std::move(framing)) {}
 
-void StreamChannel::OnPacket(const protocol::Packet &packet) {
+void StreamChannel::OnPacket(const protocol::Packet &packet, const std::string &remote_id) {
     // The stream channel is device-to-client only; the client asks on the command channel.
     DEBUG_PRINT("Ignoring unexpected inbound packet with body case %d on the stream channel",
                 static_cast<int>(packet.body_case()));

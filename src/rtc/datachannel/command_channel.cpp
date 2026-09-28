@@ -21,7 +21,7 @@ void CommandChannel::RegisterHandler(RequestCase request_case, Handler func) {
     handlers_[request_case].push_back(std::move(func));
 }
 
-void CommandChannel::OnPacket(const protocol::Packet &packet) {
+void CommandChannel::OnPacket(const protocol::Packet &packet, const std::string &remote_id) {
     // This channel carries client requests and nothing else. A response or stream body
     // is the device's own direction of travel, and a raw body belongs to the IPC
     // channels -- neither has any business arriving here.
