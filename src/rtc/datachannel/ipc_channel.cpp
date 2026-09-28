@@ -46,7 +46,7 @@ IpcChannel::IpcChannel(ChannelRole role,
     : RtcChannel(role, std::move(data_channel), std::move(framing)),
       endpoints_(std::move(endpoints)) {
     ForEachBidirectionalEndpoint([this](const IpcEndpoints::Endpoint &endpoint) {
-        endpoint.server->RegisterPeerCallback(id(), [this](const std::string &msg) {
+        endpoint.server->RegisterMessageCallback(id(), [this](const std::string &msg) {
             SendToPeer(msg);
         });
     });
@@ -54,7 +54,7 @@ IpcChannel::IpcChannel(ChannelRole role,
 
 IpcChannel::~IpcChannel() {
     ForEachBidirectionalEndpoint([this](const IpcEndpoints::Endpoint &endpoint) {
-        endpoint.server->UnregisterPeerCallback(id());
+        endpoint.server->UnregisterMessageCallback(id());
     });
 }
 
