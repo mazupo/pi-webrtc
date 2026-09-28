@@ -39,6 +39,24 @@ void RtcPeer::RenewSafetyFlag(webrtc::scoped_refptr<webrtc::PendingTaskSafetyFla
     flag = webrtc::PendingTaskSafetyFlag::CreateDetached();
 }
 
+// Closes the connection unless it connects within timeout_; re-arming restarts the wait.
+void RtcPeer::ArmConnectDeadline() {
+    RenewSafetyFlag(connect_deadline_safety_);
+    DEBUG_PRINT("Arming connect deadline for %d seconds (%s).", timeout_, id_.c_str());
+    webrtc::Thread::Current()->PostDelayedTask(
+        webrtc::SafeTask(connect_deadline_safety_,
+                         [this]() {
+                             if (peer_connection_ && !is_connected_.load()) {
+                                 DEBUG_PRINT("Not connected within %d seconds. Closing "
+                                             "connection (%s).",
+                                             timeout_, id_.c_str());
+                                 peer_connection_->Close();
+                                 peer_connection_ = nullptr;
+                             }
+                         }),
+        webrtc::TimeDelta::Seconds(timeout_));
+}
+
 void RtcPeer::Terminate() {
     is_connected_.store(false);
     is_expired_.store(true);
@@ -46,14 +64,11 @@ void RtcPeer::Terminate() {
     on_local_sdp_fn_ = nullptr;
     on_local_ice_fn_ = nullptr;
 
-    if (peer_timeout_safety_) {
-        peer_timeout_safety_->SetNotAlive();
+    if (connect_deadline_safety_) {
+        connect_deadline_safety_->SetNotAlive();
     }
     if (sdp_emit_safety_) {
         sdp_emit_safety_->SetNotAlive();
-    }
-    if (reconnect_grace_safety_) {
-        reconnect_grace_safety_->SetNotAlive();
     }
     if (peer_connection_) {
         peer_connection_->Close();
@@ -239,19 +254,7 @@ void RtcPeer::OnSignalingChange(webrtc::PeerConnectionInterface::SignalingState 
         new_state == webrtc::PeerConnectionInterface::SignalingState::kHaveLocalOffer ||
         new_state == webrtc::PeerConnectionInterface::SignalingState::kHaveRemoteOffer);
     if (new_state == webrtc::PeerConnectionInterface::SignalingState::kHaveRemoteOffer) {
-        // Cancel any previous timeout and schedule a new one on the signaling thread.
-        RenewSafetyFlag(peer_timeout_safety_);
-        webrtc::Thread::Current()->PostDelayedTask(
-            webrtc::SafeTask(
-                peer_timeout_safety_,
-                [this]() {
-                    if (peer_connection_ && !is_expired_.load() && !is_connected_.load()) {
-                        DEBUG_PRINT("Connection timeout after kConnecting. Closing connection.");
-                        peer_connection_->Close();
-                        peer_connection_ = nullptr;
-                    }
-                }),
-            webrtc::TimeDelta::Seconds(timeout_));
+        ArmConnectDeadline();
     } else if (new_state == webrtc::PeerConnectionInterface::SignalingState::kStable &&
                previous_state ==
                    webrtc::PeerConnectionInterface::SignalingState::kHaveRemoteOffer &&
@@ -291,8 +294,8 @@ void RtcPeer::OnConnectionChange(webrtc::PeerConnectionInterface::PeerConnection
     DEBUG_PRINT("OnConnectionChange => %s", std::string(state).c_str());
     if (new_state == webrtc::PeerConnectionInterface::PeerConnectionState::kConnected) {
         is_connected_.store(true);
-        // Cancel the pending reconnect-grace.
-        RenewSafetyFlag(reconnect_grace_safety_);
+        // Cancel the pending connect deadline.
+        RenewSafetyFlag(connect_deadline_safety_);
         if (needs_renegotiation_ &&
             signaling_state_ == webrtc::PeerConnectionInterface::SignalingState::kStable) {
             needs_renegotiation_ = false;
@@ -301,25 +304,7 @@ void RtcPeer::OnConnectionChange(webrtc::PeerConnectionInterface::PeerConnection
         }
     } else if (new_state == webrtc::PeerConnectionInterface::PeerConnectionState::kFailed) {
         is_connected_.store(false);
-        RenewSafetyFlag(reconnect_grace_safety_);
-        auto *current_thread = webrtc::Thread::Current();
-        DEBUG_PRINT("Arming reconnect-grace timer (thread=%p) for %d seconds (%s).",
-                    (void *)current_thread, timeout_, id_.c_str());
-        current_thread->PostDelayedTask(
-            webrtc::SafeTask(
-                reconnect_grace_safety_,
-                [this]() {
-                    DEBUG_PRINT("Reconnect-grace timer fired (%s): has_pc=%d, connected=%d.",
-                                id_.c_str(), peer_connection_ != nullptr, is_connected_.load());
-                    if (peer_connection_ && !is_connected_.load()) {
-                        DEBUG_PRINT("No reconnect within %d seconds. Closing connection (%s).",
-                                    timeout_, id_.c_str());
-                        peer_connection_->Close();
-                        peer_connection_ = nullptr;
-                        MarkExpired();
-                    }
-                }),
-            webrtc::TimeDelta::Seconds(timeout_));
+        ArmConnectDeadline();
     } else if (new_state == webrtc::PeerConnectionInterface::PeerConnectionState::kClosed) {
         is_connected_.store(false);
         MarkExpired();
