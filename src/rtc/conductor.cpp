@@ -544,10 +544,6 @@ void Conductor::InitializePeerConnectionFactory() {
 
 void Conductor::InitializeEndpointRegistry() {
     if (!args.enable_ipc) {
-        if (args.enable_gamepad) {
-            ERROR_PRINT("--enable-gamepad needs --enable-ipc: without it there are no data "
-                        "channels for gamepad input to arrive on.");
-        }
         return;
     }
 
