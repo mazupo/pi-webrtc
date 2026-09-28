@@ -68,7 +68,7 @@ void PeerRegistry::Add(webrtc::scoped_refptr<RtcPeer> peer) {
 webrtc::scoped_refptr<RtcPeer> PeerRegistry::Get(const std::string &peer_id) {
     std::lock_guard<std::mutex> lock(mutex_);
     auto it = peers_.find(peer_id);
-    if (it != peers_.end()) {
+    if (it != peers_.end() && it->second && !it->second->is_expired()) {
         return it->second;
     }
     return nullptr;
