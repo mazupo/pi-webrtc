@@ -96,6 +96,19 @@ void RtcPeer::SetEndpointRegistry(std::shared_ptr<EndpointRegistry> registry) {
     endpoint_registry_ = std::move(registry);
 }
 
+// Fires once on the signaling thread, after the callback that expired the peer returns.
+void RtcPeer::OnExpired(OnExpiredFunc func) { on_expired_fn_ = std::move(func); }
+
+void RtcPeer::MarkExpired() {
+    if (is_expired_.exchange(true) || !on_expired_fn_) {
+        return;
+    }
+    // Holds copies only, so the listener may release this peer before the task runs.
+    webrtc::Thread::Current()->PostTask([fn = on_expired_fn_, id = id_]() {
+        fn(id);
+    });
+}
+
 std::shared_ptr<RtcChannel> RtcPeer::CreateDataChannel(ChannelRole role, std::optional<int> id) {
     auto init = RoleInit(role);
     // Only LiveKit opens channels in-band.
@@ -303,13 +316,13 @@ void RtcPeer::OnConnectionChange(webrtc::PeerConnectionInterface::PeerConnection
                                     timeout_, id_.c_str());
                         peer_connection_->Close();
                         peer_connection_ = nullptr;
-                        is_expired_.store(true);
+                        MarkExpired();
                     }
                 }),
             webrtc::TimeDelta::Seconds(timeout_));
     } else if (new_state == webrtc::PeerConnectionInterface::PeerConnectionState::kClosed) {
         is_connected_.store(false);
-        is_expired_.store(true);
+        MarkExpired();
     }
 }
 

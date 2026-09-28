@@ -100,6 +100,8 @@ class RtcPeer : public webrtc::PeerConnectionObserver,
                 public webrtc::CreateSessionDescriptionObserver,
                 public SignalingMessageObserver {
   public:
+    using OnExpiredFunc = std::function<void(const std::string &peer_id)>;
+
     static webrtc::scoped_refptr<RtcPeer> Create(PeerConfig config);
 
     RtcPeer(PeerConfig config);
@@ -118,6 +120,7 @@ class RtcPeer : public webrtc::PeerConnectionObserver,
     void SetPeer(webrtc::scoped_refptr<webrtc::PeerConnectionInterface> peer);
     webrtc::scoped_refptr<webrtc::PeerConnectionInterface> GetPeer();
     void SetEndpointRegistry(std::shared_ptr<EndpointRegistry> registry);
+    void OnExpired(OnExpiredFunc func);
     std::shared_ptr<RtcChannel> CreateDataChannel(ChannelRole role,
                                                   std::optional<int> id = std::nullopt);
     std::shared_ptr<RtcChannel> GetChannel(ChannelRole role) const;
@@ -148,6 +151,7 @@ class RtcPeer : public webrtc::PeerConnectionObserver,
     std::string ModifySetupAttribute(const std::string &sdp, const std::string &new_setup);
     void EmitLocalSdp(int delay_sec = 0);
     void FlushPendingIce();
+    void MarkExpired();
     void RenewSafetyFlag(webrtc::scoped_refptr<webrtc::PendingTaskSafetyFlag> &flag);
     std::shared_ptr<RtcChannel> AddChannel(ChannelRole role,
                                            webrtc::scoped_refptr<webrtc::DataChannelInterface> dc);
@@ -170,6 +174,7 @@ class RtcPeer : public webrtc::PeerConnectionObserver,
     std::atomic<bool> is_connected_ = false;
     std::atomic<bool> is_expired_ = false;
     std::atomic<bool> is_negotiating_ = false;
+    OnExpiredFunc on_expired_fn_ = nullptr;
     webrtc::scoped_refptr<webrtc::PendingTaskSafetyFlag> peer_timeout_safety_;
     webrtc::scoped_refptr<webrtc::PendingTaskSafetyFlag> sdp_emit_safety_;
     webrtc::scoped_refptr<webrtc::PendingTaskSafetyFlag> reconnect_grace_safety_;
