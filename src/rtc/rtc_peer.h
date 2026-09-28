@@ -153,6 +153,7 @@ class RtcPeer : public webrtc::PeerConnectionObserver,
     void FlushPendingIce();
     void MarkExpired();
     void RenewSafetyFlag(webrtc::scoped_refptr<webrtc::PendingTaskSafetyFlag> &flag);
+    void ArmConnectDeadline();
     std::shared_ptr<RtcChannel> AddChannel(ChannelRole role,
                                            webrtc::scoped_refptr<webrtc::DataChannelInterface> dc);
     void TerminateChannels();
@@ -175,9 +176,8 @@ class RtcPeer : public webrtc::PeerConnectionObserver,
     std::atomic<bool> is_expired_ = false;
     std::atomic<bool> is_negotiating_ = false;
     OnExpiredFunc on_expired_fn_ = nullptr;
-    webrtc::scoped_refptr<webrtc::PendingTaskSafetyFlag> peer_timeout_safety_;
+    webrtc::scoped_refptr<webrtc::PendingTaskSafetyFlag> connect_deadline_safety_;
     webrtc::scoped_refptr<webrtc::PendingTaskSafetyFlag> sdp_emit_safety_;
-    webrtc::scoped_refptr<webrtc::PendingTaskSafetyFlag> reconnect_grace_safety_;
 
     std::string modified_sdp_;
     webrtc::PeerConnectionInterface::SignalingState signaling_state_ =
