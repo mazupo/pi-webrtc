@@ -91,9 +91,7 @@ combination can run at once on a shared `boost::asio::io_context`. They only car
 ICE exchange — once a peer connects, media and DataChannel traffic flow directly.
 
 Peer bookkeeping belongs to each service rather than the interface. `MqttService` and
-`WhepService` serve many independent clients, so they each hold a `PeerRegistry` that keys
-peers by id and sweeps the expired ones; `LiveKitService` keeps the fixed publisher/subscriber
-pair an SFU needs and no registry at all, and `CloudflareService` keeps a single publisher.
+`WhepService` serve many independent clients, so they each hold a `PeerRegistry` that keys peers by id and drops each one as soon as it expires; `LiveKitService` keeps the fixed publisher/subscriber pair an SFU needs and no registry at all, and `CloudflareService` keeps a single publisher.
 Every service reconnects on its own, so there is no lifecycle beyond connecting and tearing
 down on destruction.
 
