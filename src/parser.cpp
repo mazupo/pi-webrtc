@@ -217,18 +217,14 @@ void Parser::ParseArgs(int argc, char *argv[], Args &args) {
         ("latency-trace-interval", bpo::value<int>(&args.latency_trace_interval)->default_value(args.latency_trace_interval),
             "How often (in seconds) --latency-trace prints its summary.")
         ("enable-ipc", bpo::bool_switch(&args.enable_ipc)->default_value(args.enable_ipc),
-            "Enable IPC relay over WebRTC DataChannels. Both a lossy (UDP-like) and a "
-            "reliable (TCP-like) channel are opened; the client picks one per message.")
+            "Enable IPC over WebRTC DataChannels.")
         ("socket-path", bpo::value<std::string>(&args.socket_path)->default_value(args.socket_path),
-            "Specifies the Unix domain socket path used to bridge messages between "
-            "the WebRTC DataChannel and local IPC applications.")
+            "Unix socket for IPC messages.")
         ("enable-gamepad", bpo::bool_switch(&args.enable_gamepad)->default_value(args.enable_gamepad),
-            "Serve the `gamepad` IPC endpoint on its own socket, carrying operator input as "
-            "protocol.InputReport. Each payload is written with a big-endian uint32 length in "
-            "front of it, because a stream socket has no message boundaries of its own. "
-            "Requires --enable-ipc, which opens the data channels this arrives on.")
+            "Enable browser gamepad input on a Unix socket as newline-delimited JSON. "
+            "Implies --enable-ipc.")
         ("gamepad-socket-path", bpo::value<std::string>(&args.gamepad_socket_path)->default_value(args.gamepad_socket_path),
-            "Where --enable-gamepad puts its socket.")
+            "Unix socket for gamepad input.")
         ("stun-url", bpo::value<std::string>(&args.stun_url)->default_value(args.stun_url),
             "Set the STUN server URL for WebRTC. e.g. `stun:xxx.xxx.xxx`.")
         ("turn-url", bpo::value<std::string>(&args.turn_url)->default_value(args.turn_url),
