@@ -9,6 +9,9 @@
 
 namespace {
 
+// A lossy sender silent this long is taken to have restarted its sequence.
+constexpr auto kSequenceResetGap = std::chrono::seconds(1);
+
 // IPC payloads are opaque bytes. Rendering them as printable text lets a test read what
 // the peer sent straight off the log, with no socket client attached.
 [[maybe_unused]] std::string Preview(const std::string &data) {
@@ -71,18 +74,20 @@ void IpcChannel::ForEachBidirectionalEndpoint(
     }
 }
 
-bool IpcChannel::AcceptSequence(const std::string &endpoint, uint64_t sequence) {
+bool IpcChannel::AcceptSequence(const std::string &remote_id, const std::string &endpoint,
+                                uint64_t sequence) {
     // The ordered channel already delivers in send order, so it has nothing to reject.
     if (role() != ChannelRole::Lossy || sequence == 0) {
         return true;
     }
 
+    auto now = std::chrono::steady_clock::now();
     std::lock_guard<std::mutex> lock(mutex_);
-    auto it = last_sequence_.find(endpoint);
-    if (it != last_sequence_.end() && sequence <= it->second) {
+    auto &last = last_sequence_[{remote_id, endpoint}];
+    if (sequence <= last.sequence && now - last.received_at < kSequenceResetGap) {
         return false;
     }
-    last_sequence_[endpoint] = sequence;
+    last = {sequence, now};
     return true;
 }
 
@@ -97,7 +102,7 @@ void IpcChannel::WriteToEndpoint(const std::string &endpoint, const std::string 
 void IpcChannel::OnPacket(const protocol::Packet &packet, const std::string &remote_id) {
     if (packet.has_ipc()) {
         const auto &ipc = packet.ipc();
-        if (!AcceptSequence(ipc.endpoint(), ipc.sequence())) {
+        if (!AcceptSequence(remote_id, ipc.endpoint(), ipc.sequence())) {
             DEBUG_PRINT("(%s) Dropping stale sequence %llu on IPC endpoint '%s'", label().c_str(),
                         static_cast<unsigned long long>(ipc.sequence()), ipc.endpoint().c_str());
             return;

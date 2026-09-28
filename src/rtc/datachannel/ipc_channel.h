@@ -1,11 +1,13 @@
 #ifndef IPC_CHANNEL_H_
 #define IPC_CHANNEL_H_
 
+#include <chrono>
 #include <functional>
 #include <map>
 #include <memory>
 #include <mutex>
 #include <string>
+#include <utility>
 
 #include "proto/packet.pb.h"
 
@@ -44,7 +46,8 @@ class IpcChannel : public RtcChannel {
     void
     ForEachBidirectionalEndpoint(const std::function<void(const IpcEndpoints::Endpoint &)> &fn);
     void WriteToEndpoint(const std::string &endpoint, const std::string &payload);
-    bool AcceptSequence(const std::string &endpoint, uint64_t sequence);
+    bool AcceptSequence(const std::string &remote_id, const std::string &endpoint,
+                        uint64_t sequence);
 
     // A payload too large for one message, being reassembled. Chunking only happens on
     // the ordered channel, so a header always precedes its chunks.
@@ -53,11 +56,16 @@ class IpcChannel : public RtcChannel {
         size_t received = 0;
     };
 
+    struct LastSequence {
+        uint64_t sequence = 0;
+        std::chrono::steady_clock::time_point received_at;
+    };
+
     std::shared_ptr<IpcEndpoints> endpoints_;
 
     std::mutex mutex_;
     std::map<std::string, Assembly> assemblies_;
-    std::map<std::string, uint64_t> last_sequence_;
+    std::map<std::pair<std::string, std::string>, LastSequence> last_sequence_;
 };
 
 #endif // IPC_CHANNEL_H_
