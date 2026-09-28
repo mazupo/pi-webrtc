@@ -455,6 +455,10 @@ void Parser::ParseArgs(int argc, char *argv[], Args &args) {
     }
 #endif
 
+    if (args.enable_gamepad) {
+        args.enable_ipc = true;
+    }
+
     args.jpeg_quality = std::clamp(args.jpeg_quality, 0, 100);
     args.latency_trace_interval = std::clamp(args.latency_trace_interval, 1, 3600);
     if (args.max_playout_delay_ms >= 0) {
