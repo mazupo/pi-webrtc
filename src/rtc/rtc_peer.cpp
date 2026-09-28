@@ -121,7 +121,7 @@ RtcPeer::AddChannel(ChannelRole role, webrtc::scoped_refptr<webrtc::DataChannelI
             case SignalingBackend::LiveKit:
                 return LiveKitFraming::Create();
             default:
-                return PlainFraming::Create();
+                return PlainFraming::Create(id_);
         }
     })();
 

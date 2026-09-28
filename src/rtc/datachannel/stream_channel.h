@@ -25,7 +25,7 @@ class StreamChannel : public RtcChannel {
     void Send(const std::string &request_id, std::ifstream &file);
 
   protected:
-    void OnPacket(const protocol::Packet &packet) override;
+    void OnPacket(const protocol::Packet &packet, const std::string &remote_id) override;
 };
 
 #endif // STREAM_CHANNEL_H_

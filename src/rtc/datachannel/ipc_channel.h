@@ -29,7 +29,7 @@ class IpcChannel : public RtcChannel {
     ~IpcChannel() override;
 
   protected:
-    void OnPacket(const protocol::Packet &packet) override;
+    void OnPacket(const protocol::Packet &packet, const std::string &remote_id) override;
 
   private:
     // Only one channel may take socket traffic, or every local write reaches the browser

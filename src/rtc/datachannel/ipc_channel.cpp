@@ -94,7 +94,7 @@ void IpcChannel::WriteToEndpoint(const std::string &endpoint, const std::string 
                 payload.size(), endpoint.c_str());
 }
 
-void IpcChannel::OnPacket(const protocol::Packet &packet) {
+void IpcChannel::OnPacket(const protocol::Packet &packet, const std::string &remote_id) {
     if (packet.has_ipc()) {
         const auto &ipc = packet.ipc();
         if (!AcceptSequence(ipc.endpoint(), ipc.sequence())) {
