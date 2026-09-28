@@ -6,6 +6,7 @@
 #include <string>
 
 #include "common/logging.h"
+#include "ipc/ipc_endpoint.h"
 
 namespace {
 
@@ -37,7 +38,7 @@ constexpr auto kSequenceResetGap = std::chrono::seconds(1);
 
 std::shared_ptr<IpcChannel> IpcChannel::Create(
     ChannelRole role, webrtc::scoped_refptr<webrtc::DataChannelInterface> data_channel,
-    std::unique_ptr<ChannelFraming> framing, std::shared_ptr<IpcEndpoints> endpoints) {
+    std::unique_ptr<ChannelFraming> framing, std::shared_ptr<EndpointRegistry> endpoints) {
     return std::make_shared<IpcChannel>(role, std::move(data_channel), std::move(framing),
                                         std::move(endpoints));
 }
@@ -45,32 +46,35 @@ std::shared_ptr<IpcChannel> IpcChannel::Create(
 IpcChannel::IpcChannel(ChannelRole role,
                        webrtc::scoped_refptr<webrtc::DataChannelInterface> data_channel,
                        std::unique_ptr<ChannelFraming> framing,
-                       std::shared_ptr<IpcEndpoints> endpoints)
+                       std::shared_ptr<EndpointRegistry> endpoints)
     : RtcChannel(role, std::move(data_channel), std::move(framing)),
       endpoints_(std::move(endpoints)) {
-    ForEachBidirectionalEndpoint([this](const IpcEndpoints::Endpoint &endpoint) {
-        endpoint.server->RegisterMessageCallback(id(), [this](const std::string &msg) {
+    if (endpoints_ && IsOutboundSink()) {
+        endpoints_->RegisterMessageCallback(id(), [this](const std::string &msg) {
             SendToPeer(msg);
         });
-    });
+    }
 }
 
 IpcChannel::~IpcChannel() {
-    ForEachBidirectionalEndpoint([this](const IpcEndpoints::Endpoint &endpoint) {
-        endpoint.server->UnregisterMessageCallback(id());
-    });
+    if (endpoints_ && IsOutboundSink()) {
+        endpoints_->UnregisterMessageCallback(id());
+    }
+    NotifyRemotesClosed();
 }
 
-void IpcChannel::ForEachBidirectionalEndpoint(
-    const std::function<void(const IpcEndpoints::Endpoint &)> &fn) {
-    if (!endpoints_ || !IsOutboundSink()) {
+// Tells the endpoints that everyone who spoke through this channel is gone.
+void IpcChannel::NotifyRemotesClosed() {
+    std::set<std::string> remote_ids;
+    {
+        std::lock_guard<std::mutex> lock(mutex_);
+        remote_ids.swap(remote_ids_);
+    }
+    if (!endpoints_) {
         return;
     }
-    for (const auto *name : {IpcEndpoints::kDefault, IpcEndpoints::kGamepad}) {
-        const auto *endpoint = endpoints_->Find(name);
-        if (endpoint && endpoint->bidirectional) {
-            fn(*endpoint);
-        }
+    for (const auto &remote_id : remote_ids) {
+        endpoints_->OnRemoteClosed(remote_id);
     }
 }
 
@@ -91,8 +95,11 @@ bool IpcChannel::AcceptSequence(const std::string &remote_id, const std::string 
     return true;
 }
 
-void IpcChannel::WriteToEndpoint(const std::string &endpoint, const std::string &payload) {
-    if (endpoints_ && endpoints_->Write(endpoint, payload)) {
+void IpcChannel::WriteToEndpoint(const std::string &endpoint, const std::string &remote_id,
+                                 const std::string &payload) {
+    if (endpoints_ && endpoints_->Write(endpoint, remote_id, payload)) {
+        std::lock_guard<std::mutex> lock(mutex_);
+        remote_ids_.insert(remote_id);
         return;
     }
     DEBUG_PRINT("(%s) Dropping %zu bytes for unserved IPC endpoint '%s'", label().c_str(),
@@ -107,7 +114,7 @@ void IpcChannel::OnPacket(const protocol::Packet &packet, const std::string &rem
                         static_cast<unsigned long long>(ipc.sequence()), ipc.endpoint().c_str());
             return;
         }
-        WriteToEndpoint(ipc.endpoint(), ipc.payload());
+        WriteToEndpoint(ipc.endpoint(), remote_id, ipc.payload());
         return;
     }
 
@@ -115,7 +122,7 @@ void IpcChannel::OnPacket(const protocol::Packet &packet, const std::string &rem
     if (packet.has_raw()) {
         DEBUG_PRINT("(%s) Received %zu bytes: %s", label().c_str(), packet.raw().size(),
                     Preview(packet.raw()).c_str());
-        WriteToEndpoint(IpcEndpoints::kDefault, packet.raw());
+        WriteToEndpoint(IpcEndpoint::kName, remote_id, packet.raw());
         return;
     }
 
@@ -134,7 +141,7 @@ void IpcChannel::OnPacket(const protocol::Packet &packet, const std::string &rem
             OnStreamChunk(stream.stream_id(), stream.chunk());
             break;
         case protocol::Stream::kTrailer:
-            OnStreamTrailer(stream.stream_id(), stream.trailer());
+            OnStreamTrailer(stream.stream_id(), stream.trailer(), remote_id);
             break;
         default:
             ERROR_PRINT("IPC stream packet without a payload");
@@ -172,7 +179,8 @@ void IpcChannel::OnStreamChunk(const std::string &stream_id, const protocol::Str
 }
 
 void IpcChannel::OnStreamTrailer(const std::string &stream_id,
-                                 const protocol::Stream_Trailer &trailer) {
+                                 const protocol::Stream_Trailer &trailer,
+                                 const std::string &remote_id) {
     std::string body;
     {
         std::lock_guard<std::mutex> lock(mutex_);
@@ -199,7 +207,7 @@ void IpcChannel::OnStreamTrailer(const std::string &stream_id,
     DEBUG_PRINT("(%s) Received stream %s, %zu bytes: %s", label().c_str(), stream_id.c_str(),
                 body.size(), Preview(body).c_str());
 
-    WriteToEndpoint(IpcEndpoints::kDefault, body);
+    WriteToEndpoint(IpcEndpoint::kName, remote_id, body);
 }
 
 void IpcChannel::SendToPeer(const std::string &message) {

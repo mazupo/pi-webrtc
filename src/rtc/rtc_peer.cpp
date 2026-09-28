@@ -92,8 +92,8 @@ webrtc::scoped_refptr<webrtc::PeerConnectionInterface> RtcPeer::GetPeer() {
     return peer_connection_;
 }
 
-void RtcPeer::SetIpcEndpoints(std::shared_ptr<IpcEndpoints> endpoints) {
-    ipc_endpoints_ = std::move(endpoints);
+void RtcPeer::SetEndpointRegistry(std::shared_ptr<EndpointRegistry> registry) {
+    endpoint_registry_ = std::move(registry);
 }
 
 std::shared_ptr<RtcChannel> RtcPeer::CreateDataChannel(ChannelRole role, std::optional<int> id) {
@@ -135,7 +135,8 @@ RtcPeer::AddChannel(ChannelRole role, webrtc::scoped_refptr<webrtc::DataChannelI
             break;
         case ChannelRole::Lossy:
         case ChannelRole::Reliable:
-            channel = IpcChannel::Create(role, std::move(dc), std::move(framing), ipc_endpoints_);
+            channel =
+                IpcChannel::Create(role, std::move(dc), std::move(framing), endpoint_registry_);
             break;
     }
 
