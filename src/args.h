@@ -153,6 +153,7 @@ struct Args {
     int max_bitrate = 0;
     bool hw_accel = false;
     bool no_adaptive = false;
+    std::string scalability_mode = "";
     int min_playout_delay_ms = 0;
     int max_playout_delay_ms = -1;
     bool latency_trace = false;

@@ -21,6 +21,7 @@ struct EncoderConfig {
     uint32_t src_pix_fmt = 0;
     uint32_t dst_pix_fmt = 0;
     v4l2_mpeg_video_bitrate_mode rc_mode = V4L2_MPEG_VIDEO_BITRATE_MODE_CBR;
+    int temporal_layers = 1;
 };
 
 struct ScalerConfig {

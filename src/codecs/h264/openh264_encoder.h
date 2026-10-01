@@ -16,9 +16,14 @@ class Openh264Encoder {
     ~Openh264Encoder();
     bool Init();
     bool Encode(webrtc::scoped_refptr<webrtc::I420BufferInterface> frame_buffer,
+                SFrameBSInfo *info);
+    bool Encode(webrtc::scoped_refptr<webrtc::I420BufferInterface> frame_buffer,
                 std::function<void(uint8_t *, int, bool is_keyframe)> on_capture);
     void ForceIntraFrame();
     void SetRates(int bitrate_bps, float fps);
+
+    static int BitstreamSize(const SFrameBSInfo &info);
+    static void CopyBitstream(const SFrameBSInfo &info, uint8_t *dst);
 
   private:
     EncoderConfig config_;

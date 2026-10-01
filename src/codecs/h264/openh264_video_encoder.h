@@ -32,6 +32,8 @@ class Openh264VideoEncoder : public webrtc::VideoEncoder {
     int height_;
     int target_fps_;
     int target_bitrate_bps_;
+    int num_temporal_layers_;
+    int tl0sync_limit_;
     int number_of_cores_;
     std::optional<int> encoder_thread_limit_;
     std::optional<webrtc::VideoPlayoutDelay> playout_delay_;
@@ -41,7 +43,7 @@ class Openh264VideoEncoder : public webrtc::VideoEncoder {
     std::atomic<webrtc::EncodedImageCallback *> callback_;
     std::unique_ptr<Openh264Encoder> encoder_;
 
-    void SendFrame(const webrtc::VideoFrame &frame, uint8_t *buffer, int size, bool is_keyframe);
+    void SendFrame(const webrtc::VideoFrame &frame, const SFrameBSInfo &info);
 };
 
 #endif // OPENH264_VIDEO_ENCODER_H_

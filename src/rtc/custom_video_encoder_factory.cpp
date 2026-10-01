@@ -11,12 +11,15 @@
 #include "codecs/jetson/jetson_video_encoder.h"
 #endif
 
+#include <absl/algorithm/container.h>
 #include <absl/strings/match.h>
+#include <api/video_codecs/scalability_mode_helper.h>
 #include <media/base/media_constants.h>
 #include <modules/video_coding/codecs/av1/av1_svc_config.h>
 #include <modules/video_coding/codecs/av1/libaom_av1_encoder.h>
 #include <modules/video_coding/codecs/h264/include/h264.h>
 #include <modules/video_coding/codecs/vp8/include/vp8.h>
+#include <modules/video_coding/codecs/vp8/vp8_scalability.h>
 #include <modules/video_coding/codecs/vp9/include/vp9.h>
 
 std::unique_ptr<webrtc::VideoEncoderFactory> CreateCustomVideoEncoderFactory(const Args &args) {
@@ -54,7 +57,11 @@ std::vector<webrtc::SdpVideoFormat> CustomVideoEncoderFactory::GetSupportedForma
 #endif
     } else {
         // vp8
-        supported_codecs.push_back(webrtc::SdpVideoFormat(webrtc::kVp8CodecName));
+        absl::InlinedVector<webrtc::ScalabilityMode, webrtc::kScalabilityModeCount> vp8_modes(
+            std::begin(webrtc::kVP8SupportedScalabilityModes),
+            std::end(webrtc::kVP8SupportedScalabilityModes));
+        supported_codecs.push_back(
+            webrtc::SdpVideoFormat(webrtc::kVp8CodecName, webrtc::CodecParameterMap(), vp8_modes));
         // vp9
         auto supported_vp9_formats = webrtc::SupportedVP9Codecs(true);
         supported_codecs.insert(supported_codecs.end(), std::begin(supported_vp9_formats),
@@ -70,6 +77,28 @@ std::vector<webrtc::SdpVideoFormat> CustomVideoEncoderFactory::GetSupportedForma
     }
 
     return supported_codecs;
+}
+
+webrtc::VideoEncoderFactory::CodecSupport
+CustomVideoEncoderFactory::QueryCodecSupport(const webrtc::SdpVideoFormat &format,
+                                             std::optional<std::string> scalability_mode) const {
+    std::optional<webrtc::ScalabilityMode> mode;
+    if (scalability_mode) {
+        mode = webrtc::ScalabilityModeStringToEnum(*scalability_mode);
+        if (!mode) {
+            return {};
+        }
+    }
+
+    for (const auto &supported : GetSupportedFormats()) {
+        if (!format.IsSameCodec(supported)) {
+            continue;
+        }
+        if (!mode || absl::c_linear_search(supported.scalability_modes, *mode)) {
+            return {.is_supported = true};
+        }
+    }
+    return {};
 }
 
 std::unique_ptr<webrtc::VideoEncoder>

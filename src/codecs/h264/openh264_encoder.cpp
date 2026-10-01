@@ -33,7 +33,11 @@ bool Openh264Encoder::Init() {
     SEncParamExt encoder_param;
     encoder_->GetDefaultParams(&encoder_param);
     encoder_param.iUsageType = CAMERA_VIDEO_REAL_TIME;
-    encoder_param.iTemporalLayerNum = 1;
+    encoder_param.iTemporalLayerNum = config_.temporal_layers;
+    if (config_.temporal_layers > 1) {
+        // One reference buffer per lower temporal layer.
+        encoder_param.iNumRefFrame = config_.temporal_layers - 1;
+    }
     encoder_param.uiIntraPeriod = config_.keyframe_interval;
     encoder_param.uiMaxNalSize = 0;
     encoder_param.iRCMode =
@@ -93,7 +97,7 @@ void Openh264Encoder::SetRates(int bitrate_bps, float fps) {
 }
 
 bool Openh264Encoder::Encode(webrtc::scoped_refptr<webrtc::I420BufferInterface> frame_buffer,
-                             std::function<void(uint8_t *, int, bool)> on_capture) {
+                             SFrameBSInfo *info) {
     src_pic_ = {0};
     src_pic_.iPicWidth = config_.width;
     src_pic_.iPicHeight = config_.height;
@@ -105,28 +109,40 @@ bool Openh264Encoder::Encode(webrtc::scoped_refptr<webrtc::I420BufferInterface> 
     src_pic_.pData[1] = const_cast<uint8_t *>(frame_buffer->DataU());
     src_pic_.pData[2] = const_cast<uint8_t *>(frame_buffer->DataV());
 
-    SFrameBSInfo info;
-    memset(&info, 0, sizeof(SFrameBSInfo));
-    int rv = encoder_->EncodeFrame(&src_pic_, &info);
+    memset(info, 0, sizeof(SFrameBSInfo));
+    int rv = encoder_->EncodeFrame(&src_pic_, info);
 
-    if (rv != cmResultSuccess || info.eFrameType == videoFrameTypeSkip) {
+    return rv == cmResultSuccess && info->eFrameType != videoFrameTypeSkip;
+}
+
+bool Openh264Encoder::Encode(webrtc::scoped_refptr<webrtc::I420BufferInterface> frame_buffer,
+                             std::function<void(uint8_t *, int, bool)> on_capture) {
+    SFrameBSInfo info;
+    if (!Encode(frame_buffer, &info)) {
         return false;
     }
 
-    int required_capacity = 0;
+    encoded_buf_.resize(BitstreamSize(info));
+    CopyBitstream(info, encoded_buf_.data());
+
+    bool is_keyframe = (info.eFrameType == videoFrameTypeIDR);
+    on_capture(encoded_buf_.data(), encoded_buf_.size(), is_keyframe);
+
+    return true;
+}
+
+int Openh264Encoder::BitstreamSize(const SFrameBSInfo &info) {
+    int size = 0;
     for (int i = 0; i < info.iLayerNum; i++) {
         const SLayerBSInfo *layer = &info.sLayerInfo[i];
         for (int nal = 0; nal < layer->iNalCount; ++nal) {
-            required_capacity += layer->pNalLengthInByte[nal];
+            size += layer->pNalLengthInByte[nal];
         }
     }
+    return size;
+}
 
-    if (encoded_buf_.capacity() < required_capacity) {
-        encoded_buf_.reserve(required_capacity);
-    }
-    encoded_buf_.resize(required_capacity);
-
-    int encoded_size = 0;
+void Openh264Encoder::CopyBitstream(const SFrameBSInfo &info, uint8_t *dst) {
     for (int i = 0; i < info.iLayerNum; i++) {
         const SLayerBSInfo *layer = &info.sLayerInfo[i];
         int layer_len = 0;
@@ -134,12 +150,7 @@ bool Openh264Encoder::Encode(webrtc::scoped_refptr<webrtc::I420BufferInterface> 
             layer_len += layer->pNalLengthInByte[nal];
         }
 
-        memcpy(encoded_buf_.data() + encoded_size, layer->pBsBuf, layer_len);
-        encoded_size += layer_len;
+        memcpy(dst, layer->pBsBuf, layer_len);
+        dst += layer_len;
     }
-
-    bool is_keyframe = (info.eFrameType == videoFrameTypeIDR);
-    on_capture(encoded_buf_.data(), encoded_size, is_keyframe);
-
-    return true;
 }

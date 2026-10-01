@@ -9,6 +9,7 @@
 
 #include <algorithm>
 #include <api/video/video_timing.h>
+#include <api/video_codecs/scalability_mode_helper.h>
 #include <boost/program_options.hpp>
 #include <iostream>
 #include <sstream>
@@ -208,6 +209,9 @@ void Parser::ParseArgs(int argc, char *argv[], Args &args) {
         ("no-adaptive", bpo::bool_switch(&args.no_adaptive)->default_value(args.no_adaptive),
             "Disable WebRTC's adaptive resolution scaling. When enabled, "
             "the output resolution will remain fixed regardless of network or device conditions.")
+        ("scalability-mode", bpo::value<std::string>(&args.scalability_mode)->default_value(args.scalability_mode),
+            "Temporal layers for the software video encoders, e.g. L1T2 or L1T3. "
+            "Not supported with --hw-accel. Empty keeps WebRTC's default (L1T1).")
         ("min-playout-delay-ms", bpo::value<int>(&args.min_playout_delay_ms)->default_value(args.min_playout_delay_ms),
             "Lower bound of the playout delay requested from the receiver, in milliseconds. "
             "Only takes effect together with --max-playout-delay-ms.")
@@ -323,6 +327,17 @@ void Parser::ParseArgs(int argc, char *argv[], Args &args) {
                    "Set hw-accel to false to silence this warning.");
     }
 #endif
+
+    if (!args.scalability_mode.empty()) {
+        if (!webrtc::ScalabilityModeStringToEnum(args.scalability_mode)) {
+            ERROR_PRINT("Unknown --scalability-mode: %s", args.scalability_mode.c_str());
+            exit(1);
+        }
+        if (args.hw_accel) {
+            ERROR_PRINT("--scalability-mode is not supported with --hw-accel.");
+            exit(1);
+        }
+    }
 
     if (args.sub_height > 0 && args.sub_width > 0) {
         if (args.sub_width > args.width || args.sub_height > args.height) {
