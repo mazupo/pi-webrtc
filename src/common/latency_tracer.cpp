@@ -359,11 +359,12 @@ void SetSentResolution(int width, int height) {
     g_adapted_height.store(height, std::memory_order_relaxed);
 }
 
-void SetBitrateKbps(int allocated, int configured, int produced) {
+void SetBitrateKbps(int allocated, int configured) {
     g_allocated_kbps.store(allocated, std::memory_order_relaxed);
     g_configured_kbps.store(configured, std::memory_order_relaxed);
-    g_produced_kbps.store(produced, std::memory_order_relaxed);
 }
+
+void SetProducedKbps(int produced) { g_produced_kbps.store(produced, std::memory_order_relaxed); }
 
 void MarkCapture(int64_t frame_timestamp_us, int64_t sensor_us) {
     // Sequence numbers start at 1, so that 0 keeps meaning "this frame is unknown".

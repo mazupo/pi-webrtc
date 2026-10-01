@@ -5,6 +5,7 @@
 #include "common/latency_tracer.h"
 
 #include <modules/video_coding/include/video_error_codes.h>
+#include <rtc_base/bitrate_tracker.h>
 
 namespace {
 
@@ -43,6 +44,10 @@ class TracingEncodedImageCallback : public webrtc::EncodedImageCallback {
         }
         latency::Count(latency::Counter::kFramesEncoded);
 
+        const webrtc::Timestamp now = webrtc::Timestamp::Micros(sent_us);
+        produced_.Update(encoded_image.size(), now);
+        latency::SetProducedKbps(produced_.Rate(now).value_or(webrtc::DataRate::Zero()).kbps());
+
         return result;
     }
 
@@ -54,6 +59,8 @@ class TracingEncodedImageCallback : public webrtc::EncodedImageCallback {
 
   private:
     webrtc::EncodedImageCallback *target_ = nullptr;
+    // Touched only from OnEncodedImage, so it needs no lock.
+    webrtc::BitrateTracker produced_{webrtc::TimeDelta::Millis(1500)};
 };
 
 class TracingVideoEncoder : public webrtc::VideoEncoder {
@@ -122,6 +129,10 @@ class TracingVideoEncoder : public webrtc::VideoEncoder {
     }
 
     void SetRates(const RateControlParameters &parameters) override {
+        if (latency::Enabled()) {
+            latency::SetBitrateKbps(parameters.target_bitrate.get_sum_kbps(),
+                                    parameters.bitrate.get_sum_kbps());
+        }
         encoder_->SetRates(parameters);
     }
 
