@@ -86,10 +86,11 @@ void SetSentResolution(int width, int height);
 
 // The sender's bitrate loop, reported next to the stage timings so a collapse shows up in the same
 // place as the frame timings: what the congestion controller allocated, what the encoder was
-// configured with after the adjuster's correction, and what it actually produced. A gauge, not a
-// histogram -- with several peer connections the last encoder to update rates wins, the same way
-// the resolution gauges behave.
-void SetBitrateKbps(int allocated, int configured, int produced);
+// configured with after libwebrtc's EncoderBitrateAdjuster, and what it actually produced. A
+// gauge, not a histogram -- with several peer connections the last encoder to update rates wins,
+// the same way the resolution gauges behave.
+void SetBitrateKbps(int allocated, int configured);
+void SetProducedKbps(int produced);
 
 // What the capture side stashed for one delivered frame. `seq` counts the frames handed to
 // OnFrame(), so the gap between two consecutive Encode() calls is exactly what

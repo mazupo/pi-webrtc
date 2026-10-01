@@ -1,12 +1,10 @@
 #include "codecs/h264/openh264_video_encoder.h"
-#include "common/latency_tracer.h"
 #include "common/logging.h"
 
 #include <algorithm>
 
 #include <modules/video_coding/include/video_codec_interface.h>
 #include <modules/video_coding/include/video_error_codes.h>
-#include <system_wrappers/include/clock.h>
 
 namespace {
 
@@ -28,10 +26,9 @@ std::unique_ptr<webrtc::VideoEncoder> Openh264VideoEncoder::Create(Args args) {
 Openh264VideoEncoder::Openh264VideoEncoder(Args args)
     : width_(0),
       height_(0),
-      fps_adjuster_(args.fps),
+      target_fps_(args.fps),
       target_bitrate_bps_(0),
       number_of_cores_(1),
-      bitrate_adjuster_(webrtc::Clock::GetRealTimeClock(), .85, 1),
       callback_(nullptr) {
     if (args.max_playout_delay_ms >= 0) {
         playout_delay_ =
@@ -50,12 +47,11 @@ int32_t Openh264VideoEncoder::InitEncode(const webrtc::VideoCodec *codec_setting
     width_ = codec_settings->width;
     height_ = codec_settings->height;
     if (codec_settings->maxFramerate > 0) {
-        fps_adjuster_ = codec_settings->maxFramerate;
+        target_fps_ = codec_settings->maxFramerate;
     }
     target_bitrate_bps_ = codec_settings->startBitrate * 1000;
     number_of_cores_ = settings.number_of_cores;
     encoder_thread_limit_ = settings.encoder_thread_limit;
-    bitrate_adjuster_.SetTargetBitrateBps(target_bitrate_bps_);
 
     encoded_image_.timing_.flags = webrtc::VideoSendTiming::TimingFrameFlags::kInvalid;
     encoded_image_.content_type_ = webrtc::VideoContentType::UNSPECIFIED;
@@ -103,7 +99,7 @@ int32_t Openh264VideoEncoder::Encode(const webrtc::VideoFrame &frame,
         EncoderConfig config;
         config.width = width_;
         config.height = height_;
-        config.fps = fps_adjuster_;
+        config.fps = target_fps_;
         config.bitrate = target_bitrate_bps_;
         config.keyframe_interval = kKeyFrameIntervalFrames;
         config.idr_interval = kKeyFrameIntervalFrames;
@@ -141,19 +137,12 @@ void Openh264VideoEncoder::SetRates(const RateControlParameters &parameters) {
         return;
     }
     target_bitrate_bps_ = parameters.bitrate.get_sum_bps();
-    fps_adjuster_ = parameters.framerate_fps;
-    bitrate_adjuster_.SetTargetBitrateBps(target_bitrate_bps_);
-
-    if (latency::Enabled()) {
-        latency::SetBitrateKbps(
-            target_bitrate_bps_ / 1000, target_bitrate_bps_ / 1000,
-            static_cast<int>(bitrate_adjuster_.GetEstimatedBitrateBps().value_or(0) / 1000));
-    }
+    target_fps_ = parameters.framerate_fps;
 
     if (!encoder_) {
         return;
     }
-    encoder_->SetRates(target_bitrate_bps_, fps_adjuster_);
+    encoder_->SetRates(target_bitrate_bps_, target_fps_);
 }
 
 webrtc::VideoEncoder::EncoderInfo Openh264VideoEncoder::GetEncoderInfo() const {
@@ -169,8 +158,6 @@ webrtc::VideoEncoder::EncoderInfo Openh264VideoEncoder::GetEncoderInfo() const {
 
 void Openh264VideoEncoder::SendFrame(const webrtc::VideoFrame &frame, uint8_t *buffer, int size,
                                      bool is_keyframe) {
-    bitrate_adjuster_.Update(size);
-
     auto encoded_image_buffer = webrtc::EncodedImageBuffer::Create(buffer, size);
 
     webrtc::CodecSpecificInfo codec_specific;

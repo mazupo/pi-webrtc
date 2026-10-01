@@ -1,8 +1,11 @@
 #include "codecs/v4l2/v4l2_encoder.h"
 #include "common/logging.h"
 
+#include <algorithm>
+
 constexpr const char *ENCODER_FILE = "/dev/video11";
 constexpr int BUFFER_NUM = 2;
+constexpr uint32_t kBitrateStepBps = 25000;
 
 std::unique_ptr<V4L2Encoder> V4L2Encoder::Create(EncoderConfig config) {
     auto encoder = std::make_unique<V4L2Encoder>(config);
@@ -95,11 +98,7 @@ void V4L2Encoder::SetIFrameInterval(uint32_t interval) {
 }
 
 void V4L2Encoder::SetBitrate(uint32_t adjusted_bitrate_bps) {
-    if (adjusted_bitrate_bps < 1000000) {
-        adjusted_bitrate_bps = 1000000;
-    } else {
-        adjusted_bitrate_bps = (adjusted_bitrate_bps / 25000) * 25000;
-    }
+    adjusted_bitrate_bps = std::max(adjusted_bitrate_bps / kBitrateStepBps, 1u) * kBitrateStepBps;
 
     if (config_.bitrate != adjusted_bitrate_bps) {
         config_.bitrate = adjusted_bitrate_bps;

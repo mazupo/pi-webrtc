@@ -4,7 +4,6 @@
 #include "codecs/v4l2/v4l2_codec.h"
 
 #include <api/video_codecs/video_encoder.h>
-#include <common_video/include/bitrate_adjuster.h>
 
 #include "codecs/frame_processor.h"
 

@@ -8,7 +8,6 @@
 #include <api/video/video_timing.h>
 #include <api/video_codecs/video_encoder.h>
 #include <common_video/h264/h264_bitstream_parser.h>
-#include <common_video/include/bitrate_adjuster.h>
 #include <modules/video_coding/codecs/h264/include/h264.h>
 
 #include "args.h"
@@ -31,7 +30,7 @@ class Openh264VideoEncoder : public webrtc::VideoEncoder {
   protected:
     int width_;
     int height_;
-    int fps_adjuster_;
+    int target_fps_;
     int target_bitrate_bps_;
     int number_of_cores_;
     std::optional<int> encoder_thread_limit_;
@@ -40,7 +39,6 @@ class Openh264VideoEncoder : public webrtc::VideoEncoder {
     webrtc::EncodedImage encoded_image_;
     webrtc::H264BitstreamParser bitstream_parser_;
     std::atomic<webrtc::EncodedImageCallback *> callback_;
-    webrtc::BitrateAdjuster bitrate_adjuster_;
     std::unique_ptr<Openh264Encoder> encoder_;
 
     void SendFrame(const webrtc::VideoFrame &frame, uint8_t *buffer, int size, bool is_keyframe);
