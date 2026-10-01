@@ -76,6 +76,7 @@ int32_t JetsonVideoEncoder::Encode(const webrtc::VideoFrame &frame,
         config.height = height_;
         config.fps = target_fps_;
         config.bitrate = target_bitrate_bps_;
+        config.max_bitrate = codec_.maxBitrate * 1000;
         config.dst_pix_fmt = codec_fmt;
         config.is_dma_src = frame_buffer->type() == webrtc::VideoFrameBuffer::Type::kNative;
         config.keyframe_interval = kKeyFrameIntervalFrames;
