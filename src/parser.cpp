@@ -21,6 +21,11 @@
 
 namespace bpo = boost::program_options;
 
+// Bitrate defaults for adaptive streams; see the --start-bitrate / --max-bitrate help.
+static constexpr int kAdaptiveStartBitrateKbps = 1000;
+static constexpr int kAdaptiveMinMaxBitrateKbps = 2500;
+static constexpr double kAdaptiveBitsPerPixel = 0.08;
+
 static const std::unordered_map<std::string, int> v4l2_fmt_table = {
     {"mjpeg", V4L2_PIX_FMT_MJPEG},
     {"h264", V4L2_PIX_FMT_H264},
@@ -190,11 +195,11 @@ void Parser::ParseArgs(int argc, char *argv[], Args &args) {
         ("peer-timeout", bpo::value<int>(&args.peer_timeout)->default_value(args.peer_timeout),
             "The connection timeout (in seconds) after receiving a remote offer")
         ("max-bitrate", bpo::value<int>(&args.max_bitrate)->default_value(args.max_bitrate),
-            "Ceiling (in kbps) the video sender may be allocated. 0 keeps WebRTC's own default, "
-            "which is derived from the resolution and is often well below what the link can carry.")
+            "Maximum video bitrate (kbps). 0: 0.08 bpp with adaptive scaling (~10 Mbps at 1080p60, "
+            "min. 2.5 Mbps), or 2.5 Mbps with --no-adaptive.")
         ("start-bitrate", bpo::value<int>(&args.start_bitrate)->default_value(args.start_bitrate),
-            "Initial bandwidth estimate (in kbps). 0 keeps WebRTC's default of 300, which the "
-            "estimator then has to ramp up from while every frame is squeezed to fit it.")
+            "Initial bandwidth estimate (kbps). 0: 1 Mbps with adaptive scaling, or 300 kbps with "
+            "--no-adaptive. Below 500 kbps, sources above VGA may be downscaled permanently.")
         ("min-bitrate", bpo::value<int>(&args.min_bitrate)->default_value(args.min_bitrate),
             "Floor (in kbps) for the bandwidth estimate. 0 keeps WebRTC's default.")
         ("hw-accel", bpo::bool_switch(&args.hw_accel)->default_value(args.hw_accel),
@@ -462,6 +467,23 @@ void Parser::ParseArgs(int argc, char *argv[], Args &args) {
             args.max_playout_delay_ms, 0, static_cast<int>(webrtc::VideoPlayoutDelay::kMax.ms()));
         args.min_playout_delay_ms =
             std::clamp(args.min_playout_delay_ms, 0, args.max_playout_delay_ms);
+    }
+
+    // WebRTC's defaults lock an adaptive stream at a low resolution: below 500 kbps it scales
+    // anything over VGA down before the first frame, and its max caps at 2500 whatever the fps.
+    if (!args.no_adaptive) {
+        const bool sub = args.live_stream_idx == 1;
+        const double pixels_per_sec = static_cast<double>(sub ? args.sub_width : args.width) *
+                                      (sub ? args.sub_height : args.height) * args.fps;
+        if (args.max_bitrate <= 0) {
+            const int bpp_kbps = static_cast<int>(pixels_per_sec * kAdaptiveBitsPerPixel / 1000);
+            args.max_bitrate = std::max(kAdaptiveMinMaxBitrateKbps, bpp_kbps);
+        }
+        if (args.start_bitrate <= 0) {
+            args.start_bitrate = kAdaptiveStartBitrateKbps;
+        }
+        INFO_PRINT("Adaptive scaling: start bitrate %d kbps, max bitrate %d kbps.",
+                   args.start_bitrate, args.max_bitrate);
     }
 
     // BitrateSettings is rejected outright unless 0 <= min <= start <= max, so an inconsistent
