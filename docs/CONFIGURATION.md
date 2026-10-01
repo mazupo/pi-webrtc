@@ -112,8 +112,8 @@ DataChannel commands that drive on-demand capture.
 | Option | Default | Description |
 |---|---|---|
 | `--peer-timeout` | `60` | Connection timeout in seconds after receiving a remote offer. |
-| `--max-bitrate` | `0` | Ceiling in kbps the video sender may be allocated. `0` keeps WebRTC's own default, which is derived from the resolution and is often well below what the link can carry. |
-| `--start-bitrate` | `0` | Initial bandwidth estimate in kbps. `0` keeps WebRTC's default of 300, which the estimator then has to ramp up from while every frame is squeezed to fit it. |
+| `--max-bitrate` | `0` | Maximum video bitrate (kbps). `0`: **0.08 bpp** with adaptive scaling (~10 Mbps at 1080p60, min. 2.5 Mbps), or **2.5 Mbps** with `--no-adaptive`. |
+| `--start-bitrate` | `0` | Initial bandwidth estimate (kbps). `0`: **1 Mbps** with adaptive scaling, or **300 kbps** with `--no-adaptive`. Below 500 kbps, sources above VGA may be downscaled permanently. |
 | `--min-bitrate` | `0` | Floor in kbps for the bandwidth estimate. `0` keeps WebRTC's default. |
 | `--hw-accel` | `false` | Share DMA buffers between decoder, scaler, and encoder to cut CPU usage. See [Camera and Encoding](CAMERA_AND_ENCODING.md#hardware-encoding). |
 | `--no-adaptive` | `false` | Disable adaptive resolution scaling, keeping the output resolution fixed regardless of network or device conditions. |
