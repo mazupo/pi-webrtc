@@ -2,12 +2,17 @@
 #include "common/latency_tracer.h"
 #include "common/logging.h"
 #include "common/v4l2_utils.h"
+#include <algorithm>
 #include <cstring>
 
 #include "Error.h"
 #include "NvBuffer.h"
 
 const int BUFFER_NUM = 4;
+// CBR undershoots when the VBV spans many frames at the current bitrate, so keep it short.
+const int kVbvFrames = 2;
+// At 300 kbit, 1080p encodes hit BlockSide errors or stalled at 30 fps.
+const uint32_t kMinVbvBits = 400000;
 
 static std::atomic<uint32_t> global_enc_id{0};
 
@@ -111,6 +116,16 @@ bool JetsonEncoder::CreateVideoEncoder() {
     ret = encoder_->setHWPresetType(V4L2_ENC_HW_PRESET_ULTRAFAST);
     if (ret < 0)
         ORIGINATE_ERROR("Could not set encoder HW Preset");
+
+    if (config_.max_bitrate > 0) {
+        // Sized from max bitrate because the driver rejects VBV changes once buffers exist.
+        uint32_t vbv_bits = std::max<uint64_t>(static_cast<uint64_t>(config_.max_bitrate) *
+                                                   kVbvFrames / std::max(config_.fps, 1),
+                                               kMinVbvBits);
+        ret = encoder_->setVirtualBufferSize(vbv_bits);
+        if (ret < 0)
+            ORIGINATE_ERROR("Could not set virtual buffer size");
+    }
 
     /* Query, Export and Map the output plane buffers so that we can read
        raw data into the buffers */
