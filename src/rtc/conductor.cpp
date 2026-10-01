@@ -188,8 +188,14 @@ void Conductor::AddTracks(webrtc::scoped_refptr<RtcPeer> peer) {
                 parameters.encodings[0].max_bitrate_bps = args.max_bitrate * 1000;
             }
             parameters.encodings[0].max_framerate = args.fps;
+            if (!args.scalability_mode.empty()) {
+                parameters.encodings[0].scalability_mode = args.scalability_mode;
+            }
         }
-        video_sender_->SetParameters(parameters);
+        auto set_res = video_sender_->SetParameters(parameters);
+        if (!set_res.ok()) {
+            ERROR_PRINT("Failed to set video sender parameters, %s", set_res.message());
+        }
     }
 
     const bool audio_is_two_way = !peer->is_sfu_peer();

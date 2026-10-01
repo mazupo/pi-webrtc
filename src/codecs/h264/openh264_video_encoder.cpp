@@ -12,6 +12,19 @@ const int kKeyFrameIntervalFrames = 3000;
 const int kLowH264QpThreshold = 24;
 const int kHighH264QpThreshold = 37;
 
+std::optional<webrtc::ScalabilityMode> ScalabilityModeFromTemporalLayers(int temporal_layers) {
+    switch (temporal_layers) {
+        case 1:
+            return webrtc::ScalabilityMode::kL1T1;
+        case 2:
+            return webrtc::ScalabilityMode::kL1T2;
+        case 3:
+            return webrtc::ScalabilityMode::kL1T3;
+        default:
+            return std::nullopt;
+    }
+}
+
 int NumberOfThreads(std::optional<int> encoder_thread_limit, int number_of_cores) {
     const int cores = std::max(number_of_cores, 1);
     return std::clamp(encoder_thread_limit.value_or(cores), 1, cores);
@@ -28,6 +41,8 @@ Openh264VideoEncoder::Openh264VideoEncoder(Args args)
       height_(0),
       target_fps_(args.fps),
       target_bitrate_bps_(0),
+      num_temporal_layers_(1),
+      tl0sync_limit_(1),
       number_of_cores_(1),
       callback_(nullptr) {
     if (args.max_playout_delay_ms >= 0) {
@@ -50,6 +65,10 @@ int32_t Openh264VideoEncoder::InitEncode(const webrtc::VideoCodec *codec_setting
         target_fps_ = codec_settings->maxFramerate;
     }
     target_bitrate_bps_ = codec_settings->startBitrate * 1000;
+    num_temporal_layers_ =
+        std::max({1, static_cast<int>(codec_settings->H264().numberOfTemporalLayers),
+                  static_cast<int>(codec_settings->simulcastStream[0].numberOfTemporalLayers)});
+    tl0sync_limit_ = num_temporal_layers_;
     number_of_cores_ = settings.number_of_cores;
     encoder_thread_limit_ = settings.encoder_thread_limit;
 
@@ -106,6 +125,7 @@ int32_t Openh264VideoEncoder::Encode(const webrtc::VideoFrame &frame,
         config.rc_mode = V4L2_MPEG_VIDEO_BITRATE_MODE_CBR;
         config.frame_dropping = codec_.GetFrameDropEnabled();
         config.thread_count = NumberOfThreads(encoder_thread_limit_, number_of_cores_);
+        config.temporal_layers = num_temporal_layers_;
         encoder_ = Openh264Encoder::Create(config);
 
         if (!encoder_) {
@@ -117,18 +137,16 @@ int32_t Openh264VideoEncoder::Encode(const webrtc::VideoFrame &frame,
         encoder_->ForceIntraFrame();
     }
 
-    bool encoded =
-        encoder_->Encode(i420_buffer, [this, &frame](uint8_t *buffer, int size, bool is_keyframe) {
-            SendFrame(frame, buffer, size, is_keyframe);
-        });
-
-    if (!encoded) {
+    SFrameBSInfo info;
+    if (!encoder_->Encode(i420_buffer, &info)) {
         auto cb = callback_.load(std::memory_order_acquire);
         if (cb) {
             cb->OnDroppedFrame(webrtc::EncodedImageCallback::DropReason::kDroppedByEncoder);
         }
+        return WEBRTC_VIDEO_CODEC_OK;
     }
 
+    SendFrame(frame, info);
     return WEBRTC_VIDEO_CODEC_OK;
 }
 
@@ -156,14 +174,32 @@ webrtc::VideoEncoder::EncoderInfo Openh264VideoEncoder::GetEncoderInfo() const {
     return info;
 }
 
-void Openh264VideoEncoder::SendFrame(const webrtc::VideoFrame &frame, uint8_t *buffer, int size,
-                                     bool is_keyframe) {
-    auto encoded_image_buffer = webrtc::EncodedImageBuffer::Create(buffer, size);
+void Openh264VideoEncoder::SendFrame(const webrtc::VideoFrame &frame, const SFrameBSInfo &info) {
+    auto encoded_image_buffer =
+        webrtc::EncodedImageBuffer::Create(Openh264Encoder::BitstreamSize(info));
+    Openh264Encoder::CopyBitstream(info, encoded_image_buffer->data());
+    const bool is_keyframe = info.eFrameType == videoFrameTypeIDR;
+    const uint8_t temporal_id = info.sLayerInfo[0].uiTemporalId;
 
     webrtc::CodecSpecificInfo codec_specific;
     codec_specific.codecType = webrtc::kVideoCodecH264;
     codec_specific.codecSpecific.H264.packetization_mode =
         webrtc::H264PacketizationMode::NonInterleaved;
+    codec_specific.codecSpecific.H264.temporal_idx = webrtc::kNoTemporalIdx;
+    codec_specific.codecSpecific.H264.idr_frame = is_keyframe;
+    codec_specific.codecSpecific.H264.base_layer_sync = false;
+    codec_specific.scalability_mode = ScalabilityModeFromTemporalLayers(num_temporal_layers_);
+    if (num_temporal_layers_ > 1) {
+        codec_specific.codecSpecific.H264.temporal_idx = temporal_id;
+        codec_specific.codecSpecific.H264.base_layer_sync =
+            temporal_id > 0 && temporal_id < tl0sync_limit_;
+        if (codec_specific.codecSpecific.H264.base_layer_sync) {
+            tl0sync_limit_ = temporal_id;
+        }
+        if (temporal_id == 0) {
+            tl0sync_limit_ = num_temporal_layers_;
+        }
+    }
 
     encoded_image_.SetEncodedData(encoded_image_buffer);
     encoded_image_.SetRtpTimestamp(frame.rtp_timestamp());
