@@ -253,9 +253,20 @@ Things worth knowing:
 
 ## Multi-camera
 
+Run one `pi-webrtc` process per camera, each with its own `--camera`, `--uid`, `--whep-port`, and `--record-path`:
+
+```bash
+./pi-webrtc --camera=libcamera:0 --uid=home-front --use-whep --whep-port=8080 --record-path=/home/pi/video/front
+./pi-webrtc --camera=libcamera:1 --uid=home-side --use-whep --whep-port=8081 --record-path=/home/pi/video/side
+```
+
+Every option, including the sub-stream, works per process. With `--enable-ipc`, also give each process its own `--socket-path`.
+
+### Single process
+
 <sup>[\*](SPONSORS.md#sponsor-benefits)</sup> Sponsor build.
 
-Use `cameras:` to run multiple cameras from a single `pi-webrtc` process. Each camera inherits the global camera settings and can override them individually.
+The sponsor build adds `cameras:`, allowing all cameras to run in a single process and YAML file, with a single `uid` and WHEP port. Each camera inherits the global settings and can override them, including its main/sub stream and recording setup.
 
 ```yaml
 uid: home-jetson-orin
@@ -295,7 +306,7 @@ Each camera can enable or disable WebRTC and recording independently:
 
 Each camera is recorded in its own subdirectory. In this example, the `front` camera is recorded to `/home/nx/video/front/`, while the `side` camera is recorded to `/home/nx/video/side/`.
 
-Each camera with `webrtc: true` is available build webrtc connections at its own path. In this example, `http://<device-ip>:8080/front` plays the front camera, while the root path `http://<device-ip>:8080/` plays the first `webrtc: true` camera. The `side` camera is not available through WHEP because of `webrtc:false`.
+Each camera with `webrtc: true` gets its own WHEP path. In this example, `http://<device-ip>:8080/front` plays the front camera. The path `http://<device-ip>:8080/side` is not served by WHEP because the `side` camera has  `webrtc: false`.
 
 ---
 
