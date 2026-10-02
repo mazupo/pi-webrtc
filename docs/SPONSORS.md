@@ -15,7 +15,7 @@ Sponsors get access to sponsor-only releases with additional features:
 |---|---|---|
 | Object detection | Jetson | YOLO on TensorRT, drawn onto the stream. See [flags](CONFIGURATION.md). |
 | Object tracking | Jetson (DeepStream) | NvDCF or DeepSORT via NvMOT, toggled at runtime. |
-| Multi-camera | All | Several cameras in one process, set in a [YAML config](CONFIGURATION.md#multi-camera). |
+| Single-process multi-camera | All | All cameras in one process and one [YAML config](CONFIGURATION.md#single-process), sharing one `uid` and WHEP port. Running one process per camera, see [multi-camera](CONFIGURATION.md#multi-camera). |
 | Direct LiveKit | All | Signs LiveKit tokens on-device, no token server needed. |
 | Direct Cloudflare Realtime | All | Talks to Cloudflare directly, no device API relay. |
 
