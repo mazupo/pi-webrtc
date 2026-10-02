@@ -10,6 +10,10 @@
 #include <sys/statvfs.h>
 #include <thread>
 
+extern "C" {
+#include <libavutil/opt.h>
+}
+
 #include "common/jpeg_util.h"
 #include "common/logging.h"
 #include "common/utils.h"
@@ -358,6 +362,10 @@ void RecorderManager::Start() {
             fmt_ctx = nullptr;
             usleep(1000);
             return;
+        }
+
+        if (av_opt_find(fmt_ctx->priv_data, "hybrid_fragmented", "movflags", 0, 0)) {
+            av_opt_set(fmt_ctx->priv_data, "movflags", "+hybrid_fragmented", 0);
         }
 
         if (!(fmt_ctx->oformat->flags & AVFMT_NOFILE) &&
