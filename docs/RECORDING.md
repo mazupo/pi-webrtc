@@ -56,6 +56,8 @@ thumbnail grid in a client cheap to draw. `--file-duration` sets how long each f
 seconds by default — and doubles as the interval between snapshots in `snapshot` mode.
 `--jpeg-quality` applies to snapshots and thumbnails alike.
 
+If `pi-webrtc` is killed or loses power, the file in progress remains playable up to about its last second. This requires **FFmpeg 7.1 or later**.
+
 ## Rotation
 
 A background thread wakes every 60 seconds and checks the free space on the recording volume.
