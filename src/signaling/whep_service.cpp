@@ -56,6 +56,35 @@ std::vector<std::string> SdpLinesOf(const std::string &sdp) {
     return lines;
 }
 
+// The ICE lines of the session and of its first m-section, which carries the bundle.
+std::string IceFragmentOf(const std::string &sdp) {
+    static const std::vector<std::string_view> kSessionLines = {"a=ice-lite",
+                                                                "a=ice-options:", "a=group:BUNDLE"};
+    static const std::vector<std::string_view> kMediaLines = {
+        "a=mid:",         "a=ice-ufrag:", "a=ice-pwd:",
+        "a=ice-options:", "a=candidate:", "a=end-of-candidates"};
+
+    std::string fragment;
+    bool in_media = false;
+    for (const auto &line : SdpLinesOf(sdp)) {
+        if (line.starts_with("m=")) {
+            if (in_media) {
+                break;
+            }
+            in_media = true;
+            fragment += line + "\r\n";
+            continue;
+        }
+        for (auto prefix : in_media ? kMediaLines : kSessionLines) {
+            if (line.starts_with(prefix)) {
+                fragment += line + "\r\n";
+                break;
+            }
+        }
+    }
+    return fragment;
+}
+
 std::string LocalSdpOf(const webrtc::scoped_refptr<RtcPeer> &peer) {
     auto pc = peer->GetPeer();
     if (!pc || !pc->local_description()) {
@@ -299,29 +328,18 @@ void HttpSession::HandlePostRequest(const std::string &camera_alias) {
         return;
     }
     auto peer_id = peer->id();
-
-    peer->OnLocalSdp([weak_self = weak_from_this()](const std::string &id, const std::string &sdp,
-                                                    const std::string &type) {
-        auto self = weak_self.lock();
-        if (!self) {
-            return;
-        }
-        boost::asio::post(self->stream_.get_executor(), [self, id, sdp]() {
-            self->RespondCreated(id, sdp);
+    AwaitLocalSdp(
+        peer,
+        [this, peer_id](const std::string &sdp) {
+            RespondCreated(peer_id, sdp);
+        },
+        [this, peer_id]() {
+            ERROR_PRINT("Peer (%s) produced no answer within %d seconds.", peer_id.c_str(),
+                        kAnswerTimeoutSec);
+            whep_service_->RemovePeer(peer_id);
+            RespondError(http::status::service_unavailable,
+                         "Timed out creating the SDP answer for this offer.");
         });
-    });
-
-    answer_timer_.expires_after(std::chrono::seconds(kAnswerTimeoutSec));
-    answer_timer_.async_wait([self = shared_from_this(), peer_id](beast::error_code ec) {
-        if (ec || self->responded_) {
-            return;
-        }
-        ERROR_PRINT("Peer (%s) produced no answer within %d seconds.", peer_id.c_str(),
-                    kAnswerTimeoutSec);
-        self->whep_service_->RemovePeer(peer_id);
-        self->RespondError(http::status::service_unavailable,
-                           "Timed out creating the SDP answer for this offer.");
-    });
 
     peer->SetRemoteSdp(std::string(req_.body()), "offer");
 }
@@ -351,23 +369,23 @@ void HttpSession::HandlePatchRequest(const webrtc::scoped_refptr<RtcPeer> &peer)
 
     if (if_match == "*") {
         DEBUG_PRINT("peer (%s) ice restart!", target_.peer_id.c_str());
-        auto local_sdp = peer->RestartIce(ice_group.ice_ufrag, ice_group.ice_pwd);
-        if (local_sdp.empty()) {
+        // A failed restart must leave the session and its current ICE session in place.
+        AwaitLocalSdp(
+            peer,
+            [this](const std::string &sdp) {
+                RespondIceRestarted(sdp);
+            },
+            [this]() {
+                RespondError(http::status::service_unavailable,
+                             "Timed out creating the answer for this ICE restart.");
+            });
+        if (!peer->RestartIce(ice_group.ice_ufrag, ice_group.ice_pwd)) {
             RespondError(http::status::unprocessable_entity, "The ICE restart failed.");
             return;
         }
         for (const auto &candidate : ice_group.candidates) {
             peer->SetRemoteIce(candidate.sdp_mid, 0, candidate.line);
         }
-
-        auto res = CreateResponse(http::status::ok);
-        res->set(http::field::content_type, kTrickleIceType);
-        auto etag = EntityTagOf(local_sdp);
-        if (!etag.empty()) {
-            res->set(http::field::etag, etag);
-        }
-        res->body() = local_sdp;
-        Send(res);
         return;
     }
 
@@ -427,18 +445,39 @@ std::shared_ptr<HttpSession::Response> HttpSession::CreateResponse(http::status 
 
 void HttpSession::Send(std::shared_ptr<Response> res) {
     responded_ = true;
+    answer_timer_.cancel();
     res->keep_alive(false);
     res->prepare_payload();
     res_ = std::move(res);
     WriteResponse();
 }
 
-void HttpSession::RespondCreated(const std::string &peer_id, const std::string &sdp) {
-    if (responded_) {
-        return;
-    }
-    answer_timer_.cancel();
+void HttpSession::AwaitLocalSdp(const webrtc::scoped_refptr<RtcPeer> &peer,
+                                std::function<void(const std::string &sdp)> on_sdp,
+                                std::function<void()> on_timeout) {
+    peer->OnLocalSdp([weak_self = weak_from_this(), on_sdp = std::move(on_sdp)](
+                         const std::string &, const std::string &sdp, const std::string &) {
+        auto self = weak_self.lock();
+        if (!self) {
+            return;
+        }
+        boost::asio::post(self->stream_.get_executor(), [self, on_sdp, sdp]() {
+            if (!self->responded_) {
+                on_sdp(sdp);
+            }
+        });
+    });
 
+    answer_timer_.expires_after(std::chrono::seconds(kAnswerTimeoutSec));
+    answer_timer_.async_wait(
+        [self = shared_from_this(), on_timeout = std::move(on_timeout)](beast::error_code ec) {
+            if (!ec && !self->responded_) {
+                on_timeout();
+            }
+        });
+}
+
+void HttpSession::RespondCreated(const std::string &peer_id, const std::string &sdp) {
     auto res = CreateResponse(http::status::created);
     res->set(http::field::content_type, kSdpType);
     res->set(http::field::location, std::string("/") + kSessionSegment + "/" + peer_id);
@@ -447,6 +486,17 @@ void HttpSession::RespondCreated(const std::string &peer_id, const std::string &
         res->set(http::field::etag, etag);
     }
     res->body() = sdp;
+    Send(res);
+}
+
+void HttpSession::RespondIceRestarted(const std::string &sdp) {
+    auto res = CreateResponse(http::status::ok);
+    res->set(http::field::content_type, kTrickleIceType);
+    auto etag = EntityTagOf(sdp);
+    if (!etag.empty()) {
+        res->set(http::field::etag, etag);
+    }
+    res->body() = IceFragmentOf(sdp);
     Send(res);
 }
 

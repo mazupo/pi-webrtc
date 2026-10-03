@@ -125,7 +125,7 @@ class RtcPeer : public webrtc::PeerConnectionObserver,
                                                   std::optional<int> id = std::nullopt);
     std::shared_ptr<RtcChannel> GetChannel(ChannelRole role) const;
     std::shared_ptr<CommandChannel> GetCommandChannel() const;
-    std::string RestartIce(std::string ice_ufrag, std::string ice_pwd);
+    bool RestartIce(std::string ice_ufrag, std::string ice_pwd);
 
     // SignalingMessageObserver implementation.
     void SetRemoteSdp(const std::string &sdp, const std::string &type) override;
