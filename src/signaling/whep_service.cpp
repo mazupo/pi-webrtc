@@ -43,6 +43,19 @@ std::string EntityTagOf(const std::string &sdp) {
     return "\"" + match[1].str() + "\"";
 }
 
+std::vector<std::string> SdpLinesOf(const std::string &sdp) {
+    std::vector<std::string> lines;
+    std::istringstream stream(sdp);
+    std::string line;
+    while (std::getline(stream, line)) {
+        if (!line.empty() && line.back() == '\r') {
+            line.pop_back();
+        }
+        lines.push_back(std::move(line));
+    }
+    return lines;
+}
+
 std::string LocalSdpOf(const webrtc::scoped_refptr<RtcPeer> &peer) {
     auto pc = peer->GetPeer();
     if (!pc || !pc->local_description()) {
@@ -344,7 +357,7 @@ void HttpSession::HandlePatchRequest(const webrtc::scoped_refptr<RtcPeer> &peer)
             return;
         }
         for (const auto &candidate : ice_group.candidates) {
-            peer->SetRemoteIce("0", 0, candidate);
+            peer->SetRemoteIce(candidate.sdp_mid, 0, candidate.line);
         }
 
         auto res = CreateResponse(http::status::ok);
@@ -365,8 +378,8 @@ void HttpSession::HandlePatchRequest(const webrtc::scoped_refptr<RtcPeer> &peer)
     }
 
     for (const auto &candidate : ice_group.candidates) {
-        DEBUG_PRINT("  Set remote ice: %s", candidate.c_str());
-        peer->SetRemoteIce("0", 0, candidate);
+        DEBUG_PRINT("  Set remote ice: %s", candidate.line.c_str());
+        peer->SetRemoteIce(candidate.sdp_mid, 0, candidate.line);
     }
     DEBUG_PRINT("Set received candidates into peer (%s)!", target_.peer_id.c_str());
 
@@ -455,31 +468,18 @@ void HttpSession::RespondMethodNotAllowed() {
 }
 
 IceCandidates HttpSession::ParseCandidates(const std::string &sdp) {
-    std::regex iceUfragRegex(R"(a=ice-ufrag:([^\s]+))");
-    std::regex icePwdRegex(R"(a=ice-pwd:([^\s]+))");
-    std::regex candidateRegex(R"(a=candidate:(.*))");
-
-    std::smatch match;
-    auto sdpBegin = sdp.begin();
-    auto sdpEnd = sdp.end();
-
     IceCandidates result;
-
-    while (std::regex_search(sdpBegin, sdpEnd, match, candidateRegex)) {
-        std::string candidate = match[1].str();
-        result.candidates.push_back("candidate:" + candidate);
-        sdpBegin = match.suffix().first;
+    std::string mid;
+    for (const auto &line : SdpLinesOf(sdp)) {
+        if (line.starts_with("a=mid:")) {
+            mid = line.substr(6);
+        } else if (line.starts_with("a=candidate:")) {
+            result.candidates.push_back({mid, line.substr(2)});
+        } else if (line.starts_with("a=ice-ufrag:")) {
+            result.ice_ufrag = line.substr(12);
+        } else if (line.starts_with("a=ice-pwd:")) {
+            result.ice_pwd = line.substr(10);
+        }
     }
-
-    if (std::regex_search(sdp, match, iceUfragRegex)) {
-        result.ice_ufrag = match[1].str();
-        DEBUG_PRINT("ice-ufrag: %s", result.ice_ufrag.c_str());
-    }
-
-    if (std::regex_search(sdp, match, icePwdRegex)) {
-        result.ice_pwd = match[1].str();
-        DEBUG_PRINT("ice-pwd: %s", result.ice_pwd.c_str());
-    }
-
     return result;
 }

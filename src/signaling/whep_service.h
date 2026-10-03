@@ -21,9 +21,14 @@ namespace http = beast::http;
 using tcp = boost::asio::ip::tcp;
 
 struct IceCandidates {
+    struct Candidate {
+        std::string sdp_mid;
+        std::string line; // `candidate:...` without the `a=` prefix.
+    };
+
     std::string ice_ufrag;
     std::string ice_pwd;
-    std::vector<std::string> candidates;
+    std::vector<Candidate> candidates;
 };
 
 // WHEP endpoint (`/` or `/<stream>`) or session (`/sessions/<peer_id>`).
