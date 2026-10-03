@@ -4,6 +4,7 @@
 #include <iostream>
 #include <regex>
 #include <sstream>
+#include <string_view>
 #include <vector>
 
 #include "common/logging.h"
@@ -15,6 +16,7 @@ constexpr int kAnswerTimeoutSec = 10;
 constexpr char kSdpType[] = "application/sdp";
 constexpr char kTrickleIceType[] = "application/trickle-ice-sdpfrag";
 constexpr char kSessionSegment[] = "sessions";
+constexpr char kWhepProfileLink[] = "<urn:ietf:params:whep>; rel=\"profile\"";
 
 // Extract the media type without parameters and lowercase it.
 std::string MediaTypeOf(const std::string &value) {
@@ -53,9 +55,9 @@ std::string LocalSdpOf(const webrtc::scoped_refptr<RtcPeer> &peer) {
 
 } // namespace
 
-WhepTarget ParseWhepTarget(const std::string &target) {
+WhepTarget WhepTarget::Parse(std::string_view target) {
     std::vector<std::string> segments;
-    std::stringstream ss(target.substr(0, target.find('?')));
+    std::stringstream ss(std::string(target.substr(0, target.find('?'))));
     std::string segment;
     while (std::getline(ss, segment, '/')) {
         if (!segment.empty()) {
@@ -194,26 +196,71 @@ void HttpSession::CloseConnection() {
 }
 
 void HttpSession::HandleRequest() {
-    target_ = ParseWhepTarget(std::string(req_.target().data(), req_.target().size()));
+    target_ = WhepTarget::Parse({req_.target().data(), req_.target().size()});
     DEBUG_PRINT("Receive http method: %s %s",
                 std::string(req_.method_string().data(), req_.method_string().size()).c_str(),
                 std::string(req_.target().data(), req_.target().size()).c_str());
 
+    if (req_.method() == http::verb::options) {
+        HandleOptionsRequest();
+        return;
+    }
+
+    switch (target_.kind) {
+        case WhepTarget::Kind::Endpoint:
+            HandleEndpointRequest();
+            break;
+        case WhepTarget::Kind::Session:
+            HandleSessionRequest();
+            break;
+        case WhepTarget::Kind::Invalid:
+            RespondError(http::status::not_found, "No WHEP resource at this path.");
+            break;
+    }
+}
+
+void HttpSession::HandleEndpointRequest() {
+    auto camera_alias = whep_service_->ResolveStream(target_.stream);
+    if (!camera_alias) {
+        RespondError(http::status::not_found, "No camera is published at this path.");
+        return;
+    }
+
     switch (req_.method()) {
         case http::verb::post:
-            HandlePostRequest();
+            HandlePostRequest(*camera_alias);
             break;
+        case http::verb::get:
+        case http::verb::head: {
+            auto res = CreateResponse(http::status::ok);
+            res->set(http::field::content_type, kSdpType);
+            res->set(http::field::link, kWhepProfileLink);
+            Send(res);
+            break;
+        }
+        default:
+            RespondMethodNotAllowed();
+            break;
+    }
+}
+
+void HttpSession::HandleSessionRequest() {
+    auto peer = whep_service_->GetPeer(target_.peer_id);
+    if (!peer) {
+        RespondError(http::status::not_found, "The WHEP session does not exist.");
+        return;
+    }
+
+    switch (req_.method()) {
         case http::verb::patch:
-            HandlePatchRequest();
-            break;
-        case http::verb::options:
-            HandleOptionsRequest();
-            break;
-        case http::verb::head:
-            HandleHeadRequest();
+            HandlePatchRequest(peer);
             break;
         case http::verb::delete_:
             HandleDeleteRequest();
+            break;
+        case http::verb::get:
+        case http::verb::head:
+            Send(CreateResponse(http::status::no_content));
             break;
         default:
             RespondMethodNotAllowed();
@@ -221,23 +268,10 @@ void HttpSession::HandleRequest() {
     }
 }
 
-void HttpSession::HandlePostRequest() {
-    if (target_.kind != WhepTarget::Kind::Endpoint) {
-        target_.kind == WhepTarget::Kind::Session
-            ? RespondMethodNotAllowed()
-            : RespondError(http::status::not_found, "No WHEP endpoint at this path.");
-        return;
-    }
-
+void HttpSession::HandlePostRequest(const std::string &camera_alias) {
     if (MediaTypeOf(Header(http::field::content_type)) != kSdpType) {
         RespondError(http::status::unsupported_media_type,
                      "The offer must be sent with Content-Type `application/sdp`.");
-        return;
-    }
-
-    auto camera_alias = whep_service_->ResolveStream(target_.stream);
-    if (!camera_alias) {
-        RespondError(http::status::not_found, "No camera is published at this path.");
         return;
     }
 
@@ -279,12 +313,7 @@ void HttpSession::HandlePostRequest() {
     peer->SetRemoteSdp(std::string(req_.body()), "offer");
 }
 
-void HttpSession::HandlePatchRequest() {
-    auto peer = FindSessionPeer();
-    if (!peer) {
-        return;
-    }
-
+void HttpSession::HandlePatchRequest(const webrtc::scoped_refptr<RtcPeer> &peer) {
     auto content_type = MediaTypeOf(Header(http::field::content_type));
     if (content_type == kSdpType) {
         RespondError(http::status::unprocessable_entity,
@@ -346,7 +375,7 @@ void HttpSession::HandlePatchRequest() {
 
 void HttpSession::HandleOptionsRequest() {
     auto res = CreateResponse(http::status::ok);
-    res->set(http::field::access_control_allow_methods, "OPTIONS, HEAD, POST, PATCH, DELETE");
+    res->set(http::field::access_control_allow_methods, "OPTIONS, GET, HEAD, POST, PATCH, DELETE");
     res->set(http::field::access_control_allow_headers, "Content-Type, Authorization, If-Match");
     res->set(http::field::access_control_max_age, "86400");
     if (target_.kind == WhepTarget::Kind::Endpoint) {
@@ -359,49 +388,11 @@ void HttpSession::HandleOptionsRequest() {
     Send(res);
 }
 
-void HttpSession::HandleHeadRequest() {
-    if (target_.kind != WhepTarget::Kind::Endpoint) {
-        target_.kind == WhepTarget::Kind::Session
-            ? RespondMethodNotAllowed()
-            : RespondError(http::status::not_found, "No WHEP endpoint at this path.");
-        return;
-    }
-
-    if (!whep_service_->ResolveStream(target_.stream)) {
-        RespondError(http::status::not_found, "No camera is published at this path.");
-        return;
-    }
-
-    auto res = CreateResponse(http::status::ok);
-    res->set(http::field::content_type, kSdpType);
-    Send(res);
-}
-
 void HttpSession::HandleDeleteRequest() {
-    auto peer = FindSessionPeer();
-    if (!peer) {
-        return;
-    }
-
     whep_service_->RemovePeer(target_.peer_id); // terminates the peer
     DEBUG_PRINT("Close peer (%s)!", target_.peer_id.c_str());
 
     Send(CreateResponse(http::status::ok));
-}
-
-webrtc::scoped_refptr<RtcPeer> HttpSession::FindSessionPeer() {
-    if (target_.kind != WhepTarget::Kind::Session) {
-        target_.kind == WhepTarget::Kind::Endpoint
-            ? RespondMethodNotAllowed()
-            : RespondError(http::status::not_found, "No WHEP session at this path.");
-        return nullptr;
-    }
-
-    auto peer = whep_service_->GetPeer(target_.peer_id);
-    if (!peer) {
-        RespondError(http::status::not_found, "The WHEP session does not exist.");
-    }
-    return peer;
 }
 
 std::string HttpSession::Header(http::field field) const {
@@ -456,8 +447,8 @@ void HttpSession::RespondError(http::status status, const char *message) {
 void HttpSession::RespondMethodNotAllowed() {
     auto res = CreateResponse(http::status::method_not_allowed);
     res->set(http::field::allow, target_.kind == WhepTarget::Kind::Session
-                                     ? "OPTIONS, PATCH, DELETE"
-                                     : "OPTIONS, HEAD, POST");
+                                     ? "OPTIONS, GET, HEAD, PATCH, DELETE"
+                                     : "OPTIONS, GET, HEAD, POST");
     res->set(http::field::content_type, "text/plain");
     res->body() = "This method is not allowed on this path.";
     Send(res);

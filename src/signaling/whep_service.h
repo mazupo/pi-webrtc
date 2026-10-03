@@ -3,6 +3,7 @@
 
 #include <memory>
 #include <string>
+#include <string_view>
 #include <vector>
 
 #include <boost/asio.hpp>
@@ -33,12 +34,12 @@ struct WhepTarget {
         Session
     };
 
+    static WhepTarget Parse(std::string_view target);
+
     Kind kind = Kind::Invalid;
     std::string stream;  // Endpoint; empty for `/`.
     std::string peer_id; // Session.
 };
-
-WhepTarget ParseWhepTarget(const std::string &target);
 
 class WhepService : public SignalingService,
                     public std::enable_shared_from_this<WhepService> {
@@ -95,13 +96,13 @@ class HttpSession : public std::enable_shared_from_this<HttpSession> {
     void CloseConnection();
 
     void HandleRequest();
-    void HandlePostRequest();
-    void HandlePatchRequest();
+    void HandleEndpointRequest();
+    void HandleSessionRequest();
+    void HandlePostRequest(const std::string &camera_alias);
+    void HandlePatchRequest(const webrtc::scoped_refptr<RtcPeer> &peer);
     void HandleOptionsRequest();
-    void HandleHeadRequest();
     void HandleDeleteRequest();
 
-    webrtc::scoped_refptr<RtcPeer> FindSessionPeer();
     std::string Header(http::field field) const;
 
     std::shared_ptr<Response> CreateResponse(http::status status);
