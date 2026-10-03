@@ -221,27 +221,25 @@ void RtcPeer::TerminateChannels() {
     }
 }
 
-std::string RtcPeer::RestartIce(std::string ice_ufrag, std::string ice_pwd) {
+bool RtcPeer::RestartIce(std::string ice_ufrag, std::string ice_pwd) {
     if (!peer_connection_ || !peer_connection_->remote_description()) {
         ERROR_PRINT("RestartIce ignored: peer connection (%s) is gone or has no remote sdp.",
                     id_.c_str());
-        return "";
+        return false;
     }
 
     std::string remote_sdp;
     peer_connection_->remote_description()->ToString(&remote_sdp);
 
-    // replace all ice_ufrag and ice_pwd in sdp.
+    // replace all ice_ufrag and ice_pwd in sdp, and drop the old candidates.
     std::regex ufrag_regex(R"(a=ice-ufrag:([^\r\n]+))");
     std::regex pwd_regex(R"(a=ice-pwd:([^\r\n]+))");
+    std::regex candidate_regex(R"(a=(candidate:[^\r\n]*|end-of-candidates)\r?\n)");
     remote_sdp = std::regex_replace(remote_sdp, ufrag_regex, "a=ice-ufrag:" + ice_ufrag);
     remote_sdp = std::regex_replace(remote_sdp, pwd_regex, "a=ice-pwd:" + ice_pwd);
+    remote_sdp = std::regex_replace(remote_sdp, candidate_regex, "");
     SetRemoteSdp(remote_sdp, "offer");
-
-    std::string local_sdp;
-    peer_connection_->local_description()->ToString(&local_sdp);
-
-    return local_sdp;
+    return true;
 }
 
 void RtcPeer::OnSignalingChange(webrtc::PeerConnectionInterface::SignalingState new_state) {

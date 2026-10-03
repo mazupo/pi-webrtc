@@ -1,6 +1,7 @@
 #ifndef WHEP_SERVICE_H_
 #define WHEP_SERVICE_H_
 
+#include <functional>
 #include <memory>
 #include <string>
 #include <string_view>
@@ -110,9 +111,14 @@ class HttpSession : public std::enable_shared_from_this<HttpSession> {
 
     std::string Header(http::field field) const;
 
+    void AwaitLocalSdp(const webrtc::scoped_refptr<RtcPeer> &peer,
+                       std::function<void(const std::string &sdp)> on_sdp,
+                       std::function<void()> on_timeout);
+
     std::shared_ptr<Response> CreateResponse(http::status status);
     void Send(std::shared_ptr<Response> res);
     void RespondCreated(const std::string &peer_id, const std::string &sdp);
+    void RespondIceRestarted(const std::string &sdp);
     void RespondError(http::status status, const char *message);
     void RespondMethodNotAllowed();
 
