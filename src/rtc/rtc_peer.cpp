@@ -286,6 +286,10 @@ void RtcPeer::OnDataChannel(webrtc::scoped_refptr<webrtc::DataChannelInterface> 
 void RtcPeer::OnIceGatheringChange(webrtc::PeerConnectionInterface::IceGatheringState new_state) {
     auto state = webrtc::PeerConnectionInterface::AsString(new_state);
     DEBUG_PRINT("OnIceGatheringChange => %s", std::string(state).c_str());
+    if (new_state == webrtc::PeerConnectionInterface::kIceGatheringComplete && sdp_emit_safety_ &&
+        sdp_emit_safety_->alive()) {
+        SendLocalSdp();
+    }
 }
 
 void RtcPeer::OnConnectionChange(webrtc::PeerConnectionInterface::PeerConnectionState new_state) {
@@ -382,21 +386,25 @@ void RtcPeer::EmitLocalSdp(int delay_sec) {
     // Cancel any previously scheduled SDP emit.
     RenewSafetyFlag(sdp_emit_safety_);
 
-    auto send_sdp = [this]() {
-        std::string type = webrtc::SdpTypeToString(modified_desc_->GetType());
-        modified_desc_->ToString(&modified_sdp_);
-        on_local_sdp_fn_(id_, modified_sdp_, type);
-    };
-
     if (delay_sec > 0) {
         webrtc::Thread::Current()->PostDelayedTask(webrtc::SafeTask(sdp_emit_safety_,
-                                                                    [this, send_sdp]() {
-                                                                        send_sdp();
+                                                                    [this]() {
+                                                                        SendLocalSdp();
                                                                     }),
                                                    webrtc::TimeDelta::Seconds(delay_sec));
     } else {
-        send_sdp();
+        SendLocalSdp();
     }
+}
+
+void RtcPeer::SendLocalSdp() {
+    sdp_emit_safety_->SetNotAlive();
+    if (!on_local_sdp_fn_) {
+        return;
+    }
+    std::string type = webrtc::SdpTypeToString(modified_desc_->GetType());
+    modified_desc_->ToString(&modified_sdp_);
+    on_local_sdp_fn_(id_, modified_sdp_, type);
 }
 
 void RtcPeer::FlushPendingIce() {

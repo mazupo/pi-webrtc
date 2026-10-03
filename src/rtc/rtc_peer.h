@@ -150,6 +150,7 @@ class RtcPeer : public webrtc::PeerConnectionObserver,
 
     std::string ModifySetupAttribute(const std::string &sdp, const std::string &new_setup);
     void EmitLocalSdp(int delay_sec = 0);
+    void SendLocalSdp();
     void FlushPendingIce();
     void MarkExpired();
     void RenewSafetyFlag(webrtc::scoped_refptr<webrtc::PendingTaskSafetyFlag> &flag);
