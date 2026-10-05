@@ -187,18 +187,20 @@ bool V4L2Codec::CaptureBuffer() {
         return false;
     }
 
-    fd_set fds[2];
-    fd_set *rd_fds = &fds[0]; /* for capture */
-    fd_set *ex_fds = &fds[1]; /* for handle event */
-    FD_ZERO(rd_fds);
-    FD_SET(fd_, rd_fds);
-    FD_ZERO(ex_fds);
-    FD_SET(fd_, ex_fds);
+    fd_set rd_fds; /* capture done */
+    fd_set wr_fds; /* output done */
+    fd_set ex_fds; /* events */
+    FD_ZERO(&rd_fds);
+    FD_SET(fd_, &rd_fds);
+    FD_ZERO(&wr_fds);
+    FD_SET(fd_, &wr_fds);
+    FD_ZERO(&ex_fds);
+    FD_SET(fd_, &ex_fds);
     struct timeval tv;
     tv.tv_sec = 0;
     tv.tv_usec = 200000;
 
-    int r = select(fd_ + 1, rd_fds, NULL, ex_fds, &tv);
+    int r = select(fd_ + 1, &rd_fds, &wr_fds, &ex_fds, &tv);
 
     if (abort_) {
         return false;
@@ -206,20 +208,22 @@ bool V4L2Codec::CaptureBuffer() {
         return false;
     }
 
-    if (rd_fds && FD_ISSET(fd_, rd_fds)) {
-        struct v4l2_buffer buf = {0};
-        struct v4l2_plane planes = {0};
+    // A decoder holds several inputs before its first output, so free each side as it completes.
+    if (FD_ISSET(fd_, &wr_fds)) {
+        struct v4l2_buffer buf = {};
+        struct v4l2_plane planes = {};
         buf.memory = output_.memory;
         buf.length = 1;
         buf.m.planes = &planes;
         buf.type = output_.type;
-        if (!v4l2_util::DequeueBuffer(fd_, &buf)) {
-            return false;
+        if (v4l2_util::DequeueBuffer(fd_, &buf)) {
+            output_buffer_index_.push(buf.index);
         }
-        output_buffer_index_.push(buf.index);
+    }
 
-        buf = {};
-        planes = {};
+    if (FD_ISSET(fd_, &rd_fds)) {
+        struct v4l2_buffer buf = {};
+        struct v4l2_plane planes = {};
         buf.memory = capture_.memory;
         buf.length = 1;
         buf.m.planes = &planes;
@@ -251,7 +255,7 @@ bool V4L2Codec::CaptureBuffer() {
         }
     }
 
-    if (ex_fds && FD_ISSET(fd_, ex_fds)) {
+    if (FD_ISSET(fd_, &ex_fds)) {
         ERROR_PRINT("Exception in fd(%d).", fd_);
         HandleEvent();
     }
