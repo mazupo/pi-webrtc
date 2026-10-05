@@ -243,7 +243,7 @@ bool SetFps(int fd, v4l2_buf_type type, uint32_t fps) {
 }
 
 bool SetFormat(int fd, V4L2BufferGroup *gbuffer, uint32_t width, uint32_t height,
-               uint32_t &pixel_format) {
+               uint32_t &pixel_format, uint32_t sizeimage) {
     v4l2_format fmt = {};
     fmt.type = gbuffer->type;
     ioctl(fd, VIDIOC_G_FMT, &fmt);
@@ -256,6 +256,9 @@ bool SetFormat(int fd, V4L2BufferGroup *gbuffer, uint32_t width, uint32_t height
         fmt.fmt.pix_mp.width = width;
         fmt.fmt.pix_mp.height = height;
         fmt.fmt.pix_mp.pixelformat = pixel_format;
+    }
+    if (sizeimage > 0) {
+        fmt.fmt.pix_mp.plane_fmt[0].sizeimage = sizeimage;
     }
 
     if (ioctl(fd, VIDIOC_S_FMT, &fmt) < 0) {

@@ -20,7 +20,7 @@ class V4L2Codec : public IFrameProcessor {
     bool SetFps(uint32_t fps);
     bool SetExtCtrl(uint32_t id, int32_t value);
     bool SetupOutputBuffer(int width, int height, uint32_t pix_fmt, v4l2_memory memory,
-                           int buffer_num);
+                           int buffer_num, uint32_t sizeimage = 0);
     bool SetupCaptureBuffer(int width, int height, uint32_t pix_fmt, v4l2_memory memory,
                             int buffer_num, bool exp_dmafd = false);
     bool SubscribeEvent(uint32_t ev_type);
@@ -44,7 +44,7 @@ class V4L2Codec : public IFrameProcessor {
 
     bool PrepareBuffer(V4L2BufferGroup *gbuffer, int width, int height, uint32_t pix_fmt,
                        v4l2_buf_type type, v4l2_memory memory, int buffer_num,
-                       bool has_dmafd = false);
+                       bool has_dmafd = false, uint32_t sizeimage = 0);
     bool CaptureBuffer();
 };
 
