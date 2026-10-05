@@ -25,6 +25,11 @@ class V4L2FrameBuffer : public webrtc::VideoFrameBuffer {
 
     uint32_t format() const;
     uint32_t size() const;
+    // Bytes per luma row and rows per plane; larger than width/height when the producer pads
+    // them, e.g. the Pi decoder stores 1080 rows as 1088.
+    int stride() const;
+    int plane_height() const;
+    void SetLayout(int stride, int plane_height);
     uint32_t flags() const;
     timeval timestamp() const;
 
@@ -47,6 +52,8 @@ class V4L2FrameBuffer : public webrtc::VideoFrameBuffer {
     const int height_;
     const uint32_t format_;
     uint32_t size_;
+    int stride_;
+    int plane_height_;
     uint32_t flags_;
     timeval timestamp_;
     V4L2Buffer buffer_;

@@ -112,6 +112,8 @@ V4L2FrameBuffer::V4L2FrameBuffer(int width, int height, uint32_t format, int siz
       height_(height),
       format_(format),
       size_(size),
+      stride_(width),
+      plane_height_(height),
       flags_(flags),
       timestamp_(timestamp),
       buffer_({}),
@@ -136,6 +138,8 @@ int V4L2FrameBuffer::width() const { return width_; }
 int V4L2FrameBuffer::height() const { return height_; }
 uint32_t V4L2FrameBuffer::format() const { return format_; }
 uint32_t V4L2FrameBuffer::size() const { return size_; }
+int V4L2FrameBuffer::stride() const { return stride_; }
+int V4L2FrameBuffer::plane_height() const { return plane_height_; }
 uint32_t V4L2FrameBuffer::flags() const { return flags_; }
 timeval V4L2FrameBuffer::timestamp() const { return timestamp_; }
 
@@ -147,7 +151,12 @@ webrtc::scoped_refptr<webrtc::I420BufferInterface> V4L2FrameBuffer::ToI420() {
     const uint8_t *src = static_cast<const uint8_t *>(Data());
 
     if (format_ == V4L2_PIX_FMT_YUV420) {
-        memcpy(i420_buffer->MutableDataY(), src, size_);
+        const uint8_t *src_u = src + stride_ * plane_height_;
+        const uint8_t *src_v = src_u + (stride_ / 2) * (plane_height_ / 2);
+        libyuv::I420Copy(src, stride_, src_u, stride_ / 2, src_v, stride_ / 2,
+                         i420_buffer->MutableDataY(), i420_buffer->StrideY(),
+                         i420_buffer->MutableDataU(), i420_buffer->StrideU(),
+                         i420_buffer->MutableDataV(), i420_buffer->StrideV(), width_, height_);
         return i420_buffer;
     }
 
@@ -160,6 +169,14 @@ webrtc::scoped_refptr<webrtc::I420BufferInterface> V4L2FrameBuffer::ToI420() {
         return i420_buffer;
     }
 #endif
+
+    if (format_ == V4L2_PIX_FMT_NV12) {
+        libyuv::NV12ToI420(src, stride_, src + stride_ * plane_height_, stride_,
+                           i420_buffer->MutableDataY(), i420_buffer->StrideY(),
+                           i420_buffer->MutableDataU(), i420_buffer->StrideU(),
+                           i420_buffer->MutableDataV(), i420_buffer->StrideV(), width_, height_);
+        return i420_buffer;
+    }
 
     if (libyuv::ConvertToI420(src, size_, i420_buffer->MutableDataY(), i420_buffer->StrideY(),
                               i420_buffer->MutableDataU(), i420_buffer->StrideU(),
@@ -196,12 +213,18 @@ void V4L2FrameBuffer::SetDmaFd(int fd) {
 
 void V4L2FrameBuffer::SetTimestamp(timeval timestamp) { timestamp_ = timestamp; }
 
+void V4L2FrameBuffer::SetLayout(int stride, int plane_height) {
+    stride_ = stride;
+    plane_height_ = plane_height;
+}
+
 webrtc::scoped_refptr<V4L2FrameBuffer> V4L2FrameBuffer::Clone() const {
     auto clone = webrtc::make_ref_counted<V4L2FrameBuffer>(width_, height_, size_, format_);
 
     memcpy(clone->MutableData(), Data(), size_);
 
     clone->SetDmaFd(buffer_.dmafd);
+    clone->SetLayout(stride_, plane_height_);
     clone->flags_ = flags_;
     clone->timestamp_ = timestamp_;
 

@@ -243,7 +243,7 @@ bool SetFps(int fd, v4l2_buf_type type, uint32_t fps) {
 }
 
 bool SetFormat(int fd, V4L2BufferGroup *gbuffer, uint32_t width, uint32_t height,
-               uint32_t &pixel_format, uint32_t sizeimage) {
+               uint32_t &pixel_format, uint32_t sizeimage, bool allow_padding) {
     v4l2_format fmt = {};
     fmt.type = gbuffer->type;
     ioctl(fd, VIDIOC_G_FMT, &fmt);
@@ -273,13 +273,36 @@ bool SetFormat(int fd, V4L2BufferGroup *gbuffer, uint32_t width, uint32_t height
     // use the  return format
     pixel_format = fmt.fmt.pix_mp.pixelformat;
     gbuffer->num_planes = fmt.fmt.pix_mp.num_planes;
+    gbuffer->width = fmt.fmt.pix_mp.width;
+    gbuffer->height = fmt.fmt.pix_mp.height;
+    gbuffer->bytesperline = fmt.fmt.pix_mp.plane_fmt[0].bytesperline;
 
-    if (fmt.fmt.pix_mp.width != width || fmt.fmt.pix_mp.height != height) {
+    bool keep_driver_size = width == 0 && height == 0;
+    bool padded = allow_padding && gbuffer->width >= width && gbuffer->height >= height;
+    if (!keep_driver_size && !padded && (gbuffer->width != width || gbuffer->height != height)) {
         ERROR_PRINT("fd(%d) input size (%dx%d) doesn't match driver's output size (%dx%d): %s", fd,
                     width, height, fmt.fmt.pix_mp.width, fmt.fmt.pix_mp.height, strerror(EINVAL));
         throw std::runtime_error("the frame size doesn't match");
     }
 
+    return true;
+}
+
+bool SetCrop(int fd, v4l2_buf_type type, uint32_t width, uint32_t height) {
+    v4l2_selection sel = {};
+    sel.type = V4L2_TYPE_IS_OUTPUT(type) ? V4L2_BUF_TYPE_VIDEO_OUTPUT : V4L2_BUF_TYPE_VIDEO_CAPTURE;
+    sel.target = V4L2_SEL_TGT_CROP;
+    sel.r.width = width;
+    sel.r.height = height;
+    if (ioctl(fd, VIDIOC_S_SELECTION, &sel) < 0) {
+        ERROR_PRINT("fd(%d) set crop %ux%u: %s", fd, width, height, strerror(errno));
+        return false;
+    }
+    if (sel.r.width != width || sel.r.height != height) {
+        ERROR_PRINT("fd(%d) crop %ux%u was adjusted to %ux%u", fd, width, height, sel.r.width,
+                    sel.r.height);
+        return false;
+    }
     return true;
 }
 

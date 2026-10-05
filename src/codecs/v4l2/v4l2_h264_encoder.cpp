@@ -73,7 +73,8 @@ int32_t V4L2H264Encoder::Encode(const webrtc::VideoFrame &frame,
         config.height = height_;
         config.fps = target_fps_;
         config.bitrate = target_bitrate_bps_;
-        config.src_pix_fmt = V4L2_PIX_FMT_YUV420;
+        config.src_pix_fmt = v4l2_frame_buffer->format();
+        config.src_plane_height = v4l2_frame_buffer->plane_height();
         config.is_dma_src = frame_buffer->type() == webrtc::VideoFrameBuffer::Type::kNative;
         config.keyframe_interval = kKeyFrameIntervalFrames;
         config.idr_interval = kKeyFrameIntervalFrames;

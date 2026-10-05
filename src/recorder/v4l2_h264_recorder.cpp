@@ -22,6 +22,7 @@ void V4L2H264Recorder::Encode(V4L2FrameBufferRef frame_buffer) {
             .keyframe_interval = 30,
             .is_dma_src = false,
             .src_pix_fmt = frame_buffer->format(),
+            .src_plane_height = frame_buffer->plane_height(),
             .rc_mode = V4L2_MPEG_VIDEO_BITRATE_MODE_VBR,
         };
         encoder_ = V4L2Encoder::Create(config);

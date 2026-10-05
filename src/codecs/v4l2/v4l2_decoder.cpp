@@ -48,10 +48,16 @@ bool V4L2Decoder::Initialize() {
         ERROR_PRINT("Could not setup output buffer");
         return false;
     }
-    if (!SetupCaptureBuffer(config_.width, config_.height, V4L2_PIX_FMT_YUV420, V4L2_MEMORY_MMAP,
-                            BUFFER_NUM, config_.is_dma_dst)) {
+    // NV12 rows align the same on the decoder, encoder and ISP, so they share buffers at any
+    // width. The decoder pads the height to a multiple of 16 and leaves the padding rows blank.
+    if (!SetupCaptureBuffer(config_.width, config_.height, V4L2_PIX_FMT_NV12, V4L2_MEMORY_MMAP,
+                            BUFFER_NUM, config_.is_dma_dst, true)) {
         ERROR_PRINT("Could not setup capture buffer");
         return false;
+    }
+    if (capture_plane_height() != config_.height) {
+        INFO_PRINT("Hardware decoder pads %dx%d to %d rows; the encoder and ISP skip them.",
+                   config_.width, config_.height, capture_plane_height());
     }
 
     if (!SubscribeEvent(V4L2_EVENT_SOURCE_CHANGE)) {

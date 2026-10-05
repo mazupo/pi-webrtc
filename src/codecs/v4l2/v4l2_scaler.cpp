@@ -1,6 +1,8 @@
 #include "codecs/v4l2/v4l2_scaler.h"
 #include "common/logging.h"
 
+#include <algorithm>
+
 constexpr const char *SCALER_FILE = "/dev/video12";
 constexpr int BUFFER_NUM = 2;
 
@@ -32,9 +34,16 @@ bool V4L2Scaler::Initialize() {
     }
 
     auto src_memory = config_.is_dma_src ? V4L2_MEMORY_DMABUF : V4L2_MEMORY_MMAP;
-    if (!SetupOutputBuffer(config_.src_width, config_.src_height, config_.src_pix_fmt, src_memory,
+    // A padded source keeps its plane layout, and the crop leaves the padding rows out.
+    int src_height = std::max(config_.src_height, config_.src_plane_height);
+    if (!SetupOutputBuffer(config_.src_width, src_height, config_.src_pix_fmt, src_memory,
                            BUFFER_NUM)) {
         ERROR_PRINT("Could not setup output buffer");
+        return false;
+    }
+    if (src_height != config_.src_height && !SetOutputCrop(config_.src_width, config_.src_height)) {
+        ERROR_PRINT("Could not crop the scaler input to %dx%d", config_.src_width,
+                    config_.src_height);
         return false;
     }
     if (!SetupCaptureBuffer(config_.dst_width, config_.dst_height, V4L2_PIX_FMT_YUV420,
