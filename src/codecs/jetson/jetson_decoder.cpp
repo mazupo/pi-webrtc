@@ -69,7 +69,8 @@ JetsonDecoder::~JetsonDecoder() {
 }
 
 bool JetsonDecoder::Initialize() {
-    if (config_.src_pix_fmt != V4L2_PIX_FMT_MJPEG && config_.src_pix_fmt != V4L2_PIX_FMT_H264) {
+    if (config_.src_pix_fmt != V4L2_PIX_FMT_MJPEG && config_.src_pix_fmt != V4L2_PIX_FMT_H264 &&
+        config_.src_pix_fmt != V4L2_PIX_FMT_HEVC) {
         ERROR_PRINT("Unsupported source format: %s",
                     v4l2_util::FourccToString(config_.src_pix_fmt).c_str());
         return false;
@@ -93,7 +94,10 @@ bool JetsonDecoder::CreateVideoDecoder() {
         ORIGINATE_ERROR("Could not subscribe resolution change event");
 
     uint32_t input_size = std::max(frame_size_, MIN_INPUT_SIZE);
-    if (decoder_->setOutputPlaneFormat(config_.src_pix_fmt, input_size) < 0)
+    // NVDEC names H265 with its own fourcc.
+    uint32_t input_fmt =
+        config_.src_pix_fmt == V4L2_PIX_FMT_HEVC ? V4L2_PIX_FMT_H265 : config_.src_pix_fmt;
+    if (decoder_->setOutputPlaneFormat(input_fmt, input_size) < 0)
         ORIGINATE_ERROR("Could not set output plane format");
 
     if (decoder_->setFrameInputMode(0) < 0)
