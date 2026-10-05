@@ -95,7 +95,7 @@ With `--hw-accel`, `pi-webrtc` uses hardware video encoding when available.
 
 The client selects the codec during SDP negotiation. On Jetson, both H264 and AV1 are hardware-encoded; AV1 requires an Orin-generation module.
 
-Recording uses the same hardware encoder when available. H264 sources can be recorded directly, while other formats are re-encoded as needed. Without hardware encoding, recording falls back to OpenH264.
+Recording re-encodes the frames the camera delivers, using the same hardware encoder when available and OpenH264 otherwise. To keep a camera's own `h264` stream untouched, record it outside `pi-webrtc`, for example through a [MediaMTX](https://github.com/bluenviron/mediamtx) proxy.
 
 On platforms without hardware encoding, `--hw-accel` automatically falls back to software encoding.
 
@@ -108,14 +108,14 @@ On platforms without hardware encoding, `--hw-accel` automatically falls back to
 ```mermaid
 graph LR
 A(Camera) -- h264 --> B(hw decoder) -- yuv420 --> C(hw scaler) --yuv420--> D(hw encoder) --h264-->E(webrtc client)
-A --h264--> F(mp4)
+B --yuv420--> F(hw encoder) -- h264--> G(mp4)
 ```
 
 The `h264` stream is taken straight from the camera and decoded to `yuv420` in hardware. When
 WebRTC detects network or device pressure the hardware scaler drops the decoded frame
 resolution, and raises it again when conditions improve; the encoder is reset to match each
 time. All frames move between the codecs over DMA, with no copy. If recording is enabled, the
-camera's `h264` packets are copied into the MP4 directly, without re-encoding.
+recorder runs its own hardware encoder instance on the decoded frames.
 
 #### `mjpeg` camera source
 
@@ -129,8 +129,7 @@ A(camera) -- mjpeg --> B(hw decoder) -- yuv420 --> C(hw scaler) --yuv420--> D(hw
 B --yuv420--> F(hw encoder) -- h264--> G(mp4)
 ```
 
-Same as above, except that there are no `h264` packets to copy, so the recorder runs its own
-hardware encoder instance on the decoded frames.
+Same as above, with the camera compressing to `mjpeg` instead of `h264`.
 
 #### `i420` camera source
 
