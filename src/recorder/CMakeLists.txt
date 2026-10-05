@@ -7,7 +7,6 @@ set(RECORDER_FILES
     ${PROJECT_SOURCE_DIR}/audio_recorder.cpp
     ${PROJECT_SOURCE_DIR}/media_query.cpp
     ${PROJECT_SOURCE_DIR}/openh264_recorder.cpp
-    ${PROJECT_SOURCE_DIR}/raw_h264_recorder.cpp
     ${PROJECT_SOURCE_DIR}/recorder_manager.cpp
     ${PROJECT_SOURCE_DIR}/video_recorder.cpp
 )

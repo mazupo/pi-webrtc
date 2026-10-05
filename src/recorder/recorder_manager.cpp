@@ -19,7 +19,6 @@ extern "C" {
 #include "common/utils.h"
 #include "common/v4l2_frame_buffer.h"
 #include "recorder/openh264_recorder.h"
-#include "recorder/raw_h264_recorder.h"
 #if defined(USE_RPI_HW_ENCODER)
 #include "recorder/v4l2_h264_recorder.h"
 #elif defined(USE_JETSON_HW_ENCODER)
@@ -211,9 +210,7 @@ void RecorderManager::CreateVideoRecorder(std::shared_ptr<VideoCapturer> capture
         if (config.record_type == RecordType::Snapshot) {
             return nullptr;
         }
-        if (capturer->format() == V4L2_PIX_FMT_H264) {
-            return RawH264Recorder::Create(width, height, fps);
-        } else if (config.hw_accel) {
+        if (config.hw_accel) {
 #if defined(USE_RPI_HW_ENCODER)
             return V4L2H264Recorder::Create(width, height, fps);
 #elif defined(USE_JETSON_HW_ENCODER)
@@ -246,11 +243,7 @@ RecorderManager::RecorderManager(Args config)
 void RecorderManager::SubscribeVideoSource(std::shared_ptr<VideoCapturer> video_src) {
     video_subscription_ = video_src->Subscribe(
         [this](V4L2FrameBufferRef buffer) {
-            bool is_keyframe = (buffer->flags() & V4L2_BUF_FLAG_KEYFRAME) ||
-                               (video_src_->format() != V4L2_PIX_FMT_H264);
-
-            // waiting first keyframe to start recorders.
-            if (auto_start_ && !is_recording_ && is_keyframe) {
+            if (auto_start_ && !is_recording_) {
                 Start();
             }
 
@@ -268,7 +261,7 @@ void RecorderManager::SubscribeVideoSource(std::shared_ptr<VideoCapturer> video_
                 (int64_t)(buffer->timestamp().tv_usec - base_start_time_.tv_usec);
             double total_elapsed_time = total_elapsed_us / 1e6;
 
-            if (total_elapsed_time >= file_number_ * config.file_duration && is_keyframe) {
+            if (total_elapsed_time >= file_number_ * config.file_duration) {
                 CloseCurrentFile();
                 Start();
                 ++file_number_;
