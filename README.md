@@ -43,7 +43,7 @@ Install the dependencies and download the latest release on **Raspberry Pi OS Tr
 
 ```bash
 sudo apt update
-sudo apt install libmosquitto1 pulseaudio libavformat61 libswscale8 libyaml-cpp0.8
+sudo apt install libmosquitto1 pulseaudio libavformat61 libyaml-cpp0.8
 
 wget https://github.com/mazupo/pi-webrtc/releases/latest/download/pi-webrtc_raspios-trixie-arm64.tar.gz
 tar -xzf pi-webrtc_raspios-trixie-arm64.tar.gz

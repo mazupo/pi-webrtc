@@ -56,7 +56,7 @@ Putting `8883` into the browser is the single most common mistake — see
 2. Install dependencies:
     ```bash
     sudo apt update
-    sudo apt install libmosquitto1 pulseaudio libavformat61 libswscale8 libyaml-cpp0.8
+    sudo apt install libmosquitto1 pulseaudio libavformat61 libyaml-cpp0.8
     ```
 
 3. Download the latest [release](https://github.com/mazupo/pi-webrtc/releases) and confirm it
@@ -116,9 +116,9 @@ Tested on JetPack 6 (L4T R36).
     sudo apt update
     sudo apt install libmosquitto1 pulseaudio libyaml-cpp0.7 libboost-program-options1.74.0
     ```
-    JetPack already ships NVIDIA's own `ffmpeg` package, which bundles the `libavformat` and
-    `libswscale` shared libraries, so those are not listed here. Do not install Ubuntu's
-    `libavformat58` / `libswscale5` on top — they claim the same file paths as NVIDIA's build.
+    JetPack already ships NVIDIA's own `ffmpeg` package, which bundles the `libavformat`
+    shared library, so it is not listed here. Do not install Ubuntu's `libavformat58` on top —
+    it claims the same file paths as NVIDIA's build.
 
 2. Check your L4T version, then download the matching `pi-webrtc_jetson-l4t-<version>.tar.gz`
    from the [releases](https://github.com/mazupo/pi-webrtc/releases):

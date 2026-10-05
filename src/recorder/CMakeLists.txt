@@ -32,6 +32,5 @@ target_link_libraries(${PROJECT_NAME} PUBLIC
     avformat
     avcodec
     avutil
-    swscale
     ${JPEG_LIBRARIES}
 )
