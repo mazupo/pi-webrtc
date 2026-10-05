@@ -4,6 +4,7 @@ find_package(PkgConfig REQUIRED)
 
 set(CAPTURE_FILES
     decoder_factory.cpp
+    rtsp_capturer.cpp
     v4l2_capturer.cpp
     pa_capturer.cpp
     alsa_capturer.cpp
@@ -79,6 +80,9 @@ target_include_directories(${PROJECT_NAME} PUBLIC
 target_link_libraries(${PROJECT_NAME} PUBLIC
     common
     ffmpeg_codecs
+    avformat
+    avcodec
+    avutil
     ${WEBRTC_LIBRARY}
     ${PULSE_LINK_LIBRARIES}
     ${PULSE_SIMPLE_LINK_LIBRARIES}

@@ -26,6 +26,7 @@
 #endif
 #include "capturer/alsa_capturer.h"
 #include "capturer/pa_capturer.h"
+#include "capturer/rtsp_capturer.h"
 #include "capturer/v4l2_capturer.h"
 #include "common/jpeg_util.h"
 #include "common/logging.h"
@@ -106,6 +107,9 @@ void Conductor::InitializeTracks() {
             if (args.camera_source == CameraSource::V4L2) {
                 INFO_PRINT("Camera: Use v4l2 capturer.");
                 return V4L2Capturer::Create(args);
+            } else if (args.camera_source == CameraSource::Rtsp) {
+                INFO_PRINT("Camera: Use RTSP capturer.");
+                return RtspCapturer::Create(args);
             }
 #if defined(USE_LIBCAMERA_CAPTURE)
             else if (args.camera_source == CameraSource::LibCamera) {
@@ -188,7 +192,7 @@ void Conductor::AddTracks(webrtc::scoped_refptr<RtcPeer> peer) {
             if (args.max_bitrate > 0) {
                 parameters.encodings[0].max_bitrate_bps = args.max_bitrate * 1000;
             }
-            parameters.encodings[0].max_framerate = args.fps;
+            parameters.encodings[0].max_framerate = video_capture_source_->fps();
             if (!args.scalability_mode.empty()) {
                 parameters.encodings[0].scalability_mode = args.scalability_mode;
             }
