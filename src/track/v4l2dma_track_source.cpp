@@ -78,6 +78,24 @@ void V4L2DmaTrackSource::OnFrameCaptured(V4L2FrameBufferRef frame_buffer) {
             latency::SetSentResolution(adapted_width, adapted_height);
         }
 
+        // Full-size YUV dmabufs go straight to the encoder, skipping a scaler copy.
+        auto format = frame_buffer->format();
+        if (adapted_width == width && adapted_height == height &&
+            (format == V4L2_PIX_FMT_YUV420 || format == V4L2_PIX_FMT_NV12) &&
+            frame_buffer->GetDmaFd() > 0) {
+            scaler.reset();
+            if (sensor_us != 0) {
+                latency::MarkCapture(translated_timestamp_us, sensor_us);
+                latency::Record(latency::Stage::kSensorToOnFrame, latency::NowUs() - sensor_us);
+            }
+            OnFrame(webrtc::VideoFrame::Builder()
+                        .set_video_frame_buffer(frame_buffer)
+                        .set_rotation(webrtc::kVideoRotation_0)
+                        .set_timestamp_us(translated_timestamp_us)
+                        .build());
+            return;
+        }
+
         if (!scaler || adapted_width != config_width_ || adapted_height != config_height_) {
             config_width_ = adapted_width;
             config_height_ = adapted_height;
