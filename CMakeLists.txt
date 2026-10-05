@@ -161,6 +161,11 @@ elseif(BUILD_TEST STREQUAL "v4l2_capturer")
         capturer
         v4l2_codecs
     )
+elseif(BUILD_TEST STREQUAL "rtsp_capturer")
+    add_executable(test-rtsp-capturer test/test_rtsp_capturer.cpp)
+    target_link_libraries(test-rtsp-capturer
+        capturer
+    )
 elseif(BUILD_TEST STREQUAL "v4l2_encoder")
     add_executable(test-v4l2-encoder test/test_v4l2_encoder.cpp)
     target_link_libraries(test-v4l2-encoder
