@@ -212,7 +212,9 @@ void RecorderManager::CreateVideoRecorder(std::shared_ptr<VideoCapturer> capture
         }
         if (config.hw_accel) {
 #if defined(USE_RPI_HW_ENCODER)
-            return V4L2H264Recorder::Create(width, height, fps);
+            if (auto recorder = V4L2H264Recorder::Create(width, height, fps)) {
+                return recorder;
+            }
 #elif defined(USE_JETSON_HW_ENCODER)
             return JetsonRecorder::Create(width, height, fps);
 #endif

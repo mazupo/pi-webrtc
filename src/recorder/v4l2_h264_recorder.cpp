@@ -1,6 +1,11 @@
 #include "recorder/v4l2_h264_recorder.h"
+#include "common/logging.h"
 
 std::unique_ptr<V4L2H264Recorder> V4L2H264Recorder::Create(int width, int height, int fps) {
+    if (!V4L2Encoder::IsAvailable()) {
+        WARN_PRINT("No hardware encoder found; recording with OpenH264.");
+        return nullptr;
+    }
     return std::make_unique<V4L2H264Recorder>(width, height, fps);
 }
 

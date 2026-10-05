@@ -97,7 +97,7 @@ The client selects the codec during SDP negotiation. On Jetson, both H264 and AV
 
 Recording re-encodes the frames the camera delivers, using the same hardware encoder when available and OpenH264 otherwise. To keep a camera's own `h264` stream untouched, record it outside `pi-webrtc`, for example through a [MediaMTX](https://github.com/bluenviron/mediamtx) proxy.
 
-On platforms without hardware encoding, `--hw-accel` automatically falls back to software encoding.
+With `--hw-accel`, each hardware decoder, scaler, and encoder that the board lacks falls back to its software counterpart on its own, with a warning in the log. On a Pi 5, for example, encoding is done in software.
 
 #### `h264` camera source
 

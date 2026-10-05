@@ -1,9 +1,5 @@
 #include "parser.h"
 #include "common/logging.h"
-#if defined(USE_RPI_HW_ENCODER)
-#include "codecs/v4l2/v4l2_encoder.h"
-#include "codecs/v4l2/v4l2_scaler.h"
-#endif
 #include "recorder/recorder_manager.h"
 #include "rtc/rtc_peer.h"
 
@@ -320,21 +316,9 @@ void Parser::ParseArgs(int argc, char *argv[], Args &args) {
         exit(0);
     }
 
-#if defined(USE_RPI_HW_ENCODER)
-    if (args.hw_accel && !(V4L2Encoder::IsAvailable() && V4L2Scaler::IsAvailable())) {
-        args.hw_accel = false;
-        WARN_PRINT("Hardware encoder/scaler not found; falling back to software encoding. "
-                   "Set hw-accel to false to silence this warning.");
-    }
-#endif
-
     if (!args.scalability_mode.empty()) {
         if (!webrtc::ScalabilityModeStringToEnum(args.scalability_mode)) {
             ERROR_PRINT("Unknown --scalability-mode: %s", args.scalability_mode.c_str());
-            exit(1);
-        }
-        if (args.hw_accel) {
-            ERROR_PRINT("--scalability-mode is not supported with --hw-accel.");
             exit(1);
         }
     }
