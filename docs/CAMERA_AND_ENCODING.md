@@ -162,7 +162,18 @@ SDP picks the winner. If you need a specific codec, make sure the client offers 
 
 #### `h264` camera source
 
-Not supported — there is no H264 software decoder in `pi-webrtc`.
+```bash
+/path/to/pi-webrtc --camera=v4l2:0 --v4l2-format=h264 --fps=30 --width=1280 --height=720 ...
+```
+
+```mermaid
+graph LR
+A(camera) -- h264 --> B(libavcodec) -- yuv420 --> C(libyuv scaler) --yuv420--> D(openh264) --h264-->E(webrtc client)
+B --yuv420--> F(openh264) -- h264--> G(mp4)
+```
+
+Without a hardware decoder, `libavcodec` decodes the `h264` stream in software. A Pi 5 takes
+about 6 ms per 1080p frame on one core.
 
 #### `mjpeg` camera source
 

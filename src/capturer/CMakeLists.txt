@@ -3,6 +3,7 @@ project(capturer)
 find_package(PkgConfig REQUIRED)
 
 set(CAPTURE_FILES
+    decoder_factory.cpp
     v4l2_capturer.cpp
     pa_capturer.cpp
     alsa_capturer.cpp
@@ -77,11 +78,20 @@ target_include_directories(${PROJECT_NAME} PUBLIC
 
 target_link_libraries(${PROJECT_NAME} PUBLIC
     common
+    ffmpeg_codecs
     ${WEBRTC_LIBRARY}
     ${PULSE_LINK_LIBRARIES}
     ${PULSE_SIMPLE_LINK_LIBRARIES}
     ${ALSA_LINK_LIBRARIES}
 )
+
+if(USE_RPI_HW_ENCODER)
+    target_link_libraries(${PROJECT_NAME} PUBLIC v4l2_codecs)
+endif()
+
+if(USE_JETSON_HW_ENCODER)
+    target_link_libraries(${PROJECT_NAME} PUBLIC jetson_codecs)
+endif()
 
 if(USE_LIBARGUS_CAPTURE)
     target_link_libraries(${PROJECT_NAME} PUBLIC ${JETSON_LIBS})

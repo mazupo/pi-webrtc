@@ -1,15 +1,13 @@
 #ifndef V4L2_CAPTURER_H_
 #define V4L2_CAPTURER_H_
 
+#include <mutex>
+
 #include <modules/video_capture/video_capture.h>
 
 #include "args.h"
 #include "capturer/video_capturer.h"
-#if defined(USE_RPI_HW_ENCODER)
-#include "codecs/v4l2/v4l2_decoder.h"
-#elif defined(USE_JETSON_HW_ENCODER)
-#include "codecs/jetson/jetson_decoder.h"
-#endif
+#include "codecs/frame_processor.h"
 #include "common/interface/subject.h"
 #include "common/v4l2_frame_buffer.h"
 #include "common/v4l2_utils.h"
@@ -45,6 +43,7 @@ class V4L2Capturer : public VideoCapturer {
     int rotation_;
     int buffer_count_;
     bool hw_accel_;
+    bool hw_decoder_;
     bool has_first_keyframe_;
     uint32_t format_;
     Args config_;
@@ -52,12 +51,14 @@ class V4L2Capturer : public VideoCapturer {
     std::unique_ptr<Worker> worker_;
     std::unique_ptr<IFrameProcessor> decoder_;
 
+    std::mutex frame_mtx_;
     V4L2FrameBufferRef frame_buffer_;
     Subject<V4L2FrameBufferRef> stream_subject_;
 
     void Initialize();
     bool IsCompressedFormat() const;
     void CaptureImage();
+    void SetFrameBuffer(V4L2FrameBufferRef frame_buffer);
     bool CheckMatchingDevice(std::string unique_name);
     int GetCameraIndex(webrtc::VideoCaptureModule::DeviceInfo *device_info);
 };

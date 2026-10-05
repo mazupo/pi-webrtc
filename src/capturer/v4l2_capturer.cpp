@@ -9,6 +9,7 @@
 #include <modules/video_capture/video_capture_factory.h>
 #include <third_party/libyuv/include/libyuv.h>
 
+#include "capturer/decoder_factory.h"
 #include "common/latency_tracer.h"
 #include "common/logging.h"
 
@@ -28,6 +29,7 @@ V4L2Capturer::V4L2Capturer(Args args)
       rotation_(args.rotation),
       buffer_count_(4),
       hw_accel_(args.hw_accel),
+      hw_decoder_(false),
       has_first_keyframe_(false),
       format_(args.format),
       config_(args) {}
@@ -41,16 +43,13 @@ V4L2Capturer::~V4L2Capturer() {
 }
 
 void V4L2Capturer::Initialize() {
-    if (hw_accel_ && IsCompressedFormat()) {
-#if defined(USE_RPI_HW_ENCODER)
-        decoder_ = V4L2Decoder::Create({width_, height_, format_, true});
-#elif defined(USE_JETSON_HW_ENCODER)
-        decoder_ = JetsonDecoder::Create({width_, height_, format_, true});
-#endif
+    if (IsCompressedFormat()) {
+        auto decoder = CreateVideoDecoder({width_, height_, format_, hw_accel_});
+        decoder_ = std::move(decoder.processor);
+        hw_decoder_ = decoder.is_hardware;
     }
     if (format_ == V4L2_PIX_FMT_H264 && !decoder_) {
-        ERROR_PRINT("H264 camera input requires hardware decoding. Use other v4l2 formats or a "
-                    "libcamera source on boards without hardware decoding.");
+        ERROR_PRINT("Unable to create a decoder for the H264 camera input.");
         exit(EXIT_FAILURE);
     }
 
@@ -111,7 +110,7 @@ int V4L2Capturer::width(int stream_idx) const { return width_; }
 
 int V4L2Capturer::height(int stream_idx) const { return height_; }
 
-bool V4L2Capturer::is_dma_capture() const { return decoder_ != nullptr; }
+bool V4L2Capturer::is_dma_capture() const { return hw_decoder_; }
 
 uint32_t V4L2Capturer::format() const { return format_; }
 
@@ -170,7 +169,7 @@ void V4L2Capturer::CaptureImage() {
     }
 
     auto buffer = V4L2Buffer::FromV4L2((uint8_t *)capture_.buffers[buf.index].start, buf, format_);
-    frame_buffer_ = V4L2FrameBuffer::Create(width_, height_, buffer);
+    auto frame_buffer = V4L2FrameBuffer::Create(width_, height_, buffer);
 
     if (latency::Enabled()) {
         latency::RecordCapture(latency::SensorUs(buffer.timestamp), latency::NowUs());
@@ -186,13 +185,15 @@ void V4L2Capturer::CaptureImage() {
     }
 
     if (decoder_) {
-        decoder_->EmplaceBuffer(frame_buffer_, [this, buffer](V4L2FrameBufferRef decoded_buffer) {
+        decoder_->EmplaceBuffer(frame_buffer, [this, buffer](V4L2FrameBufferRef decoded_buffer) {
             // hw decoder doesn't output timestamps.
             decoded_buffer->SetTimestamp(buffer.timestamp);
+            SetFrameBuffer(decoded_buffer);
             stream_subject_.Next(decoded_buffer);
         });
     } else {
-        stream_subject_.Next(frame_buffer_);
+        SetFrameBuffer(frame_buffer);
+        stream_subject_.Next(frame_buffer);
     }
 
     if (!v4l2_util::QueueBuffer(fd_, &buf)) {
@@ -204,8 +205,23 @@ bool V4L2Capturer::SetControls(int key, int value) {
     return v4l2_util::SetExtCtrl(fd_, key, value);
 }
 
+void V4L2Capturer::SetFrameBuffer(V4L2FrameBufferRef frame_buffer) {
+    std::lock_guard<std::mutex> lock(frame_mtx_);
+    frame_buffer_ = std::move(frame_buffer);
+}
+
 webrtc::scoped_refptr<webrtc::I420BufferInterface> V4L2Capturer::GetI420Frame(int stream_idx) {
-    return frame_buffer_->ToI420();
+    V4L2FrameBufferRef frame_buffer;
+    {
+        std::lock_guard<std::mutex> lock(frame_mtx_);
+        frame_buffer = frame_buffer_;
+    }
+    if (!frame_buffer) {
+        auto blank = webrtc::I420Buffer::Create(width_, height_);
+        webrtc::I420Buffer::SetBlack(blank.get());
+        return blank;
+    }
+    return frame_buffer->ToI420();
 }
 
 Subscription V4L2Capturer::Subscribe(Subject<V4L2FrameBufferRef>::Callback callback,
