@@ -110,8 +110,9 @@ void Parser::ParseArgs(int argc, char *argv[], Args &args) {
     opts.add_options()
         ("help,h", "Display the help message")
         ("camera", bpo::value<std::string>(&args.camera)->default_value(args.camera),
-            "Specify the camera using V4L2 or Libcamera. "
-            "e.g. \"libcamera:0\" for Libcamera, \"v4l2:0\" for V4L2 at `/dev/video0`.")
+            "Specify the camera using V4L2, Libcamera or an RTSP URL. "
+            "e.g. \"libcamera:0\" for Libcamera, \"v4l2:0\" for V4L2 at `/dev/video0`, "
+            "\"rtsp://user:pass@192.168.1.10:554/stream\" for an RTSP camera.")
         ("v4l2-format", bpo::value<std::string>(&args.v4l2_format)->default_value(args.v4l2_format),
             "The input format (`i420`, `yuyv`, `mjpeg`, `h264`) of the V4L2 camera.")
         ("uid", bpo::value<std::string>(&args.uid)->default_value(args.uid),
@@ -580,6 +581,11 @@ void Parser::ParseWsUrl(Args &args) {
 }
 
 void Parser::ParseDevice(Args &args) {
+    if (args.camera.rfind("rtsp://", 0) == 0 || args.camera.rfind("rtsps://", 0) == 0) {
+        args.camera_source = CameraSource::Rtsp;
+        return;
+    }
+
     size_t pos = args.camera.find(':');
     if (pos == std::string::npos) {
         throw std::runtime_error("Invalid camera string: " + args.camera +
@@ -623,6 +629,6 @@ void Parser::ParseDevice(Args &args) {
 
     } else {
         throw std::runtime_error("Unknown camera type: " + prefix +
-                                 ". Expected 'libcamera', 'libargus' or 'v4l2'");
+                                 ". Expected 'libcamera', 'libargus', 'v4l2' or an rtsp:// URL");
     }
 }

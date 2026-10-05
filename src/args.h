@@ -22,6 +22,7 @@ enum class CameraSource {
     LibCamera,
     LibArgus,
     V4L2,
+    Rtsp,
 };
 
 template <typename DEFAULT> struct TimeVal {
