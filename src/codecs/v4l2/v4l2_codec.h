@@ -22,7 +22,9 @@ class V4L2Codec : public IFrameProcessor {
     bool SetupOutputBuffer(int width, int height, uint32_t pix_fmt, v4l2_memory memory,
                            int buffer_num, uint32_t sizeimage = 0);
     bool SetupCaptureBuffer(int width, int height, uint32_t pix_fmt, v4l2_memory memory,
-                            int buffer_num, bool exp_dmafd = false);
+                            int buffer_num, bool exp_dmafd = false, bool allow_padding = false);
+    bool SetOutputCrop(int width, int height);
+    int capture_plane_height() const { return capture_.height; }
     bool SubscribeEvent(uint32_t ev_type);
     void HandleEvent();
     void Start();
@@ -44,7 +46,7 @@ class V4L2Codec : public IFrameProcessor {
 
     bool PrepareBuffer(V4L2BufferGroup *gbuffer, int width, int height, uint32_t pix_fmt,
                        v4l2_buf_type type, v4l2_memory memory, int buffer_num,
-                       bool has_dmafd = false, uint32_t sizeimage = 0);
+                       bool has_dmafd = false, uint32_t sizeimage = 0, bool allow_padding = false);
     bool CaptureBuffer();
 };
 

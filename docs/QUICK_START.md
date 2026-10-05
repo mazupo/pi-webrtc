@@ -215,11 +215,6 @@ driver instead of libcamera, and it turns USB auto-detection off.
         --hw-accel
     ```
 
-> [!CAUTION]
-> At 1920x1080 with the legacy V4L2 driver, the hardware decoder firmware may round up to
-> 1920x1088 while the ISP/encoder stays at 1920x1080 on the 6.6.31 kernel, which can cause
-> memory out-of-range issues. Setting 1920x1088 avoids it.
-
 ## Browser connection
 
 Open the [demo web](https://app.mazupo.com) and fill in:

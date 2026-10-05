@@ -52,22 +52,27 @@ bool V4L2Codec::SetupOutputBuffer(int width, int height, uint32_t pix_fmt, v4l2_
 }
 
 bool V4L2Codec::SetupCaptureBuffer(int width, int height, uint32_t pix_fmt, v4l2_memory memory,
-                                   int buffer_num, bool exp_dmafd) {
+                                   int buffer_num, bool exp_dmafd, bool allow_padding) {
     width_ = width;
     height_ = height;
     dst_fmt_ = pix_fmt;
     v4l2_buf_type type = V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE;
-    return PrepareBuffer(&capture_, width, height, pix_fmt, type, memory, buffer_num, exp_dmafd);
+    return PrepareBuffer(&capture_, width, height, pix_fmt, type, memory, buffer_num, exp_dmafd, 0,
+                         allow_padding);
+}
+
+bool V4L2Codec::SetOutputCrop(int width, int height) {
+    return v4l2_util::SetCrop(fd_, output_.type, width, height);
 }
 
 bool V4L2Codec::PrepareBuffer(V4L2BufferGroup *gbuffer, int width, int height, uint32_t pix_fmt,
                               v4l2_buf_type type, v4l2_memory memory, int buffer_num,
-                              bool has_dmafd, uint32_t sizeimage) {
+                              bool has_dmafd, uint32_t sizeimage, bool allow_padding) {
     if (!v4l2_util::InitBuffer(fd_, gbuffer, type, memory, has_dmafd)) {
         return false;
     }
 
-    if (!v4l2_util::SetFormat(fd_, gbuffer, width, height, pix_fmt, sizeimage)) {
+    if (!v4l2_util::SetFormat(fd_, gbuffer, width, height, pix_fmt, sizeimage, allow_padding)) {
         return false;
     }
 
@@ -227,6 +232,9 @@ bool V4L2Codec::CaptureBuffer() {
             capture_.buffers[buf.index].start, buf.m.planes[0].bytesused,
             capture_.buffers[buf.index].dmafd, buf.flags, dst_fmt_);
         auto frame_buffer = V4L2FrameBuffer::Create(width_, height_, buffer);
+        if (capture_.bytesperline > 0) {
+            frame_buffer->SetLayout(capture_.bytesperline, capture_.height);
+        }
 
         if (abort_) {
             return false;

@@ -33,7 +33,9 @@ bool V4L2Encoder::Initialize() {
     }
 
     auto src_memory = config_.is_dma_src ? V4L2_MEMORY_DMABUF : V4L2_MEMORY_MMAP;
-    if (!SetupOutputBuffer(config_.width, config_.height, config_.src_pix_fmt, src_memory,
+    // A padded source keeps its plane layout; encoding at the capture size skips the padding rows.
+    int src_height = std::max(config_.height, config_.src_plane_height);
+    if (!SetupOutputBuffer(config_.width, src_height, config_.src_pix_fmt, src_memory,
                            BUFFER_NUM)) {
         ERROR_PRINT("Could not setup output buffer");
         return false;

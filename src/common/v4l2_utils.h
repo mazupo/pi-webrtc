@@ -48,6 +48,9 @@ struct V4L2BufferGroup {
     int fd = -1;
     uint32_t num_planes = 0;
     uint32_t num_buffers = 0;
+    uint32_t width = 0;
+    uint32_t height = 0;
+    uint32_t bytesperline = 0;
     bool has_dmafd = false;
     std::vector<V4L2Buffer> buffers;
     enum v4l2_buf_type type;
@@ -69,7 +72,8 @@ bool QueueBuffers(int fd, V4L2BufferGroup *gbuffer);
 bool SubscribeEvent(int fd, uint32_t type);
 bool SetFps(int fd, v4l2_buf_type type, uint32_t fps);
 bool SetFormat(int fd, V4L2BufferGroup *gbuffer, uint32_t width, uint32_t height,
-               uint32_t &pixel_format, uint32_t sizeimage = 0);
+               uint32_t &pixel_format, uint32_t sizeimage = 0, bool allow_padding = false);
+bool SetCrop(int fd, v4l2_buf_type type, uint32_t width, uint32_t height);
 bool SetCtrl(int fd, uint32_t id, int32_t value);
 bool SetExtCtrl(int fd, uint32_t id, int32_t value);
 bool StreamOn(int fd, v4l2_buf_type type);

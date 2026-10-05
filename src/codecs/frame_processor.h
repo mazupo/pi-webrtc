@@ -19,6 +19,7 @@ struct EncoderConfig {
     int thread_count = 4;
     bool is_dma_src = false;
     uint32_t src_pix_fmt = 0;
+    int src_plane_height = 0; // rows per source plane when the producer pads the height
     uint32_t dst_pix_fmt = 0;
     v4l2_mpeg_video_bitrate_mode rc_mode = V4L2_MPEG_VIDEO_BITRATE_MODE_CBR;
     int temporal_layers = 1;
@@ -32,6 +33,7 @@ struct ScalerConfig {
     uint32_t src_pix_fmt = 0;
     bool is_dma_src = false;
     bool is_dma_dst = false;
+    int src_plane_height = 0; // rows per source plane when the producer pads the height
 };
 
 struct DecoderConfig {
