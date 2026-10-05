@@ -276,6 +276,7 @@ bool SetFormat(int fd, V4L2BufferGroup *gbuffer, uint32_t width, uint32_t height
     gbuffer->width = fmt.fmt.pix_mp.width;
     gbuffer->height = fmt.fmt.pix_mp.height;
     gbuffer->bytesperline = fmt.fmt.pix_mp.plane_fmt[0].bytesperline;
+    gbuffer->sizeimage = fmt.fmt.pix_mp.plane_fmt[0].sizeimage;
 
     bool keep_driver_size = width == 0 && height == 0;
     bool padded = allow_padding && gbuffer->width >= width && gbuffer->height >= height;

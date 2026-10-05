@@ -51,6 +51,7 @@ struct V4L2BufferGroup {
     uint32_t width = 0;
     uint32_t height = 0;
     uint32_t bytesperline = 0;
+    uint32_t sizeimage = 0;
     bool has_dmafd = false;
     std::vector<V4L2Buffer> buffers;
     enum v4l2_buf_type type;

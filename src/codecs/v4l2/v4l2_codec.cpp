@@ -1,6 +1,7 @@
 #include "codecs/v4l2/v4l2_codec.h"
 #include "common/latency_tracer.h"
 #include "common/logging.h"
+#include <algorithm>
 #include <cstring>
 #include <sys/ioctl.h>
 #include <thread>
@@ -148,8 +149,10 @@ void V4L2Codec::EmplaceBuffer(V4L2FrameBufferRef buffer,
 
     v4l2_buffer *buf = &output_.buffers[index].inner;
     if (output_.memory == V4L2_MEMORY_DMABUF) {
+        // An odd-height frame's payload is a few bytes short of sizeimage, which vb2 needs as the
+        // plane length; the dmabuf itself is page-aligned and holds it.
         buf->m.planes[0].m.fd = buffer->GetDmaFd();
-        buf->m.planes[0].length = buffer->size();
+        buf->m.planes[0].length = std::max(buffer->size(), output_.sizeimage);
     } else {
         if (buffer->size() > output_.buffers[index].length) {
             ERROR_PRINT("Frame (%u bytes) exceeds the input buffer (%u bytes) of %s",
