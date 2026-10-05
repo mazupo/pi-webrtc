@@ -6,6 +6,7 @@
 class V4L2Decoder : public V4L2Codec {
   public:
     static std::unique_ptr<V4L2Decoder> Create(DecoderConfig config);
+    static bool IsAvailable();
     V4L2Decoder(DecoderConfig config);
 
   protected:

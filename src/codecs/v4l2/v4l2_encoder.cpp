@@ -8,6 +8,10 @@ constexpr int BUFFER_NUM = 2;
 constexpr uint32_t kBitrateStepBps = 25000;
 
 std::unique_ptr<V4L2Encoder> V4L2Encoder::Create(EncoderConfig config) {
+    if (!IsAvailable()) {
+        WARN_PRINT("No V4L2 hardware encoder at %s.", ENCODER_FILE);
+        return nullptr;
+    }
     auto encoder = std::make_unique<V4L2Encoder>(config);
     if (!encoder->Initialize()) {
         return nullptr;

@@ -41,7 +41,14 @@ V4L2Capturer::~V4L2Capturer() {
 }
 
 void V4L2Capturer::Initialize() {
-    if (!hw_accel_ && format_ == V4L2_PIX_FMT_H264) {
+    if (hw_accel_ && IsCompressedFormat()) {
+#if defined(USE_RPI_HW_ENCODER)
+        decoder_ = V4L2Decoder::Create({width_, height_, format_, true});
+#elif defined(USE_JETSON_HW_ENCODER)
+        decoder_ = JetsonDecoder::Create({width_, height_, format_, true});
+#endif
+    }
+    if (format_ == V4L2_PIX_FMT_H264 && !decoder_) {
         ERROR_PRINT("H264 camera input requires hardware decoding. Use other v4l2 formats or a "
                     "libcamera source on boards without hardware decoding.");
         exit(EXIT_FAILURE);
@@ -104,7 +111,7 @@ int V4L2Capturer::width(int stream_idx) const { return width_; }
 
 int V4L2Capturer::height(int stream_idx) const { return height_; }
 
-bool V4L2Capturer::is_dma_capture() const { return hw_accel_ && IsCompressedFormat(); }
+bool V4L2Capturer::is_dma_capture() const { return decoder_ != nullptr; }
 
 uint32_t V4L2Capturer::format() const { return format_; }
 
@@ -168,7 +175,7 @@ void V4L2Capturer::CaptureImage() {
     if (latency::Enabled()) {
         latency::RecordCapture(latency::SensorUs(buffer.timestamp), latency::NowUs());
     }
-    if (hw_accel_ && format_ == V4L2_PIX_FMT_H264) {
+    if (decoder_ && format_ == V4L2_PIX_FMT_H264) {
         if ((buffer.flags & V4L2_BUF_FLAG_KEYFRAME) != 0) {
             has_first_keyframe_ = true;
         }
@@ -178,20 +185,7 @@ void V4L2Capturer::CaptureImage() {
         }
     }
 
-    if (hw_accel_ && IsCompressedFormat()) {
-        if (!decoder_) {
-#if defined(USE_RPI_HW_ENCODER)
-            decoder_ = V4L2Decoder::Create({width_, height_, format_, true});
-#elif defined(USE_JETSON_HW_ENCODER)
-            decoder_ = JetsonDecoder::Create({width_, height_, format_, true});
-#endif
-            if (!decoder_) {
-                ERROR_PRINT("Unable to create the hardware decoder for %s",
-                            v4l2_util::FourccToString(format_).c_str());
-                exit(EXIT_FAILURE);
-            }
-        }
-
+    if (decoder_) {
         decoder_->EmplaceBuffer(frame_buffer_, [this, buffer](V4L2FrameBufferRef decoded_buffer) {
             // hw decoder doesn't output timestamps.
             decoded_buffer->SetTimestamp(buffer.timestamp);

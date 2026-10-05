@@ -3,8 +3,24 @@
 
 constexpr const char *DECODER_FILE = "/dev/video10";
 constexpr int BUFFER_NUM = 2;
+constexpr int MAX_WIDTH = 1920;
+constexpr int MAX_HEIGHT = 1088;
 
 std::unique_ptr<V4L2Decoder> V4L2Decoder::Create(DecoderConfig config) {
+    if (!IsAvailable()) {
+        WARN_PRINT("No V4L2 hardware decoder at %s.", DECODER_FILE);
+        return nullptr;
+    }
+    if (config.src_pix_fmt != V4L2_PIX_FMT_H264 && config.src_pix_fmt != V4L2_PIX_FMT_MJPEG) {
+        WARN_PRINT("The V4L2 hardware decoder does not support %s.",
+                   v4l2_util::FourccToString(config.src_pix_fmt).c_str());
+        return nullptr;
+    }
+    if (config.width > MAX_WIDTH || config.height > MAX_HEIGHT) {
+        WARN_PRINT("The V4L2 hardware decoder supports up to %dx%d, not %dx%d.", MAX_WIDTH,
+                   MAX_HEIGHT, config.width, config.height);
+        return nullptr;
+    }
     auto decoder = std::make_unique<V4L2Decoder>(config);
     if (!decoder->Initialize()) {
         return nullptr;
@@ -12,6 +28,8 @@ std::unique_ptr<V4L2Decoder> V4L2Decoder::Create(DecoderConfig config) {
     decoder->Start();
     return decoder;
 }
+
+bool V4L2Decoder::IsAvailable() { return v4l2_util::IsM2MDeviceReady(DECODER_FILE); }
 
 V4L2Decoder::V4L2Decoder(DecoderConfig config)
     : V4L2Codec(),

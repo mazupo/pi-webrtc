@@ -10,6 +10,12 @@
 
 webrtc::scoped_refptr<V4L2DmaTrackSource>
 V4L2DmaTrackSource::Create(std::shared_ptr<VideoCapturer> capturer) {
+#if defined(USE_RPI_HW_ENCODER)
+    if (!V4L2Scaler::IsAvailable()) {
+        WARN_PRINT("No hardware scaler found; scaling frames in software.");
+        return nullptr;
+    }
+#endif
     auto obj = webrtc::make_ref_counted<V4L2DmaTrackSource>(std::move(capturer));
     obj->StartTrack();
     return obj;
@@ -83,6 +89,9 @@ void V4L2DmaTrackSource::OnFrameCaptured(V4L2FrameBufferRef frame_buffer) {
 #endif
             DEBUG_PRINT("New scaler is set: %dx%d -> %dx%d", width, height, config_width_,
                         config_height_);
+        }
+        if (!scaler) {
+            return;
         }
 
         scaler->EmplaceBuffer(frame_buffer, [this, translated_timestamp_us,

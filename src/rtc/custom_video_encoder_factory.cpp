@@ -1,6 +1,7 @@
 #include "rtc/custom_video_encoder_factory.h"
 
 #include "common/latency_tracer.h"
+#include "common/logging.h"
 #include "rtc/tracing_video_encoder.h"
 
 #include "codecs/h264/openh264_video_encoder.h"
@@ -26,10 +27,25 @@ std::unique_ptr<webrtc::VideoEncoderFactory> CreateCustomVideoEncoderFactory(con
     return std::make_unique<CustomVideoEncoderFactory>(args);
 }
 
+CustomVideoEncoderFactory::CustomVideoEncoderFactory(const Args &args)
+    : args_(args),
+      hw_encoder_(args.hw_accel) {
+#if defined(USE_RPI_HW_ENCODER)
+    if (hw_encoder_ && !V4L2Encoder::IsAvailable()) {
+        hw_encoder_ = false;
+        WARN_PRINT("No hardware encoder found; WebRTC uses software encoding.");
+    }
+#endif
+    if (hw_encoder_ && !args_.scalability_mode.empty()) {
+        ERROR_PRINT("--scalability-mode is not supported by the hardware encoder.");
+        exit(EXIT_FAILURE);
+    }
+}
+
 std::vector<webrtc::SdpVideoFormat> CustomVideoEncoderFactory::GetSupportedFormats() const {
     std::vector<webrtc::SdpVideoFormat> supported_codecs;
 
-    if (args_.hw_accel) {
+    if (hw_encoder_) {
 #if defined(USE_RPI_HW_ENCODER)
         // hw h264
         supported_codecs.push_back(CreateH264Format(
@@ -116,14 +132,14 @@ std::unique_ptr<webrtc::VideoEncoder>
 CustomVideoEncoderFactory::CreateEncoder(const webrtc::Environment &env,
                                          const webrtc::SdpVideoFormat &format) {
 #if defined(USE_JETSON_HW_ENCODER)
-    if (args_.hw_accel) {
+    if (hw_encoder_) {
         return JetsonVideoEncoder::Create(args_);
     }
 #endif
 
     if (absl::EqualsIgnoreCase(format.name, webrtc::kH264CodecName)) {
 #if defined(USE_RPI_HW_ENCODER)
-        if (args_.hw_accel) {
+        if (hw_encoder_) {
             return V4L2H264Encoder::Create(args_);
         }
 #endif

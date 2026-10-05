@@ -5,6 +5,10 @@ constexpr const char *SCALER_FILE = "/dev/video12";
 constexpr int BUFFER_NUM = 2;
 
 std::unique_ptr<V4L2Scaler> V4L2Scaler::Create(ScalerConfig config) {
+    if (!IsAvailable()) {
+        WARN_PRINT("No V4L2 hardware scaler at %s.", SCALER_FILE);
+        return nullptr;
+    }
     auto scaler = std::make_unique<V4L2Scaler>(config);
     if (!scaler->Initialize()) {
         return nullptr;
