@@ -19,7 +19,7 @@
     * Install the lib from official repo [[tutorial](https://repo.mosquitto.org/debian/README.txt)]. (recommended)
 3. Install essential packages
     ```bash
-    sudo apt install cmake clang clang-format lld mosquitto-dev libboost-program-options-dev libavformat-dev libavcodec-dev libavutil-dev libswscale-dev libpulse-dev libasound2-dev libjpeg-dev libcamera-dev libmosquitto-dev
+    sudo apt install cmake clang clang-format lld mosquitto-dev libboost-program-options-dev libavformat-dev libavcodec-dev libavutil-dev libpulse-dev libasound2-dev libjpeg-dev libcamera-dev libmosquitto-dev
     ```
 4. Install clang-20 and lld-20 (or newer versions). Set them as default using `update-alternatives`:
     ```bash

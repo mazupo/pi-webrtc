@@ -46,7 +46,6 @@ jobs:
               libavformat-dev \
               libavcodec-dev \
               libavutil-dev \
-              libswscale-dev \
               libpulse-dev \
               libasound2-dev \
               libjpeg-dev \

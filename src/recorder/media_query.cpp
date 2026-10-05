@@ -12,11 +12,10 @@
 extern "C" {
 #include <libavcodec/avcodec.h>
 #include <libavformat/avformat.h>
-#include <libavutil/imgutils.h>
-#include <libswscale/swscale.h>
 }
-#include <jpeglib.h>
+#include <third_party/libyuv/include/libyuv.h>
 
+#include "common/jpeg_util.h"
 #include "common/logging.h"
 
 namespace fs = std::filesystem;
@@ -366,18 +365,9 @@ std::string GetThumbnailBase64(const std::string &file_path, int scale_denom, in
     AVCodecContext *codec_ctx = nullptr;
     AVPacket *pkt = nullptr;
     AVFrame *frame = nullptr;
-    AVFrame *rgb_frame = nullptr;
-    SwsContext *sws_ctx = nullptr;
-    uint8_t *rgb_buf = nullptr;
     std::string result;
 
     auto cleanup = [&]() {
-        if (rgb_buf)
-            av_free(rgb_buf);
-        if (sws_ctx)
-            sws_freeContext(sws_ctx);
-        if (rgb_frame)
-            av_frame_free(&rgb_frame);
         if (frame)
             av_frame_free(&frame);
         if (pkt)
@@ -434,8 +424,7 @@ std::string GetThumbnailBase64(const std::string &file_path, int scale_denom, in
 
     pkt = av_packet_alloc();
     frame = av_frame_alloc();
-    rgb_frame = av_frame_alloc();
-    if (!pkt || !frame || !rgb_frame) {
+    if (!pkt || !frame) {
         cleanup();
         return "";
     }
@@ -458,65 +447,28 @@ std::string GetThumbnailBase64(const std::string &file_path, int scale_denom, in
         return "";
     }
 
-    int src_w = codec_ctx->width;
-    int src_h = codec_ctx->height;
-    int dst_w = src_w / scale_denom;
-    int dst_h = src_h / scale_denom;
-    if (dst_w < 1)
-        dst_w = 1;
-    if (dst_h < 1)
-        dst_h = 1;
-
-    sws_ctx = sws_getContext(src_w, src_h, codec_ctx->pix_fmt, dst_w, dst_h, AV_PIX_FMT_RGB24,
-                             SWS_BILINEAR, nullptr, nullptr, nullptr);
-    if (!sws_ctx) {
+    // Recordings are 4:2:0 (H264 or AV1); other layouts get no thumbnail.
+    if (frame->format != AV_PIX_FMT_YUV420P && frame->format != AV_PIX_FMT_YUVJ420P) {
         cleanup();
         return "";
     }
 
-    int rgb_buf_size = av_image_get_buffer_size(AV_PIX_FMT_RGB24, dst_w, dst_h, 1);
-    rgb_buf = static_cast<uint8_t *>(av_malloc(rgb_buf_size));
-    if (!rgb_buf) {
-        cleanup();
-        return "";
-    }
+    int src_w = frame->width;
+    int src_h = frame->height;
+    int dst_w = std::max(2, (src_w / scale_denom) & ~1);
+    int dst_h = std::max(2, (src_h / scale_denom) & ~1);
 
-    av_image_fill_arrays(rgb_frame->data, rgb_frame->linesize, rgb_buf, AV_PIX_FMT_RGB24, dst_w,
-                         dst_h, 1);
-    sws_scale(sws_ctx, frame->data, frame->linesize, 0, src_h, rgb_frame->data,
-              rgb_frame->linesize);
+    std::vector<uint8_t> i420(dst_w * dst_h * 3 / 2);
+    uint8_t *dst_y = i420.data();
+    uint8_t *dst_u = dst_y + dst_w * dst_h;
+    uint8_t *dst_v = dst_u + dst_w * dst_h / 4;
+    libyuv::I420Scale(frame->data[0], frame->linesize[0], frame->data[1], frame->linesize[1],
+                      frame->data[2], frame->linesize[2], src_w, src_h, dst_y, dst_w, dst_u,
+                      dst_w / 2, dst_v, dst_w / 2, dst_w, dst_h, libyuv::kFilterBilinear);
 
-    struct jpeg_compress_struct cinfo_comp;
-    struct jpeg_error_mgr jerr_comp;
-    cinfo_comp.err = jpeg_std_error(&jerr_comp);
-    jpeg_create_compress(&cinfo_comp);
-
-    unsigned char *out_buffer = nullptr;
-    unsigned long out_size = 0;
-    jpeg_mem_dest(&cinfo_comp, &out_buffer, &out_size);
-
-    cinfo_comp.image_width = dst_w;
-    cinfo_comp.image_height = dst_h;
-    cinfo_comp.input_components = 3;
-    cinfo_comp.in_color_space = JCS_RGB;
-    jpeg_set_defaults(&cinfo_comp);
-    jpeg_set_quality(&cinfo_comp, quality, TRUE);
-    jpeg_start_compress(&cinfo_comp, TRUE);
-
-    int row_stride = dst_w * 3;
-    while (cinfo_comp.next_scanline < cinfo_comp.image_height) {
-        JSAMPROW row_pointer[1];
-        row_pointer[0] = &rgb_buf[cinfo_comp.next_scanline * row_stride];
-        jpeg_write_scanlines(&cinfo_comp, row_pointer, 1);
-    }
-
-    jpeg_finish_compress(&cinfo_comp);
-    jpeg_destroy_compress(&cinfo_comp);
-
-    if (out_buffer && out_size > 0) {
-        std::string jpg_binary(reinterpret_cast<char *>(out_buffer), out_size);
-        result = ToBase64(jpg_binary);
-        free(out_buffer);
+    auto jpeg = jpeg_util::ConvertYuvToJpeg(i420.data(), dst_w, dst_h, quality);
+    if (jpeg.start && jpeg.length > 0) {
+        result = ToBase64(std::string(reinterpret_cast<char *>(jpeg.start.get()), jpeg.length));
     }
 
     cleanup();
