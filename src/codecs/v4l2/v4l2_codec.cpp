@@ -140,16 +140,22 @@ void V4L2Codec::EmplaceBuffer(V4L2FrameBufferRef buffer,
     }
     auto index = item.value();
 
+    v4l2_buffer *buf = &output_.buffers[index].inner;
     if (output_.memory == V4L2_MEMORY_DMABUF) {
-        v4l2_buffer *buf = &output_.buffers[index].inner;
         buf->m.planes[0].m.fd = buffer->GetDmaFd();
-        buf->m.planes[0].bytesused = buffer->size();
         buf->m.planes[0].length = buffer->size();
     } else {
+        if (buffer->size() > output_.buffers[index].length) {
+            ERROR_PRINT("Frame (%u bytes) exceeds the input buffer (%u bytes) of %s",
+                        buffer->size(), output_.buffers[index].length, file_name_);
+            output_buffer_index_.push(index);
+            return;
+        }
         memcpy((uint8_t *)output_.buffers[index].start, (uint8_t *)buffer->Data(), buffer->size());
     }
+    buf->m.planes[0].bytesused = buffer->size();
 
-    if (!v4l2_util::QueueBuffer(fd_, &output_.buffers[index].inner)) {
+    if (!v4l2_util::QueueBuffer(fd_, buf)) {
         ERROR_PRINT("QueueBuffer V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE. fd(%d) at index %d", fd_,
                     index);
         output_buffer_index_.push(index);
