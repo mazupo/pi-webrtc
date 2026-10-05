@@ -5,6 +5,8 @@ constexpr const char *DECODER_FILE = "/dev/video10";
 constexpr int BUFFER_NUM = 2;
 constexpr int MAX_WIDTH = 1920;
 constexpr int MAX_HEIGHT = 1088;
+// The driver's default (768 KiB at 1080p) is too small for some RTSP keyframes.
+constexpr uint32_t INPUT_BUFFER_SIZE = 2 * 1024 * 1024;
 
 std::unique_ptr<V4L2Decoder> V4L2Decoder::Create(DecoderConfig config) {
     if (!IsAvailable()) {
@@ -42,7 +44,7 @@ bool V4L2Decoder::Initialize() {
     }
 
     if (!SetupOutputBuffer(config_.width, config_.height, config_.src_pix_fmt, V4L2_MEMORY_MMAP,
-                           BUFFER_NUM)) {
+                           BUFFER_NUM, INPUT_BUFFER_SIZE)) {
         ERROR_PRINT("Could not setup output buffer");
         return false;
     }

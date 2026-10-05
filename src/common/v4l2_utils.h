@@ -69,7 +69,7 @@ bool QueueBuffers(int fd, V4L2BufferGroup *gbuffer);
 bool SubscribeEvent(int fd, uint32_t type);
 bool SetFps(int fd, v4l2_buf_type type, uint32_t fps);
 bool SetFormat(int fd, V4L2BufferGroup *gbuffer, uint32_t width, uint32_t height,
-               uint32_t &pixel_format);
+               uint32_t &pixel_format, uint32_t sizeimage = 0);
 bool SetCtrl(int fd, uint32_t id, int32_t value);
 bool SetExtCtrl(int fd, uint32_t id, int32_t value);
 bool StreamOn(int fd, v4l2_buf_type type);

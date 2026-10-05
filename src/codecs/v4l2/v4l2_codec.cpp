@@ -45,9 +45,10 @@ bool V4L2Codec::SetExtCtrl(uint32_t id, int32_t value) {
 }
 
 bool V4L2Codec::SetupOutputBuffer(int width, int height, uint32_t pix_fmt, v4l2_memory memory,
-                                  int buffer_num) {
+                                  int buffer_num, uint32_t sizeimage) {
     v4l2_buf_type type = V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE;
-    return PrepareBuffer(&output_, width, height, pix_fmt, type, memory, buffer_num);
+    return PrepareBuffer(&output_, width, height, pix_fmt, type, memory, buffer_num, false,
+                         sizeimage);
 }
 
 bool V4L2Codec::SetupCaptureBuffer(int width, int height, uint32_t pix_fmt, v4l2_memory memory,
@@ -61,12 +62,12 @@ bool V4L2Codec::SetupCaptureBuffer(int width, int height, uint32_t pix_fmt, v4l2
 
 bool V4L2Codec::PrepareBuffer(V4L2BufferGroup *gbuffer, int width, int height, uint32_t pix_fmt,
                               v4l2_buf_type type, v4l2_memory memory, int buffer_num,
-                              bool has_dmafd) {
+                              bool has_dmafd, uint32_t sizeimage) {
     if (!v4l2_util::InitBuffer(fd_, gbuffer, type, memory, has_dmafd)) {
         return false;
     }
 
-    if (!v4l2_util::SetFormat(fd_, gbuffer, width, height, pix_fmt)) {
+    if (!v4l2_util::SetFormat(fd_, gbuffer, width, height, pix_fmt, sizeimage)) {
         return false;
     }
 
