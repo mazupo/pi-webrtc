@@ -26,6 +26,7 @@ A single binary that streams a camera from a Raspberry Pi or Jetson to a browser
 - **Low-latency video** — WebRTC with NAT traversal and congestion control.
 - **Remote control** — commands and telemetry over WebRTC DataChannels.
 - **Hardware acceleration** — H.264/AV1 on supported devices.
+- **RTSP input** — add WebRTC and DataChannels to an existing IP camera.
 
 ## Signaling
 

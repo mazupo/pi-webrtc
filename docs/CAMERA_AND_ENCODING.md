@@ -4,20 +4,23 @@
   - [Libcamera](#libcamera)
   - [Libargus](#libargus)
   - [V4L2](#v4l2)
+  - [RTSP](#rtsp)
 - [Encoding](#encoding)
   - [Hardware Encoding](#hardware-encoding)
   - [Software Encoding](#software-encoding)
 
 ## Camera Backends
 
-`--camera` takes a `<backend>:<id>` string. Which backends exist depends on the platform the
-binary was built for, which CMake detects from `/etc/nv_tegra_release` or `/usr/bin/raspi-config`.
+`--camera` takes a `<backend>:<id>` string or an `rtsp://` URL. Which backends exist depends on
+the platform the binary was built for, which CMake detects from `/etc/nv_tegra_release` or
+`/usr/bin/raspi-config`.
 
 | Backend | Value | Raspberry Pi | Jetson | Notes |
 |---|---|:--:|:--:|---|
 | Libcamera | `libcamera:<id>` | ✅ | ❌ | The officially recommended way to read a CSI camera on a Pi. |
 | Libargus | `libargus:<id>` | ❌ | ✅ | NVIDIA's CSI camera stack, with EGL output. |
 | V4L2 | `v4l2:<id>` | ✅ | ✅ | USB cameras, legacy CSI drivers, and V4L2 loopback devices. |
+| RTSP | `rtsp://...` | ✅ | ✅ | IP cameras and RTSP servers such as MediaMTX. |
 
 Asking for a backend the platform does not have is a startup error, e.g. `libcamera:0` on a
 Jetson tells you to use `v4l2:<id>` instead.
@@ -76,6 +79,23 @@ v4l2-ctl -d /dev/videoX --list-formats-ext
 ```bash
 /path/to/pi-webrtc --camera=v4l2:2 --v4l2-format=yuyv --fps=60 --width=1280 --height=720 ...
 ```
+
+### RTSP
+
+Point `--camera` at an RTSP URL to add WebRTC and DataChannels to an existing IP camera or RTSP pipeline:
+
+```bash
+/path/to/pi-webrtc --camera=rtsp://user:pass@192.168.1.10:554/stream1 --hw-accel ...
+```
+
+`pi-webrtc` supports H.264, H.265, and MJPEG input. The resolution and frame rate come from the RTSP stream, so `--v4l2-format`, `--width`, `--height`, and `--fps` do not apply. 
+
+The stream is decoded and re-encoded for WebRTC, allowing bitrate/resolution adaptation and keyframe requests.
+
+If the camera allows only one RTSP client, use a [MediaMTX](https://github.com/bluenviron/mediamtx) proxy so multiple processes can consume the stream.
+
+> [!TIP]
+> For lower CPU usage, prefer H.264 input and use `--hw-accel` when hardware decoding is available.
 
 ## Encoding
 

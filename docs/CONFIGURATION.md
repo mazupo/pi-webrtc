@@ -24,7 +24,7 @@ applies here too.
 | Option | Default | Description |
 |---|---|---|
 | `-h`, `--help` | | Display the help message. |
-| `--camera` | `libcamera:0` | Camera to open, as `<backend>:<id>`. See [Camera and Encoding](CAMERA_AND_ENCODING.md). |
+| `--camera` | `libcamera:0` | Camera to open, as `<backend>:<id>` or an `rtsp://` URL. See [Camera and Encoding](CAMERA_AND_ENCODING.md). |
 | `--v4l2-format` | `i420` | Input format of a V4L2 camera: `i420`, `yuyv`, `mjpeg`, `h264`. Ignored by other backends. |
 | `--uid` | | Unique id identifying this device. **Required.** |
 | `--fps` | `30` | Camera frames per second. |
