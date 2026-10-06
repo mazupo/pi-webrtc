@@ -64,6 +64,11 @@ int32_t JetsonVideoEncoder::Encode(const webrtc::VideoFrame &frame,
         return WEBRTC_VIDEO_CODEC_OK;
     }
     webrtc::scoped_refptr<webrtc::VideoFrameBuffer> frame_buffer = frame.video_frame_buffer();
+
+    if (frame_buffer->type() != webrtc::VideoFrameBuffer::Type::kNative) {
+        return WEBRTC_VIDEO_CODEC_ERR_PARAMETER;
+    }
+
     auto v4l2_frame_buffer = V4L2FrameBufferRef(static_cast<V4L2FrameBuffer *>(frame_buffer.get()));
 
     if (!encoder_) {
@@ -78,7 +83,7 @@ int32_t JetsonVideoEncoder::Encode(const webrtc::VideoFrame &frame,
         config.bitrate = target_bitrate_bps_;
         config.max_bitrate = codec_.maxBitrate * 1000;
         config.dst_pix_fmt = codec_fmt;
-        config.is_dma_src = frame_buffer->type() == webrtc::VideoFrameBuffer::Type::kNative;
+        config.is_dma_src = v4l2_frame_buffer->GetDmaFd() > 0;
         config.keyframe_interval = kKeyFrameIntervalFrames;
         config.idr_interval = kKeyFrameIntervalFrames;
         encoder_ = JetsonEncoder::Create(config);
