@@ -50,6 +50,9 @@ class V4L2Codec : public IFrameProcessor {
                        v4l2_buf_type type, v4l2_memory memory, int buffer_num,
                        bool has_dmafd = false, uint32_t sizeimage = 0, bool allow_padding = false);
     bool CaptureBuffer();
+    // A YUV 4:2:0 frame whose rows or planes are laid out differently from this queue's.
+    bool NeedsRepack(V4L2FrameBufferRef buffer) const;
+    void CopyPlanes(V4L2FrameBufferRef buffer, uint8_t *dst) const;
 };
 
 #endif // V4L2_CODEC_

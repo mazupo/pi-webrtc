@@ -6,6 +6,17 @@
 #include <sys/ioctl.h>
 #include <thread>
 
+namespace {
+
+void CopyRows(uint8_t *dst, int dst_stride, const uint8_t *src, int src_stride, int row_bytes,
+              int rows) {
+    for (int i = 0; i < rows; i++) {
+        memcpy(dst + i * dst_stride, src + i * src_stride, row_bytes);
+    }
+}
+
+} // namespace
+
 V4L2Codec::V4L2Codec()
     : fd_(-1),
       width_(0),
@@ -154,6 +165,10 @@ void V4L2Codec::EmplaceBuffer(V4L2FrameBufferRef buffer,
         // plane length; the dmabuf itself is page-aligned and holds it.
         buf->m.planes[0].m.fd = buffer->GetDmaFd();
         buf->m.planes[0].length = std::max(buffer->size(), output_.sizeimage);
+        buf->m.planes[0].bytesused = buffer->size();
+    } else if (NeedsRepack(buffer)) {
+        CopyPlanes(buffer, static_cast<uint8_t *>(output_.buffers[index].start));
+        buf->m.planes[0].bytesused = output_.sizeimage;
     } else {
         if (buffer->size() > output_.buffers[index].length) {
             ERROR_PRINT("Frame (%u bytes) exceeds the input buffer (%u bytes) of %s",
@@ -162,8 +177,8 @@ void V4L2Codec::EmplaceBuffer(V4L2FrameBufferRef buffer,
             return;
         }
         memcpy((uint8_t *)output_.buffers[index].start, (uint8_t *)buffer->Data(), buffer->size());
+        buf->m.planes[0].bytesused = buffer->size();
     }
-    buf->m.planes[0].bytesused = buffer->size();
 
     if (!v4l2_util::QueueBuffer(fd_, buf)) {
         ERROR_PRINT("QueueBuffer V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE. fd(%d) at index %d", fd_,
@@ -183,6 +198,34 @@ void V4L2Codec::EmplaceBuffer(V4L2FrameBufferRef buffer,
     }
 
     capturing_tasks_.push(on_capture);
+}
+
+bool V4L2Codec::NeedsRepack(V4L2FrameBufferRef buffer) const {
+    auto format = buffer->format();
+    return (format == V4L2_PIX_FMT_YUV420 || format == V4L2_PIX_FMT_NV12) &&
+           (buffer->stride() != static_cast<int>(output_.bytesperline) ||
+            buffer->plane_height() != static_cast<int>(output_.height));
+}
+
+void V4L2Codec::CopyPlanes(V4L2FrameBufferRef buffer, uint8_t *dst) const {
+    const auto *src = static_cast<const uint8_t *>(buffer->Data());
+    int width = buffer->width();
+    int height = buffer->height();
+    int src_stride = buffer->stride();
+    int dst_stride = output_.bytesperline;
+    const uint8_t *src_chroma = src + src_stride * buffer->plane_height();
+    uint8_t *dst_chroma = dst + dst_stride * output_.height;
+
+    CopyRows(dst, dst_stride, src, src_stride, width, height);
+    if (buffer->format() == V4L2_PIX_FMT_NV12) {
+        CopyRows(dst_chroma, dst_stride, src_chroma, src_stride, width, height / 2);
+        return;
+    }
+    int src_u_size = (src_stride / 2) * (buffer->plane_height() / 2);
+    int dst_u_size = (dst_stride / 2) * (output_.height / 2);
+    CopyRows(dst_chroma, dst_stride / 2, src_chroma, src_stride / 2, width / 2, height / 2);
+    CopyRows(dst_chroma + dst_u_size, dst_stride / 2, src_chroma + src_u_size, src_stride / 2,
+             width / 2, height / 2);
 }
 
 bool V4L2Codec::CaptureBuffer() {
