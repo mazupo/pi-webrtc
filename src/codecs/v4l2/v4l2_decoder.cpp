@@ -7,6 +7,8 @@ constexpr int MAX_WIDTH = 1920;
 constexpr int MAX_HEIGHT = 1088;
 // The driver's default (768 KiB at 1080p) is too small for some RTSP keyframes.
 constexpr uint32_t INPUT_BUFFER_SIZE = 2 * 1024 * 1024;
+// A dropped compressed frame corrupts the picture until the next keyframe, so wait instead.
+constexpr int INPUT_WAIT_MS = 200;
 
 std::unique_ptr<V4L2Decoder> V4L2Decoder::Create(DecoderConfig config) {
     if (!IsAvailable()) {
@@ -35,7 +37,9 @@ bool V4L2Decoder::IsAvailable() { return v4l2_util::IsM2MDeviceReady(DECODER_FIL
 
 V4L2Decoder::V4L2Decoder(DecoderConfig config)
     : V4L2Codec(),
-      config_(config) {}
+      config_(config) {
+    input_wait_ms_ = INPUT_WAIT_MS;
+}
 
 bool V4L2Decoder::Initialize() {
     if (!Open(DECODER_FILE)) {
