@@ -2,7 +2,8 @@
 #include "common/logging.h"
 
 constexpr const char *DECODER_FILE = "/dev/video10";
-constexpr int BUFFER_NUM = 2;
+constexpr int OUTPUT_BUFFER_NUM = 2;
+constexpr int CAPTURE_BUFFER_NUM = 4;
 constexpr int MAX_WIDTH = 1920;
 constexpr int MAX_HEIGHT = 1088;
 // The driver's default (768 KiB at 1080p) is too small for some RTSP keyframes.
@@ -48,14 +49,14 @@ bool V4L2Decoder::Initialize() {
     }
 
     if (!SetupOutputBuffer(config_.width, config_.height, config_.src_pix_fmt, V4L2_MEMORY_MMAP,
-                           BUFFER_NUM, INPUT_BUFFER_SIZE)) {
+                           OUTPUT_BUFFER_NUM, INPUT_BUFFER_SIZE)) {
         ERROR_PRINT("Could not setup output buffer");
         return false;
     }
     // NV12 rows align the same on the decoder, encoder and ISP, so they share buffers at any
     // width. The decoder pads the height to a multiple of 16 and leaves the padding rows blank.
     if (!SetupCaptureBuffer(config_.width, config_.height, V4L2_PIX_FMT_NV12, V4L2_MEMORY_MMAP,
-                            BUFFER_NUM, config_.is_dma_dst, true)) {
+                            CAPTURE_BUFFER_NUM, config_.is_dma_dst, true)) {
         ERROR_PRINT("Could not setup capture buffer");
         return false;
     }
