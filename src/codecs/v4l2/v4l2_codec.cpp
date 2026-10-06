@@ -138,7 +138,8 @@ void V4L2Codec::Start() {
 
 void V4L2Codec::EmplaceBuffer(V4L2FrameBufferRef buffer,
                               std::function<void(V4L2FrameBufferRef)> on_capture) {
-    auto item = output_buffer_index_.pop();
+    auto item =
+        input_wait_ms_ > 0 ? output_buffer_index_.pop(input_wait_ms_) : output_buffer_index_.pop();
     if (!item) {
         if (latency::Enabled()) {
             latency::Count(latency::Counter::kV4L2NoBuffer);

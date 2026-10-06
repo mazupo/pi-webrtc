@@ -30,6 +30,8 @@ class V4L2Codec : public IFrameProcessor {
     void Start();
 
     latency::Stage dwell_stage_ = latency::Stage::kHwEncodeDwell;
+    // How long EmplaceBuffer() waits for a free input buffer; 0 drops the frame at once.
+    int input_wait_ms_ = 0;
 
   private:
     int fd_;

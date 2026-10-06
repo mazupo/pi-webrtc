@@ -14,6 +14,8 @@ const int INPUT_BUFFER_NUM = 2;
 const int EXTRA_CAPTURE_BUFFER_NUM = 1;
 const int FRAME_BUFFER_NUM = 2;
 const uint32_t MIN_INPUT_SIZE = 2 * 1024 * 1024;
+// A dropped compressed frame corrupts the picture until the next keyframe, so wait instead.
+const int INPUT_WAIT_MS = 200;
 
 std::atomic<uint32_t> global_dec_id{0};
 
@@ -230,7 +232,8 @@ void JetsonDecoder::EmplaceBuffer(V4L2FrameBufferRef frame_buffer,
     v4l2_output_buf.m.planes = output_planes;
 
     if (decoder_->output_plane.getNumQueuedBuffers() == decoder_->output_plane.getNumBuffers()) {
-        if (decoder_->output_plane.dqBuffer(v4l2_output_buf, &nv_buffer, nullptr, 10) < 0) {
+        if (decoder_->output_plane.dqBuffer(v4l2_output_buf, &nv_buffer, nullptr, INPUT_WAIT_MS) <
+            0) {
             if (latency::Enabled()) {
                 latency::Count(latency::Counter::kDecoderDqTimeout);
             }
