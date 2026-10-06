@@ -12,7 +12,7 @@ namespace {
 
 const int INPUT_BUFFER_NUM = 2;
 const int EXTRA_CAPTURE_BUFFER_NUM = 1;
-const int FRAME_BUFFER_NUM = 2;
+const int FRAME_BUFFER_NUM = 4;
 const uint32_t MIN_INPUT_SIZE = 2 * 1024 * 1024;
 // A dropped compressed frame corrupts the picture until the next keyframe, so wait instead.
 const int INPUT_WAIT_MS = 200;
