@@ -24,7 +24,7 @@ applies here too.
 | Option | Default | Description |
 |---|---|---|
 | `-h`, `--help` | | Display the help message. |
-| `--camera` | `libcamera:0` | Camera to open, as `<backend>:<id>` or an `rtsp://` URL. See [Camera and Encoding](CAMERA_AND_ENCODING.md). |
+| `--camera` | `libcamera:0` | Camera to open, as `<backend>:<id>` or an `rtsp://` URL. See [Camera](CAMERA.md). |
 | `--v4l2-format` | `i420` | Input format of a V4L2 camera: `i420`, `yuyv`, `mjpeg`, `h264`. Ignored by other backends. |
 | `--uid` | | Unique id identifying this device. **Required.** |
 | `--fps` | `30` | Camera frames per second. |
@@ -115,7 +115,7 @@ DataChannel commands that drive on-demand capture.
 | `--max-bitrate` | `0` | Maximum video bitrate (kbps). `0`: **0.08 bpp** with adaptive scaling (~10 Mbps at 1080p60, min. 2.5 Mbps), or **2.5 Mbps** with `--no-adaptive`. |
 | `--start-bitrate` | `0` | Initial bandwidth estimate (kbps). `0`: **1 Mbps** with adaptive scaling, or **300 kbps** with `--no-adaptive`. Below 500 kbps, sources above VGA may be downscaled permanently. |
 | `--min-bitrate` | `0` | Floor in kbps for the bandwidth estimate. `0` keeps WebRTC's default. |
-| `--hw-accel` | `false` | Share DMA buffers between decoder, scaler, and encoder to cut CPU usage. See [Camera and Encoding](CAMERA_AND_ENCODING.md#hardware-encoding). |
+| `--hw-accel` | `false` | Share DMA buffers between decoder, scaler, and encoder to cut CPU usage. See [Encoding](ENCODING.md#hardware-encoding). |
 | `--no-adaptive` | `false` | Disable adaptive resolution scaling, keeping the output resolution fixed regardless of network or device conditions. |
 | `--scalability-mode` | | Temporal layers for the software video encoders, e.g. `L1T2` or `L1T3`. Not supported with `--hw-accel`. Empty keeps WebRTC's default (`L1T1`). |
 | `--latency-trace` | `false` | Measure per-frame latency from the sensor timestamp through capture, scaling, encoding and the handoff to WebRTC, then print p50/p95/max per stage. Works in release builds. |

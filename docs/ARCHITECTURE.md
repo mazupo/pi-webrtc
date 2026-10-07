@@ -63,7 +63,7 @@ See [Sub-stream](CONFIGURATION.md#sub-stream).
 
 `Conductor` owns the peer connection factory and the track sources. Which encoder is used
 depends on `--hw-accel` and on the codecs the client offers — see
-[Camera and Encoding](CAMERA_AND_ENCODING.md#encoding). With hardware acceleration, frames
+[Encoding](ENCODING.md). With hardware acceleration, frames
 move between decoder, scaler, and encoder as DMA buffers and never round-trip through the
 CPU.
 
