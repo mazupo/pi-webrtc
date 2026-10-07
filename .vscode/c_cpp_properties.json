@@ -12,7 +12,6 @@
                 "/usr/local/include/webrtc/third_party/abseil-cpp",
                 "/usr/local/include/webrtc/third_party/libyuv/include",
                 "/usr/local/include/webrtc/third_party/protobuf/src",
-                "/usr/local/include/webrtc/tools/json_schema_compiler",
                 "/usr/local/include/webrtc/third_party/boringssl/src/include",
                 "/usr/include/boost/program_options",
                 "/usr/src/jetson_multimedia_api/include",
