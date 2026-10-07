@@ -168,7 +168,7 @@ camera's position, so the only attached camera is `libcamera:0`, and a second on
 
 libcamera only produces `yuv420`, so `--v4l2-format` is ignored. Resolution and frame rate are
 usually limited by the MIPI link rather than the sensor — see
-[Camera and Encoding](CAMERA_AND_ENCODING.md#libcamera).
+[Camera](CAMERA.md#libcamera).
 
 ### USB camera
 
@@ -285,7 +285,8 @@ command, the log output, and the device and OS versions.
 ## Next
 
 - [Configuration](CONFIGURATION.md) — every flag and the YAML config file
-- [Camera and Encoding](CAMERA_AND_ENCODING.md) — backends, formats, and bandwidth
+- [Camera](CAMERA.md) — backends, formats, and bandwidth
+- [Encoding](ENCODING.md) — hardware and software encoding pipelines
 - [Signaling](SIGNALING.md) — MQTT, WHEP, and SFU compared
 - [Recording](RECORDING.md) — MP4 files and snapshots
 - [Advanced Usage](ADVANCED.md) — SFU, two-way audio, DataChannels, running as a service
