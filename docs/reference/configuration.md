@@ -24,7 +24,7 @@ applies here too.
 | Option | Default | Description |
 |---|---|---|
 | `-h`, `--help` | | Display the help message. |
-| `--camera` | `libcamera:0` | Camera to open, as `<backend>:<id>` or an `rtsp://` URL. See [Camera](CAMERA.md). |
+| `--camera` | `libcamera:0` | Camera to open, as `<backend>:<id>` or an `rtsp://` URL. See [Video & Audio](../media/README.md). |
 | `--v4l2-format` | `i420` | Input format of a V4L2 camera: `i420`, `yuyv`, `mjpeg`, `h264`. Ignored by other backends. |
 | `--uid` | | Unique id identifying this device. **Required.** |
 | `--fps` | `30` | Camera frames per second. |
@@ -41,6 +41,11 @@ still gets the full picture.
 
 The sub-stream is off unless both `--sub-width` and `--sub-height` are set. If either
 exceeds the main stream's dimensions it is clamped to the main stream.
+
+CSI cameras have a sub-stream: `libcamera` on a Raspberry Pi and `libargus` on a Jetson.
+USB cameras (`v4l2`) and RTSP sources do not, so both consumers read the main stream.
+
+On a Raspberry Pi, use a sub-stream width that is a multiple of 64, such as `640` or `1280`.
 
 | Option | Default | Description |
 |---|---|---|
@@ -90,7 +95,7 @@ libargus camera.
 
 ## Recording
 
-See [Recording](RECORDING.md) for the directory layout, rotation policy, and the
+See [Recording](../recording/README.md) for the directory layout, rotation policy, and the
 DataChannel commands that drive on-demand capture.
 
 | Option | Default | Description |
@@ -115,7 +120,7 @@ DataChannel commands that drive on-demand capture.
 | `--max-bitrate` | `0` | Maximum video bitrate (kbps). `0`: **0.08 bpp** with adaptive scaling (~10 Mbps at 1080p60, min. 2.5 Mbps), or **2.5 Mbps** with `--no-adaptive`. |
 | `--start-bitrate` | `0` | Initial bandwidth estimate (kbps). `0`: **1 Mbps** with adaptive scaling, or **300 kbps** with `--no-adaptive`. Below 500 kbps, sources above VGA may be downscaled permanently. |
 | `--min-bitrate` | `0` | Floor in kbps for the bandwidth estimate. `0` keeps WebRTC's default. |
-| `--hw-accel` | `false` | Share DMA buffers between decoder, scaler, and encoder to cut CPU usage. See [Encoding](ENCODING.md#hardware-encoding). |
+| `--hw-accel` | `false` | Share DMA buffers between decoder, scaler, and encoder to cut CPU usage. See [Encoding](../media/encoding.md#hardware-encoding). |
 | `--no-adaptive` | `false` | Disable adaptive resolution scaling, keeping the output resolution fixed regardless of network or device conditions. |
 | `--scalability-mode` | | Temporal layers for the software video encoders, e.g. `L1T2` or `L1T3`. Not supported with `--hw-accel`. Empty keeps WebRTC's default (`L1T1`). |
 | `--latency-trace` | `false` | Measure per-frame latency from the sensor timestamp through capture, scaling, encoding and the handoff to WebRTC, then print p50/p95/max per stage. Works in release builds. |
@@ -132,7 +137,7 @@ DataChannel commands that drive on-demand capture.
 
 ## IPC
 
-Bridges WebRTC DataChannels to local Unix sockets. See [Advanced Usage](ADVANCED.md#two-way-datachannel-messaging) and [Gamepad Input](ADVANCED.md#gamepad-input).
+Bridges WebRTC DataChannels to local Unix sockets. See [IPC messages](../integrations/ipc.md) and [Gamepad](../integrations/gamepad.md).
 
 | Option | Default | Description |
 |---|---|---|
@@ -144,7 +149,7 @@ Bridges WebRTC DataChannels to local Unix sockets. See [Advanced Usage](ADVANCED
 ## Signaling
 
 At least one signaling transport must be enabled or the process exits. See
-[Signaling](SIGNALING.md) for the connection flows.
+[Signaling](../signaling/README.md) for the connection flows.
 
 ### MQTT
 
@@ -171,34 +176,34 @@ At least one signaling transport must be enabled or the process exits. See
 | `--livekit-url` | | SFU server URL, e.g. `ws://127.0.0.1:7880` or `wss://your-sfu-host.example.com`. The scheme selects TLS; the port defaults to `443` for `wss` and `80` otherwise. **Required** with `--use-livekit`. |
 | `--livekit-room` | | Room name to join. **Required** with `--use-livekit`. |
 | `--livekit-key` | | API key used to authenticate with the SFU server. |
-| `--livekit-secret` <sup>[\*](SPONSORS.md#sponsor-benefits)</sup> | | LiveKit API secret paired with `--livekit-key`. Signs access tokens on-device, which is what lets the sponsor build connect to a LiveKit deployment of your own. **Required** with `--use-livekit`. |
+| `--livekit-secret` <sup>[\*](../sponsors.md#sponsor-benefits)</sup> | | LiveKit API secret paired with `--livekit-key`. Signs access tokens on-device, which is what lets the sponsor build connect to a LiveKit deployment of your own. **Required** with `--use-livekit`. |
 
 ### Cloudflare Realtime SFU
 
-The device API relays the handshake and holds the session a viewer has to pull. See [Signaling](SIGNALING.md#cloudflare-realtime) for the exchange and
-[Broadcasting to many viewers](ADVANCED.md#cloudflare-realtime) for a worked example.
+The device API relays the handshake and holds the session a viewer has to pull. See
+[SFU](../signaling/sfu.md#cloudflare-realtime) for a worked example.
 
 | Option | Default | Description |
 |---|---|---|
 | `--use-cloudflare` | `false` | Publish to a Cloudflare Realtime SFU over its HTTPS API. |
 | `--api-url` | | Base URL of the device API, e.g. `https://api.mazupo.com`. Every Realtime call goes to `<api-url>/sfu/...`, and the session is published to `PUT <api-url>/devices/<uid>/session` on connect and refreshed every 15 minutes. **Required** with `--use-cloudflare`. |
 | `--api-key` | | Bearer token authenticating this device against `--api-url`. **Required** with `--api-url`. |
-| `--cloudflare-url` <sup>[\*](SPONSORS.md#sponsor-benefits)</sup> | | Base URL of the Realtime API, including the API version path. Defaults to `https://rtc.live.cloudflare.com/v1`; only worth setting when Cloudflare publishes a newer version. |
-| `--cloudflare-app-id` <sup>[\*](SPONSORS.md#sponsor-benefits)</sup> | | Realtime App ID to publish into. **Required** with `--use-cloudflare` in the sponsor build. |
-| `--cloudflare-app-secret` <sup>[\*](SPONSORS.md#sponsor-benefits)</sup> | | Realtime App Secret, sent as the bearer token. **Required** with `--use-cloudflare` in the sponsor build. |
+| `--cloudflare-url` <sup>[\*](../sponsors.md#sponsor-benefits)</sup> | | Base URL of the Realtime API, including the API version path. Defaults to `https://rtc.live.cloudflare.com/v1`; only worth setting when Cloudflare publishes a newer version. |
+| `--cloudflare-app-id` <sup>[\*](../sponsors.md#sponsor-benefits)</sup> | | Realtime App ID to publish into. **Required** with `--use-cloudflare` in the sponsor build. |
+| `--cloudflare-app-secret` <sup>[\*](../sponsors.md#sponsor-benefits)</sup> | | Realtime App Secret, sent as the bearer token. **Required** with `--use-cloudflare` in the sponsor build. |
 
 The App ID and Secret are what let a device handshake with Cloudflare itself instead of going through the relay, and only the sponsor build carries that logic.
 
 ## Object Detection and Tracking
 
-Available in the [sponsor build](SPONSORS.md#sponsor-benefits) on NVIDIA Jetson.
+Available in the [sponsor build](../sponsors.md#sponsor-benefits) on NVIDIA Jetson.
 
 | Option | Default | Description |
 |---|---|---|
-| `--detector-model` <sup>[\*](SPONSORS.md#sponsor-benefits)</sup> | | TensorRT engine file for YOLO detection. Empty disables the detector. |
-| `--detector-labels` <sup>[\*](SPONSORS.md#sponsor-benefits)</sup> | | Class-name file, one per line. Defaults to the COCO 80 classes. |
-| `--detector-confidence` <sup>[\*](SPONSORS.md#sponsor-benefits)</sup> | `0.5` | Minimum detection confidence, `0.0` to `1.0`. |
-| `--tracker-config` <sup>[\*](SPONSORS.md#sponsor-benefits)</sup> | | NvMOT YAML config selecting the tracker, e.g. NvDCF or DeepSORT. |
+| `--detector-model` <sup>[\*](../sponsors.md#sponsor-benefits)</sup> | | TensorRT engine file for YOLO detection. Empty disables the detector. |
+| `--detector-labels` <sup>[\*](../sponsors.md#sponsor-benefits)</sup> | | Class-name file, one per line. Defaults to the COCO 80 classes. |
+| `--detector-confidence` <sup>[\*](../sponsors.md#sponsor-benefits)</sup> | `0.5` | Minimum detection confidence, `0.0` to `1.0`. |
+| `--tracker-config` <sup>[\*](../sponsors.md#sponsor-benefits)</sup> | | NvMOT YAML config selecting the tracker, e.g. NvDCF or DeepSORT. |
 
 ## Config File
 
@@ -209,7 +214,7 @@ leading `--`, and boolean flags take `true` / `false`.
 /path/to/pi-webrtc --config=/path/to/config.yml
 ```
 
-A starting point ships as [`config/config.yml`](../config/config.yml):
+A starting point ships as [`config/config.yml`](../../config/config.yml):
 
 ```yaml
 # ── Video input ──
@@ -249,68 +254,16 @@ Things worth knowing:
 - **Unknown keys are ignored** rather than treated as errors, so a config file can carry
   comments-as-keys or settings for a newer version without breaking an older binary.
 - **Only scalar values are read.** Nested mappings and sequences are skipped, with the single
-  exception of the `cameras:` list below.
+  exception of the sponsor build's `cameras:` list (see [Multiple cameras](../deployment/multi-camera.md)).
 
 ## Multi-camera
 
-Run one `pi-webrtc` process per camera, each with its own `--camera`, `--uid`, `--whep-port`, and `--record-path`:
-
-```bash
-./pi-webrtc --camera=libcamera:0 --uid=home-front --use-whep --whep-port=8080 --record-path=/home/pi/video/front
-./pi-webrtc --camera=libcamera:1 --uid=home-side --use-whep --whep-port=8081 --record-path=/home/pi/video/side
-```
-
-Every option, including the sub-stream, works per process. With `--enable-ipc`, also give each process its own `--socket-path`.
-
-### Single process
-
-<sup>[\*](SPONSORS.md#sponsor-benefits)</sup> Sponsor build.
-
-The sponsor build adds `cameras:`, allowing all cameras to run in a single process and YAML file, with a single `uid` and WHEP port. Each camera inherits the global settings and can override them, including its main/sub stream and recording setup.
-
-```yaml
-uid: home-jetson-orin
-
-cameras:
-  - camera: libargus:0
-    alias: front
-    fps: 60
-    width: 1920
-    height: 1080
-    sub-width: 720
-    sub-height: 480
-    record-source: main
-    webrtc-source: sub
-    webrtc: true
-    record: true
-  - camera: libargus:1
-    alias: side
-    fps: 60
-    width: 1280
-    height: 720
-    webrtc: false
-    record: true
-
-record-path: /home/nx/video
-use-whep: true
-whep-port: 8080
-```
-
-Each camera can enable or disable WebRTC and recording independently:
-
-| Key | Default | Description |
-|---|---|---|
-| `alias` | `cam0`, `cam1`, … | Camera name used for the recording directory, WHEP path, and WebRTC stream IDs. Up to 32 letters, digits, `-`, or `_`. Must be unique and cannot be `sessions`. |
-| `webrtc` | `true` | Publish this camera as a WebRTC stream. |
-| `record` | `true` | Record this camera. |
-
-Each camera is recorded in its own subdirectory. In this example, the `front` camera is recorded to `/home/nx/video/front/`, while the `side` camera is recorded to `/home/nx/video/side/`.
-
-Each camera with `webrtc: true` gets its own WHEP path. In this example, `http://<device-ip>:8080/front` plays the front camera. The path `http://<device-ip>:8080/side` is not served by WHEP because the `side` camera has  `webrtc: false`.
+Run one process per camera, or, with the sponsor build, all cameras in one process with a
+`cameras:` list. See [Multiple cameras](../deployment/multi-camera.md).
 
 ---
 
 # Sponsor Build
 
-Options marked <sup>[\*](SPONSORS.md#sponsor-benefits)</sup> above are part of the sponsor
-build. See [SPONSORS.md](SPONSORS.md) for what is included.
+Options marked <sup>[\*](../sponsors.md#sponsor-benefits)</sup> above are part of the sponsor
+build. See [Sponsors](../sponsors.md) for what is included.
