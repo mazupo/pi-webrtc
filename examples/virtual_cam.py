@@ -4,22 +4,27 @@ Camera Stream to Virtual V4L2 Device
 This script captures images from the Raspberry Pi camera and streams them
 to a virtual V4L2 loopback device using OpenCV.
 
+It runs only on a Raspberry Pi, because it reads the camera with Picamera2. On other devices,
+copy set_output_format() into your own program: it is all a loopback writer needs.
+
 Usage:
     1. Install required dependencies:
-        pip install opencv-python picamera2
+        sudo apt install v4l2loopback-dkms python3-opencv python3-picamera2
 
-    2. Load v4l2loopback module (if not already loaded):
-        sudo modprobe v4l2loopback devices=1 video_nr=8 card_label=ProcessedCam max_buffers=4 exclusive_caps=1
+    2. Create the virtual camera. The first command removes an old one, if there is one:
+        sudo modprobe -r v4l2loopback
+        sudo modprobe v4l2loopback devices=1 video_nr=42 card_label=ProcessedCam max_buffers=4 exclusive_caps=1
 
     3. Run the script:
-        python virtual_cam.py
+        python3 virtual_cam.py
 
-    4. Test the video output:
-        /path/to/pi-webrtc --camera=v4l2:8 --width=1920 --height=1080 ...   # View the processed feed by WebRTC
-        ffplay /dev/video8                                                  # View the processed feed by ffplay
+    4. Test the video output with one of these. v4l2loopback 0.13 and newer let only one
+       program read a virtual camera at a time:
+        /path/to/pi-webrtc --camera=v4l2:42 --v4l2-format=i420 --width=1920 --height=1080 ...   # View the processed feed by WebRTC
+        ffplay /dev/video42                                                                    # View the processed feed by ffplay
 
 Requirements:
-    - Raspberry Pi with Camera Module
+    - Raspberry Pi with Camera Module, on a 64-bit OS
     - v4l2loopback kernel module installed
 """
 
@@ -27,7 +32,7 @@ import os
 import cv2
 import time
 import fcntl
-import v4l2
+import struct
 import logging
 import argparse
 from picamera2 import Picamera2, MappedArray
@@ -35,6 +40,43 @@ from picamera2 import Picamera2, MappedArray
 logging.basicConfig(
     level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s"
 )
+
+# Values from linux/videodev2.h. The structs are packed by hand, so the example needs only the
+# Python standard library: the `v4l2` package on PyPI does not run on Python 3.
+V4L2_BUF_TYPE_VIDEO_OUTPUT = 2
+V4L2_FIELD_NONE = 1
+V4L2_PIX_FMT_YUV420 = int.from_bytes(b"YU12", "little")  # I420
+VIDIOC_S_FMT = 0xC0D05605  # _IOWR('V', 5, struct v4l2_format): 208 bytes on 64-bit Linux
+VIDIOC_STREAMON = 0x40045612  # _IOW('V', 18, int)
+
+
+def set_output_format(fd, width, height):
+    """Tells the loopback device the size and format of the I420 frames written to it."""
+    # struct v4l2_pix_format starts with 8 fields of 32 bits. "8I" packs 8 unsigned ints.
+    pix = struct.pack(
+        "8I",
+        width,
+        height,
+        V4L2_PIX_FMT_YUV420,  # pixelformat
+        V4L2_FIELD_NONE,  # field: whole frames, not interlaced
+        width,  # bytesperline of the Y plane
+        width * height * 3 // 2,  # sizeimage: the bytes in one I420 frame
+        0,  # colorspace: driver default
+        0,  # priv
+    )
+    # struct v4l2_format is a 32-bit buffer type, then a 200-byte union that holds the format.
+    # "I4x" packs the type and 4 zero bytes, because on 64-bit Linux the union starts at byte 8.
+    # pix.ljust(200, b"\0") pads the pixel format with zeros to the size of the union.
+    fmt = struct.pack("I4x", V4L2_BUF_TYPE_VIDEO_OUTPUT) + pix.ljust(200, b"\0")
+    fcntl.ioctl(fd, VIDIOC_S_FMT, fmt)
+
+    # v4l2loopback 0.12 (Ubuntu 22.04, for example) frees the device for the next run only if
+    # the writer called STREAMON. Without it, the next run fails with "Invalid argument" until
+    # the module is reloaded. Newer versions refuse this call and do not need it.
+    try:
+        fcntl.ioctl(fd, VIDIOC_STREAMON, struct.pack("I", V4L2_BUF_TYPE_VIDEO_OUTPUT))
+    except OSError:
+        pass
 
 
 class VirtualCameraStreamer:
@@ -62,15 +104,7 @@ class VirtualCameraStreamer:
             return
 
         self.fd = os.open(self.virtual_camera, os.O_RDWR)
-        format = v4l2.v4l2_format()
-        format.type = v4l2.V4L2_BUF_TYPE_VIDEO_OUTPUT
-        format.fmt.pix.width = self.width
-        format.fmt.pix.height = self.height
-        format.fmt.pix.pixelformat = v4l2.V4L2_PIX_FMT_YUV420
-        format.fmt.pix.field = v4l2.V4L2_FIELD_NONE
-        format.fmt.pix.bytesperline = self.width
-        format.fmt.pix.sizeimage = self.width * self.height
-        fcntl.ioctl(self.fd, v4l2.VIDIOC_S_FMT, format)
+        set_output_format(self.fd, self.width, self.height)
         logging.info(f"Set camera: {self.virtual_camera}")
 
     def _process_frame(self, request):
@@ -125,7 +159,7 @@ if __name__ == "__main__":
     parser.add_argument(
         "--virtual-device",
         type=str,
-        default="/dev/video8",
+        default="/dev/video42",
         help="Virtual video device path",
     )
     args = parser.parse_args()
