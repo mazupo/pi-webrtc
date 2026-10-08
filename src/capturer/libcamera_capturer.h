@@ -1,6 +1,7 @@
 #ifndef LIBCAMERA_CAPTURER_H_
 #define LIBCAMERA_CAPTURER_H_
 
+#include <array>
 #include <vector>
 
 #include <libcamera/libcamera.h>
@@ -22,6 +23,7 @@ class LibcameraCapturer : public VideoCapturer {
     int fps() const override;
     int width(int stream_idx = 0) const override;
     int height(int stream_idx = 0) const override;
+    bool has_sub_stream() const override;
     bool is_dma_capture() const override;
     uint32_t format() const override;
     Args config() const override;
@@ -34,11 +36,20 @@ class LibcameraCapturer : public VideoCapturer {
                            int stream_idx = 0) override;
 
   private:
+    // The main stream, and the optional sub-stream the ISP scales from the same frame.
+    static constexpr int kMaxStreams = 2;
+
+    struct StreamState {
+        libcamera::Stream *stream = nullptr;
+        int width = 0;
+        int height = 0;
+        V4L2FrameBufferRef frame_buffer;
+        Subject<V4L2FrameBufferRef> subject;
+    };
+
     int camera_id_;
+    int num_streams_;
     int fps_;
-    int width_;
-    int height_;
-    int stride_;
     int rotation_;
     int buffer_count_;
     uint32_t format_;
@@ -51,12 +62,13 @@ class LibcameraCapturer : public VideoCapturer {
     std::unique_ptr<libcamera::CameraConfiguration> camera_config_;
     std::unique_ptr<libcamera::FrameBufferAllocator> allocator_;
     std::vector<std::unique_ptr<libcamera::Request>> requests_;
-    libcamera::Stream *stream_;
+    std::array<StreamState, kMaxStreams> streams_;
     libcamera::ControlList controls_;
     std::map<int, std::pair<void *, unsigned int>> mapped_buffers_;
 
-    V4L2FrameBufferRef frame_buffer_;
-    Subject<V4L2FrameBufferRef> stream_subject_;
+    /** The stream an index refers to; anything out of range is the main stream. */
+    const StreamState &StreamAt(int stream_idx) const;
+    StreamState &StreamAt(int stream_idx);
 
     void InitCamera();
     void InitControls(Args arg);

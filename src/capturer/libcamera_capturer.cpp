@@ -1,5 +1,6 @@
 #include "libcamera_capturer.h"
 
+#include <algorithm>
 #include <sys/mman.h>
 
 #include "common/latency_tracer.h"
@@ -17,18 +18,24 @@ std::shared_ptr<LibcameraCapturer> LibcameraCapturer::Create(Args args) {
 
 LibcameraCapturer::LibcameraCapturer(Args args)
     : camera_id_(args.camera_id),
+      num_streams_(std::clamp(args.num_streams, 1, kMaxStreams)),
       fps_(args.fps),
-      width_(args.width),
-      height_(args.height),
       rotation_(args.rotation),
       buffer_count_(2),
       format_(args.format),
       config_(args),
-      is_controls_updated_(false) {}
+      is_controls_updated_(false) {
+    streams_[0].width = args.width;
+    streams_[0].height = args.height;
+    streams_[1].width = args.sub_width;
+    streams_[1].height = args.sub_height;
+}
 
 LibcameraCapturer::~LibcameraCapturer() {
     camera_->stop();
-    allocator_->free(stream_);
+    for (int i = 0; i < num_streams_; i++) {
+        allocator_->free(streams_[i].stream);
+    }
     allocator_.reset();
     camera_config_.reset();
     camera_->release();
@@ -56,7 +63,17 @@ void LibcameraCapturer::InitCamera() {
     INFO_PRINT("camera id: %s", cam_id.c_str());
     camera_ = cm_->get(cam_id);
     camera_->acquire();
-    camera_config_ = camera_->generateConfiguration({libcamera::StreamRole::VideoRecording});
+
+    std::vector<libcamera::StreamRole> roles = {libcamera::StreamRole::VideoRecording};
+    if (num_streams_ > 1) {
+        // The ISP scales the sub-stream from the same frame, as rpicam-apps does for "lores".
+        roles.push_back(libcamera::StreamRole::Viewfinder);
+    }
+    camera_config_ = camera_->generateConfiguration(roles);
+    if (!camera_config_ || camera_config_->size() != roles.size()) {
+        ERROR_PRINT("The camera cannot output %zu streams at once.", roles.size());
+        exit(EXIT_FAILURE);
+    }
 
     if (rotation_ == 90) {
         camera_config_->orientation = libcamera::Orientation::Rotate90;
@@ -71,40 +88,46 @@ void LibcameraCapturer::InitCamera() {
     controls_.set(libcamera::controls::FrameDurationLimits,
                   libcamera::Span<const int64_t, 2>({frame_time, frame_time}));
 
-    DEBUG_PRINT("camera original format: %s", camera_config_->at(0).toString().c_str());
-    if (width_ && height_) {
-        libcamera::Size size(width_, height_);
-        camera_config_->at(0).size = size;
-    }
-
-    camera_config_->at(0).pixelFormat = libcamera::formats::YUV420;
-    camera_config_->at(0).bufferCount = buffer_count_;
-
-    if (width_ >= 1280 || width_ >= 720) {
-        camera_config_->at(0).colorSpace = libcamera::ColorSpace::Rec709;
-    } else {
-        camera_config_->at(0).colorSpace = libcamera::ColorSpace::Smpte170m;
+    // Both streams come out of one ISP pass, so they share the colour space of the main one.
+    const auto color_space =
+        streams_[0].width >= 720 ? libcamera::ColorSpace::Rec709 : libcamera::ColorSpace::Smpte170m;
+    for (int i = 0; i < num_streams_; i++) {
+        auto &stream_config = camera_config_->at(i);
+        DEBUG_PRINT("camera original format %d: %s", i, stream_config.toString().c_str());
+        if (streams_[i].width && streams_[i].height) {
+            stream_config.size = libcamera::Size(streams_[i].width, streams_[i].height);
+        }
+        stream_config.pixelFormat = libcamera::formats::YUV420;
+        stream_config.bufferCount = buffer_count_;
+        stream_config.colorSpace = color_space;
     }
 
     auto validation = camera_config_->validate();
-    if (validation == libcamera::CameraConfiguration::Status::Valid) {
-        INFO_PRINT("camera validated format: %s.", camera_config_->at(0).toString().c_str());
-    } else if (validation == libcamera::CameraConfiguration::Status::Adjusted) {
-        INFO_PRINT("camera adjusted format: %s.", camera_config_->at(0).toString().c_str());
-    } else {
+    if (validation == libcamera::CameraConfiguration::Status::Invalid) {
         ERROR_PRINT("Failed to validate camera configuration.");
         exit(EXIT_FAILURE);
     }
 
-    width_ = camera_config_->at(0).size.width;
-    height_ = camera_config_->at(0).size.height;
-    stride_ = camera_config_->at(0).stride;
+    for (int i = 0; i < num_streams_; i++) {
+        const auto &stream_config = camera_config_->at(i);
+        const char *name = i == 0 ? "main" : "sub";
+        INFO_PRINT("camera %s %s stream: %s.",
+                   validation == libcamera::CameraConfiguration::Status::Adjusted ? "adjusted"
+                                                                                  : "validated",
+                   name, stream_config.toString().c_str());
 
-    INFO_PRINT("  width: %d, height: %d, stride: %d", width_, height_, stride_);
+        streams_[i].width = stream_config.size.width;
+        streams_[i].height = stream_config.size.height;
+        INFO_PRINT("  width: %d, height: %d, stride: %d", streams_[i].width, streams_[i].height,
+                   stream_config.stride);
 
-    if (width_ != stride_) {
-        ERROR_PRINT("Stride is not equal to width");
-        exit(EXIT_FAILURE);
+        // Frames are read as tightly packed I420, which a padded row would break.
+        if (static_cast<unsigned int>(streams_[i].width) != stream_config.stride) {
+            ERROR_PRINT("The %s stream's stride (%u) is not equal to its width (%d). Try a width "
+                        "that is a multiple of 64.",
+                        name, stream_config.stride, streams_[i].width);
+            exit(EXIT_FAILURE);
+        }
     }
 }
 
@@ -221,9 +244,19 @@ void LibcameraCapturer::InitControls(Args args) {
 
 int LibcameraCapturer::fps() const { return fps_; }
 
-int LibcameraCapturer::width(int stream_idx) const { return width_; }
+const LibcameraCapturer::StreamState &LibcameraCapturer::StreamAt(int stream_idx) const {
+    return streams_[stream_idx > 0 && stream_idx < num_streams_ ? stream_idx : 0];
+}
 
-int LibcameraCapturer::height(int stream_idx) const { return height_; }
+LibcameraCapturer::StreamState &LibcameraCapturer::StreamAt(int stream_idx) {
+    return streams_[stream_idx > 0 && stream_idx < num_streams_ ? stream_idx : 0];
+}
+
+int LibcameraCapturer::width(int stream_idx) const { return StreamAt(stream_idx).width; }
+
+int LibcameraCapturer::height(int stream_idx) const { return StreamAt(stream_idx).height; }
+
+bool LibcameraCapturer::has_sub_stream() const { return num_streams_ > 1; }
 
 bool LibcameraCapturer::is_dma_capture() const { return true; }
 
@@ -242,38 +275,44 @@ bool LibcameraCapturer::SetControls(int key, int value) {
 void LibcameraCapturer::AllocateBuffer() {
     allocator_ = std::make_unique<libcamera::FrameBufferAllocator>(camera_);
 
-    stream_ = camera_config_->at(0).stream();
-    int ret = allocator_->allocate(stream_);
-    if (ret < 0) {
-        ERROR_PRINT("Can't allocate buffers");
-    }
-
-    auto &buffers = allocator_->buffers(stream_);
-    if (buffer_count_ != buffers.size()) {
-        ERROR_PRINT("Buffer counts not match allocated buffer number");
-        exit(1);
-    }
-
-    for (unsigned int i = 0; i < buffer_count_; i++) {
-        auto &buffer = buffers[i];
-        int fd = 0;
-        int buffer_length = 0;
-        for (auto &plane : buffer->planes()) {
-            fd = plane.fd.get();
-            buffer_length += plane.length;
+    for (int i = 0; i < num_streams_; i++) {
+        auto *stream = camera_config_->at(i).stream();
+        streams_[i].stream = stream;
+        if (allocator_->allocate(stream) < 0) {
+            ERROR_PRINT("Can't allocate buffers");
         }
-        void *memory = mmap(NULL, buffer_length, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0);
-        mapped_buffers_[fd] = std::make_pair(memory, buffer_length);
-        DEBUG_PRINT("Allocated fd(%d) Buffer[%d] pointer: %p, length: %d", fd, i, memory,
-                    buffer_length);
 
+        auto &buffers = allocator_->buffers(stream);
+        if (buffer_count_ != buffers.size()) {
+            ERROR_PRINT("Buffer counts not match allocated buffer number");
+            exit(1);
+        }
+
+        for (unsigned int j = 0; j < buffer_count_; j++) {
+            int fd = 0;
+            int buffer_length = 0;
+            for (auto &plane : buffers[j]->planes()) {
+                fd = plane.fd.get();
+                buffer_length += plane.length;
+            }
+            void *memory = mmap(NULL, buffer_length, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0);
+            mapped_buffers_[fd] = std::make_pair(memory, buffer_length);
+            DEBUG_PRINT("Allocated stream %d fd(%d) Buffer[%d] pointer: %p, length: %d", i, fd, j,
+                        memory, buffer_length);
+        }
+    }
+
+    // Each request carries one buffer of every stream, so both are filled from the same frame.
+    for (unsigned int j = 0; j < buffer_count_; j++) {
         auto request = camera_->createRequest();
         if (!request) {
             ERROR_PRINT("Can't create camera request");
         }
-        int ret = request->addBuffer(stream_, buffer.get());
-        if (ret < 0) {
-            ERROR_PRINT("Can't set buffer for request");
+        for (int i = 0; i < num_streams_; i++) {
+            auto *stream = streams_[i].stream;
+            if (request->addBuffer(stream, allocator_->buffers(stream)[j].get()) < 0) {
+                ERROR_PRINT("Can't set buffer for request");
+            }
         }
         requests_.push_back(std::move(request));
     }
@@ -288,24 +327,29 @@ void LibcameraCapturer::RequestComplete(libcamera::Request *request) {
     const bool traced = latency::Enabled();
     const int64_t callback_start_us = traced ? latency::NowUs() : 0;
 
-    auto &buffers = request->buffers();
-    auto *buffer = buffers.begin()->second;
+    for (int i = 0; i < num_streams_; i++) {
+        auto &stream = streams_[i];
+        auto *buffer = request->findBuffer(stream.stream);
+        if (!buffer) {
+            continue;
+        }
 
-    int fd = buffer->planes()[0].fd.get();
-    void *data = mapped_buffers_[fd].first;
-    int length = mapped_buffers_[fd].second;
-    timeval tv = {};
-    tv.tv_sec = buffer->metadata().timestamp / 1000000000;
-    tv.tv_usec = (buffer->metadata().timestamp % 1000000000) / 1000;
+        int fd = buffer->planes()[0].fd.get();
+        void *data = mapped_buffers_[fd].first;
+        int length = mapped_buffers_[fd].second;
+        timeval tv = {};
+        tv.tv_sec = buffer->metadata().timestamp / 1000000000;
+        tv.tv_usec = (buffer->metadata().timestamp % 1000000000) / 1000;
 
-    auto v4l2_buffer = V4L2Buffer::FromLibcamera((uint8_t *)data, length, fd, tv, format_);
-    frame_buffer_ = V4L2FrameBuffer::Create(width_, height_, v4l2_buffer);
+        auto v4l2_buffer = V4L2Buffer::FromLibcamera((uint8_t *)data, length, fd, tv, format_);
+        stream.frame_buffer = V4L2FrameBuffer::Create(stream.width, stream.height, v4l2_buffer);
 
-    if (traced) {
-        latency::RecordCapture(latency::SensorUs(tv), callback_start_us);
+        if (traced && i == 0) {
+            latency::RecordCapture(latency::SensorUs(tv), callback_start_us);
+        }
+
+        stream.subject.Next(stream.frame_buffer);
     }
-
-    stream_subject_.Next(frame_buffer_);
 
     request->reuse(libcamera::Request::ReuseBuffers);
 
@@ -326,12 +370,12 @@ void LibcameraCapturer::RequestComplete(libcamera::Request *request) {
 }
 
 webrtc::scoped_refptr<webrtc::I420BufferInterface> LibcameraCapturer::GetI420Frame(int stream_idx) {
-    return frame_buffer_->ToI420();
+    return StreamAt(stream_idx).frame_buffer->ToI420();
 }
 
 Subscription LibcameraCapturer::Subscribe(Subject<V4L2FrameBufferRef>::Callback callback,
                                           int stream_idx) {
-    return stream_subject_.Subscribe(std::move(callback));
+    return StreamAt(stream_idx).subject.Subscribe(std::move(callback));
 }
 
 void LibcameraCapturer::StartCapture() {
