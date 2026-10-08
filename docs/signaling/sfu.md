@@ -1,44 +1,40 @@
-# Advanced Usage
+# SFU
 
-- [Broadcasting a Live Stream to Many Viewers via SFU](#broadcasting-a-live-stream-to-many-viewers-via-sfu)
-- [Running as a Linux Service](#running-as-a-linux-service)
-- [Two-way Audio Communication](#two-way-audio-communication)
-- [DataChannels](#datachannels)
-- [Two-way DataChannel Messaging](#two-way-datachannel-messaging)
-- [Gamepad Input](#gamepad-input)
-- [Stream AI or Any Custom Feed to a Virtual Camera](#stream-ai-or-any-custom-feed-to-a-virtual-camera)
-- [WHEP with webrtc-player](#whep-with-webrtc-player)
-- [Using the WebRTC Camera in Home Assistant](#using-the-webrtc-camera-in-home-assistant)
-- [Jetson: Unthrottling the VIC and NVENC Clocks](#jetson-unthrottling-the-vic-and-nvenc-clocks)
-- [Useful Commands](#useful-commands)
+An SFU (Selective Forwarding Unit) lets many people watch one device. The device sends one stream to the SFU, and the SFU forwards it to every viewer.
 
-# Broadcasting a Live Stream to Many Viewers via SFU
+![SFU signaling](https://github.com/user-attachments/assets/2329c736-8d98-4148-af01-1966bce9af41)
 
-![SFU Cloud Service](https://github.com/user-attachments/assets/e41bcd7b-7c84-4837-88c2-820b20c094d4)
+With MQTT or WHEP, each viewer connects to the device directly. More viewers means more connections, more upload bandwidth and more encoding work on the device. With an SFU, the device does the same work for one viewer or for many.
 
-An SFU lets one device stream to many viewers without sending a separate stream to each viewer. The SFU receives the stream from the device and forwards it to the viewers.
+pi-webrtc supports two SFUs:
 
-Two SFU backends are supported:
-- [LiveKit](#livekit): self-hosted or hosted.
-- [Cloudflare Realtime](#cloudflare-realtime): managed by Cloudflare.
+- [LiveKit](#livekit): host it yourself, or use LiveKit Cloud.
+- [Cloudflare Realtime](#cloudflare-realtime): run by Cloudflare.
 
-Both have a free endpoint below for testing.
+Both have a free test server below.
+
+![SFU cloud service](https://github.com/user-attachments/assets/e41bcd7b-7c84-4837-88c2-820b20c094d4)
+
+## Video quality
+
+The SFU forwards the stream as it is, so every viewer gets the same quality. Set the highest bitrate on the device with [`--max-bitrate`](../reference/configuration.md#webrtc). When the upload is slow, pi-webrtc lowers the resolution and keeps the frame rate.
 
 ## LiveKit
 
-### Free Testing Server
+### Free test server
 
-| URL | API Key |
+| URL | API key |
 | --- | --- |
 | `wss://api.mazupo.com` | `APIWnQTs4tmUZvA` |
 
-⚠️ Shared testing server: Limited to 100 concurrent connections, 5,000 minutes, and 50 GB of transfer per month across all users. For a dedicated environment, see [SPONSORS.md](SPONSORS.md#commercial--oem-notes).
+> [!WARNING]
+> This is a shared test server. All users together get 100 connections, 5,000 minutes and 50 GB of transfer per month. For your own environment, see [Sponsors](../sponsors.md#commercial--oem-notes).
 
 ### 1. Run on the device
 
 ```bash
-/path/to/pi-webrtc --camera=libcamera:0 \
-    --fps=60 \
+./pi-webrtc --camera=libcamera:0 \
+    --fps=30 \
     --width=1920 \
     --height=1080 \
     --uid=your-display-name \
@@ -48,38 +44,35 @@ Both have a free endpoint below for testing.
     --livekit-room=the-room-name
 ```
 
-The device connects to LiveKit using `--livekit-url`, `--livekit-key`, `--livekit-room`, and `--uid`.
+- `--livekit-url`: the SFU address. Use `wss://` for TLS, or `ws://` without TLS.
+- `--livekit-key`: the LiveKit API key.
+- `--livekit-room`: the room to publish to.
+- `--uid`: the name of the device in the room.
+- [`--livekit-secret`](../sponsors.md#sponsor-benefits) (sponsor build): creates the LiveKit access token on the device, so you do not need a token server.
 
-- `--livekit-url` specifies the SFU address. Use `wss://` for TLS or `ws://` for non-TLS connections.
-- `--livekit-key` is the LiveKit API key.
-- `--livekit-room` specifies the room to publish to.
-- `--uid` is the device's identity in the room.
-- [`--livekit-secret`*](SPONSORS.md#sponsor-benefits) lets the device generate a LiveKit access token locally, so no separate token server is required.
-
-Anyone who joins the same room can watch the stream.
-
-With `--enable-ipc`, DataChannel messages are also broadcast to all participants in the room.
+Anyone who joins the same room can watch the stream. With `--enable-ipc`, DataChannel messages also go to everyone in the room.
 
 ### 2. Join the room
 
-- See the [example](https://github.com/mazupo/client-sdk-js/blob/main/docs/EXAMPLES.md#play-through-the-livekit-sfu) in [client-sdk-js](https://github.com/mazupo/client-sdk-js)
-- Try it in the Web demo: [https://app.mazupo.com/room](https://app.mazupo.com/room)
+- Code example: [Play through the LiveKit SFU](https://mazupo.com/docs/client-sdk-js/guides/livekit)
+- Web app: [app.mazupo.com/room](https://app.mazupo.com/room)
 
 ## Cloudflare Realtime
 
-### Free Testing Server
+### Free test server
 
-| URL | Device API Key | Viewer API Key |
+| URL | Device API key | Viewer API key |
 | --- | --- | --- |
 | `https://api.mazupo.com` | `81f899b8fab5692b0faa76c3372b7ae6` | `ec0478c67e729b6f429eda1e97829af0` |
 
-⚠️ Shared demo environment: The free Cloudflare quota is shared by all users and stops when the monthly limit is reached. Use a unique `--uid` to avoid conflicts with other users. For a dedicated environment, see [SPONSORS.md](SPONSORS.md#commercial--oem-notes).
+> [!WARNING]
+> This is a shared test environment. All users share the free Cloudflare quota, and it stops when the monthly limit is reached. Use a unique `--uid`, so you do not clash with other users. For your own environment, see [Sponsors](../sponsors.md#commercial--oem-notes).
 
 ### 1. Run on the device
 
 ```bash
-/path/to/pi-webrtc --camera=libcamera:0 \
-    --fps=60 \
+./pi-webrtc --camera=libcamera:0 \
+    --fps=30 \
     --width=1920 \
     --height=1080 \
     --uid=your-display-name \
@@ -87,422 +80,20 @@ With `--enable-ipc`, DataChannel messages are also broadcast to all participants
     --api-url=https://api.mazupo.com \
     --api-key=81f899b8fab5692b0faa76c3372b7ae6
 ```
-The device connects to Cloudflare Realtime through the Mazupo API. Cloudflare generates a new `sessionId` each time the device reconnects, and the backend maps it to the device's `uid`.
 
-- `--api-url` specifies the backend address.
-- `--api-key` authenticates the device with the backend.
-- `--uid` identifies the device.
+The device connects to Cloudflare Realtime through the Mazupo API. Cloudflare gives the device a new session each time it reconnects, and the API links that session to the device's `uid`.
 
-Anyone who knows the device's uid can find its stream.
+- `--api-url`: the API address.
+- `--api-key`: the key that lets the device use the API.
+- `--uid`: the device name. Anyone who knows it can find the stream.
 
-DataChannel/IPC traffic is not supported yet. But `--enable-ipc` still applies to the other signaling services running alongside it.
+Cloudflare Realtime does not carry DataChannel or IPC messages yet. `--enable-ipc` still works for the other signaling that you turn on.
 
-### 2. Watch streams
+### 2. Watch the stream
 
-- See the [example](https://github.com/mazupo/client-sdk-js/blob/main/docs/EXAMPLES.md#pull-from-the-cloudflare-realtime-sfu) in [client-sdk-js](https://github.com/mazupo/client-sdk-js)
-- Try it in the Web demo: [https://app.mazupo.com/cloudflare](https://app.mazupo.com/cloudflare). Enter the URL and the **Viewer API Key** under **Settings → Network**, add a device with the same `uid`, then select your device. The viewer only needs the device's `uid`. 
+- Code example: [Pull from the Cloudflare Realtime SFU](https://mazupo.com/docs/client-sdk-js/guides/cloudflare)
+- Web app: open [app.mazupo.com/cloudflare](https://app.mazupo.com/cloudflare). Under **Settings → Network**, enter the URL and the **Viewer API key**. Add a device with the same `uid`, then select it.
 
-# Running as a Linux Service
+## Keep device control with MQTT
 
-## 1. Set up `pulseaudio` as a system-wide daemon
-
-Skip this step if you run with the `--no-audio` flag.
-[[reference]](https://www.freedesktop.org/wiki/Software/PulseAudio/Documentation/User/SystemWide/)
-
-* Install it:
-    ```bash
-    sudo apt install pulseaudio
-    ```
-* Create `/etc/systemd/system/pulseaudio.service`:
-    ```ini
-    [Unit]
-    Description= Pulseaudio Daemon
-    After=rtkit-daemon.service systemd-udevd.service dbus.service
-
-    [Service]
-    Type=simple
-    ExecStart=/usr/bin/pulseaudio --system --disallow-exit --disallow-module-loading
-    Restart=always
-    RestartSec=10
-
-    [Install]
-    WantedBy=multi-user.target
-    ```
-* Stop the client from autospawning its own copy:
-    ```bash
-    echo 'autospawn = no' | sudo tee -a /etc/pulse/client.conf > /dev/null
-    ```
-* Grant access, enable, and reboot:
-    ```bash
-    sudo adduser root pulse-access
-    sudo systemctl enable pulseaudio.service
-    sudo reboot
-    ```
-
-## 2. Run `pi-webrtc` on boot
-
-* Create `/etc/systemd/system/pi-webrtc.service`, adjusting `WorkingDirectory` and `ExecStart`:
-    ```ini
-    [Unit]
-    Description= The p2p camera via webrtc.
-    After=network-online.target pulseaudio.service
-
-    [Service]
-    Type=simple
-    WorkingDirectory=/path/to
-    ExecStart=/path/to/pi-webrtc --camera=libcamera:0 --fps=60 --width=1280 --height=720 --uid=your-uid --hw-accel --use-mqtt --mqtt-host=example.s1.eu.hivemq.cloud --mqtt-port=8883 --mqtt-username=hakunamatata --mqtt-password=wonderful
-    Restart=always
-    RestartSec=10
-
-    [Install]
-    WantedBy=multi-user.target
-    ```
-
-    > [!TIP]
-    > A long `ExecStart` is a good reason to use a
-    > [config file](CONFIGURATION.md#config-file) instead:
-    > `ExecStart=/path/to/pi-webrtc --config=/path/to/config.yml`
-
-* Enable and start it:
-    ```bash
-    sudo systemctl daemon-reload
-    sudo systemctl enable pi-webrtc.service
-    sudo systemctl start pi-webrtc.service
-    ```
-
-# Two-way Audio Communication
-
-Remove the `--no-audio` flag to enable two-way audio. If PulseAudio is available, run [`pulseaudio`](#1-run-pulseaudio-as-a-system-wide-daemon) in the background. On systems without PulseAudio, use `--force-alsa`.
-
-Two-way audio works for peer-to-peer connections. Audio sent through an SFU is one-way, from the device to the viewers. Remote audio plays on the default output device. With `--force-alsa`, make sure the ALSA `default` device points to your speaker.
-
-The device needs a microphone and speaker. USB audio devices are the easiest option. For GPIO/I2S devices, see:
-
-- **Microphone** — [wiring and testing an I2S MEMS mic](https://learn.adafruit.com/adafruit-i2s-mems-microphone-breakout/raspberry-pi-wiring-test)
-- **Speaker** — [wiring a MAX98357 I2S amp](https://learn.adafruit.com/adafruit-max98357-i2s-class-d-mono-amp/raspberry-pi-wiring)
-
-# DataChannels
-
-`pi-webrtc` uses DataChannels for commands, data transfer, and optional IPC:
-
-| Label | Ordered | Reliability | Carries |
-| --- | --- | --- | --- |
-| `command` | yes | reliable | Commands and small responses, such as recording status. |
-| `stream` | **no** | reliable, unordered | Large data such as snapshots and file transfers. |
-| `_lossy` | no | unreliable | IPC messages where old data can be dropped. |
-| `_reliable` | yes | reliable | IPC messages that must be delivered. |
-
-Which channels a peer gets depends on the signaling it arrived through:
-
-| Label | MQTT | WHEP | LiveKit | Cloudflare |
-| --- |:---:|:---:|:---:|:---:|
-| `command` | ✅ | ❌ | ❌ | ❌ |
-| `stream` | ✅ | ❌ | ❌ | ❌ |
-| `_lossy` | ✅ | ❌ | ✅ | ❌ |
-| `_reliable` | ✅ | ❌ | ✅ | ❌ |
-
-`_lossy` and `_reliable` also need [`--enable-ipc`](CONFIGURATION.md#ipc). WHEP and Cloudflare peers carry no DataChannel traffic at all, and SFU peers never get the built-in `command` and `stream` channels, so snapshots, recording, camera control, and file transfers are only available over MQTT. More than one signaling can be enabled at a time, so running `--use-mqtt` alongside an SFU keeps those commands available while the SFU carries the viewers.
-
-Large transfers use the stream channel so they do not block commands. Multiple transfers can run at the same time.
-
-# Two-way DataChannel Messaging
-
-DataChannels allow the browser and device to exchange AI events, sensor data, and remote control commands. Supported with `--use-mqtt` and `--use-livekit`.
-
-With [`--enable-ipc`](CONFIGURATION.md#ipc), `pi-webrtc` provides two additional channels:
-
-| Channel  | Purpose   |
-|:--------:| --------- |
-| Lossy    | Messages where old data can be dropped, such as real-time sensor data |
-| Reliable | Messages that must be delivered, such as commands |
-
-
-The client can choose the channel for each message. [client-sdk-js](https://github.com/mazupo/client-sdk-js) defaults to the reliable channel.
-
-> [!NOTE]
-> With `--use-livekit`, messages are broadcast to all participants in the room.
-> ![image](https://github.com/user-attachments/assets/cf88cd29-3717-4178-9e6b-f2f3ce9a0270)
-
-## Usage:
-1. Start `pi-webrtc` with `--enable-ipc`:
-    ```bash
-    /path/to/pi-webrtc --camera=libcamera:0 --fps=60 ... --enable-ipc
-    ```
-
-2. Run the [unix_socket_client.py](../examples/unix_socket_client.py) example on the device:
-    ```bash
-    python ./examples/unix_socket_client.py
-    ```
-    It logs everything sent and received through `pi-webrtc`. 
-
-3. On the client side, use `onMessage()`, `sendText()`, or `sendData()` to receive and send messages.
-
-- See [examples](https://github.com/mazupo/client-sdk-js/blob/main/docs/EXAMPLES.md#send-and-receive-ipc-messages) in [client-sdk-js](https://github.com/mazupo/client-sdk-js)
-- Try it in Web demo: [http://app.mazupo.com/interaction](http://app.mazupo.com/interaction)
-
-# Gamepad Input
-
-[`--enable-gamepad`](CONFIGURATION.md#ipc) lets browser gamepads control a process on the device. It also enables [`--enable-ipc`](#two-way-datachannel-messaging).
-
-Gamepad state is sent about 60 times per second over a lossy DataChannel. `pi-webrtc` exposes the latest state on a Unix socket as newline-delimited JSON, so clients do not need to know anything about the WebRTC or protobuf layer.
-
-## Reading from Python
-The [gamepad_socket.py](../examples/gamepad_socket.py) example prints every gamepad state received by `pi-webrtc`. The socket path can be changed with `--gamepad-socket-path`.
-
-1. Start `pi-webrtc` with gamepad support:
-    ```bash
-    /path/to/pi-webrtc --camera=libcamera:0 --fps=60 ... --enable-gamepad
-    ```
-
-2. Run the example and connect a gamepad in the browser:
-    ```bash
-    python ./examples/gamepad_socket.py
-    ```
-
-- See the [example](https://github.com/mazupo/client-sdk-js/blob/main/docs/EXAMPLES.md#drive-a-device-with-a-gamepad) for a complete client. The sender polls the browser's
-[Gamepad API](https://developer.mozilla.org/en-US/docs/Web/API/Gamepad_API).
-- Try it in the Web demo: [http://app.mazupo.com/gamepad](http://app.mazupo.com/gamepad)
-
-## Snapshots
-
-Each line contains the latest state of all connected gamepads:
-
-```json
-{"device_monotonic_ns":81234567890123,"gamepads":{"alice":{"sequence":1234,"timestamp":{"monotonic_ns":5023000000},"left_x":0.12,"left_y":-0.5,"right_x":0.0,"right_y":0.0,"left_trigger":0.0,"right_trigger":0.87,"buttons":129,"pressed":["a","rt"],"standard_mapping":true}}}
-```
-
-| Field | Description |
-| --- | --- |
-| `device_monotonic_ns` | When this snapshot was created, using the device's monotonic clock. Python's `time.monotonic_ns()` reads the same clock. |
-| `gamepads` | One entry per sender. Empty when no gamepad is sending. |
-| `sequence` | The sender's report counter. Gaps mean snapshots were dropped. |
-| `timestamp.monotonic_ns` | The browser's timestamp when provided. It is not comparable with `device_monotonic_ns`. |
-| `left_x`, `left_y`, `right_x`, `right_y` | Sticks, -1 to 1, `+y` down. |
-| `left_trigger`, `right_trigger` | 0 to 1. |
-| `buttons` | Contains the button state as a bitmask. |
-| `pressed` | Contains names for the standard buttons (bits 0–16). |
-| `standard_mapping` | `false` when the browser does not recognize the standard mapping; button names may not match the physical buttons. |
-
-The gamepad key is the peer ID `pi-webrtc` assigns to each MQTT client, kept across WebRTC reconnects within `--peer-timeout`, or the LiveKit participant identity.
-
-Unknown fields should be ignored; new fields may be added in future releases.
-
-## Button mapping
-
-The browser uses the W3C standard gamepad mapping when available.
-
-| Bit | Name | Xbox | PlayStation |
-| --- | --- | --- | --- |
-| 0 | `a` | A | Cross |
-| 1 | `b` | B | Circle |
-| 2 | `x` | X | Square |
-| 3 | `y` | Y | Triangle |
-| 4 | `lb` | LB | L1 |
-| 5 | `rb` | RB | R1 |
-| 6 | `lt` | LT | L2 |
-| 7 | `rt` | RT | R2 |
-| 8 | `back` | View | Create |
-| 9 | `start` | Menu | Options |
-| 10 | `l3` | Left stick press | L3 |
-| 11 | `r3` | Right stick press | R3 |
-| 12 | `dpad_up` | D-pad up | D-pad up |
-| 13 | `dpad_down` | D-pad down | D-pad down |
-| 14 | `dpad_left` | D-pad left | D-pad left |
-| 15 | `dpad_right` | D-pad right | D-pad right |
-| 16 | `guide` | Xbox button | PS button |
-
-## Disconnects and stale input
-
-- A gamepad is removed immediately when `pi-webrtc` tears down its connection.
-- It is also removed once no input has arrived from it for 500 ms. This covers cases such as a backgrounded browser tab, an unplugged gamepad, or a lost network connection.
-- If nobody else is sending, no new snapshot is produced. Check the age of the last one, `time.monotonic_ns() - device_monotonic_ns`, against a limit of your own.
-
-# Stream AI or Any Custom Feed to a Virtual Camera
-
-To enhance images, run AI recognition, or preprocess frames before streaming, process the camera frames and write the result to a [V4L2 loopback](https://github.com/umlaeute/v4l2loopback) device. `pi-webrtc` can then open it as a normal V4L2 camera.
-
-> [!TIP]
-> On Jetson, the [sponsor build](SPONSORS.md#sponsor-benefits) runs detection and tracking
-> in-process on the GPU instead, with no loopback device and no copy through the CPU.
-
-1. Install the packages:
-    ```bash
-    sudo apt install v4l2loopback-dkms libopencv-dev python3-opencv python3-picamera2 ffmpeg
-    ```
-
-2. Create a virtual device at `/dev/video8`:
-    ```bash
-    sudo modprobe v4l2loopback devices=1 video_nr=8 card_label=ProcessedCam max_buffers=4 exclusive_caps=1
-    ```
-
-3. Create a Python virtual env:
-    ```bash
-    python -m venv --system-site-packages ~/venv
-    ```
-
-4. Activate it and install the packages:
-    ```bash
-    source ~/venv/bin/activate
-    pip install --upgrade pip
-    pip install wheel
-    pip install rpi-libcamera picamera2 opencv-python
-    ```
-
-5. Run the virtual camera, using Libcamera to output YUV420 (I420) to the virtual device. See
-   the [virtual_cam.py](../examples/virtual_cam.py) example:
-    ```bash
-    python virtual_cam.py --width 1280 --height 720 --camera-id 0 --virtual-device /dev/video8
-    ```
-
-6. Run `pi-webrtc` against the virtual device with the matching format:
-    ```bash
-    /path/to/pi-webrtc --camera=v4l2:8 --fps=30 --width=1280 --height=720 --v4l2-format=i420 ...
-    ```
-
-> [!TIP]
-> **Need the same camera source in several `pi-webrtc` instances?**
-> Create multiple virtual cameras from one processed source and stream each independently.
-> See [yolo_cam.py](../examples/yolo_cam.py) for writing to multiple loopback devices.
-
-# WHEP with webrtc-player
-
-[Eyevinn/webrtc-player](https://github.com/Eyevinn/webrtc-player) plays a WHEP URL in the browser.
-
-- Run the program:
-    ```bash
-    /path/to/pi-webrtc --camera=libcamera:0 \
-        --uid=home-pi-5 \
-        --fps=60 \
-        --width=1920 \
-        --height=1080 \
-        --use-whep \
-        --whep-port=8080 \
-        --no-audio
-    ```
-
-- Open the [demo player](https://tzuhuantai.github.io/webrtc-player/demo/), keep the adapter on
-  **WHEP**, and play `http://<device-ip>:8080`, e.g. `http://192.168.4.35:8080`.
-
-The player page is served over `https` while the device answers over `http`. Chrome allows this for private addresses such as `192.168.x.x` once you **Allow** its prompt to access devices on your local network; other browsers may block the request as mixed content.
-
-# Using the WebRTC Camera in Home Assistant
-
-### 1. Prepare the environment
-
-Follow the official [Home Assistant installation guide](https://www.home-assistant.io/installation/).
-
-### 2. Install HACS
-
-HACS lets you install community integrations like WebRTC Camera. Follow the official
-[HACS installation guide](https://www.home-assistant.io/blog/2024/08/21/hacs-the-best-way-to-share-community-made-projects/#how-to-install).
-
-![Screenshot 2025-02-03 043025](https://github.com/user-attachments/assets/d28abff7-53d0-43d3-b225-7305c54a800e)
-
-### 3. Install WebRTC Camera via HACS
-
-Go to `Home Assistant` → `HACS` → `Integrations` → search for `WebRTC Camera`, then restart
-Home Assistant.
-
-![Screenshot 2025-02-03 043256](https://github.com/user-attachments/assets/17994718-f222-42e7-a0a7-531992bcbb34)
-
-### 4. Add the integration
-
-Go to `Settings` → `Devices & Services` → `Add Integration`.
-
-![Screenshot 2025-02-03 045243](https://github.com/user-attachments/assets/d8ba49e6-7de3-4144-88f7-3f066f4ed393)
-
-### 5. Run `pi-webrtc` with WHEP signaling
-
-```bash
-/path/to/pi-webrtc --camera=libcamera:0 \
-    --uid=home-pi-4b \
-    --fps=30 \
-    --width=1280 \
-    --height=720 \
-    --use-whep \
-    --whep-port=8080
-```
-
-The stream is exposed on port `8080`, e.g. `http://192.168.4.35:8080`.
-
-### 6. Add the card to a dashboard
-
-Go to `Dashboard` → `Edit Dashboard` → `Add Card` → `WebRTC Camera`.
-
-![Screenshot 2025-02-03 043403](https://github.com/user-attachments/assets/5bc68138-d5a2-481e-a187-0d845aeca463)
-
-Enter the URL in the configuration and save:
-
-```yaml
-type: custom:webrtc-camera
-url: webrtc:http://192.168.4.35:8080
-```
-
-![Screenshot 2025-02-03 043600](https://github.com/user-attachments/assets/87d61efc-7107-41a0-bcb9-12378a904021)
-
-# Jetson: Unthrottling the VIC and NVENC Clocks
-
-On Jetson, the VIC and NVENC engines can run at low clock speeds under the default `tegra_wmark` governor. This can add significant latency to camera copies and hardware encoding.
-
-`jetson_clocks` and `nvpmodel MAXN` do not increase the operating frequency of these multimedia engines.
-
-For example, on an Orin NX at 1080p60, setting both governors to `performance` reduced device-side latency from about **36.5 ms** to **24 ms** in our test.
-
-1. Check the current state:
-
-```bash
-for d in /sys/class/devfreq/*vic* /sys/class/devfreq/*nvenc*; do
-    echo "$d: $(cat $d/governor) $(cat $d/cur_freq) / $(cat $d/max_freq)"
-done
-```
-
-2. Apply it for the current boot:
-
-```bash
-echo performance | sudo tee /sys/class/devfreq/15340000.vic/governor
-echo performance | sudo tee /sys/class/devfreq/154c0000.nvenc/governor
-```
-
-## Making it persistent
-
-The governor resets on every boot. Create `/etc/systemd/system/tegra-mm-perf.service`:
-
-```ini
-[Unit]
-Description=Pin Tegra VIC/NVENC devfreq governors to performance
-After=nvargus-daemon.service
-
-[Service]
-Type=oneshot
-RemainAfterExit=yes
-ExecStart=/bin/sh -c 'for d in /sys/class/devfreq/*vic* /sys/class/devfreq/*nvenc*; do echo performance > "$d/governor"; done'
-
-[Install]
-WantedBy=multi-user.target
-```
-
-Then enable it:
-
-```bash
-sudo systemctl daemon-reload
-sudo systemctl enable --now tegra-mm-perf.service
-```
-
-The wildcard keeps the service working across Jetson modules with different device addresses.
-
-> [!NOTE]
-> `performance` holds each engine at maximum while they are powered, which increases power consumption and heat. If that is too aggressive, you can instead raise the minimum frequency (`echo 614400000 | sudo tee /sys/class/devfreq/15340000.vic/min_freq`), or try the `nvhost_podgov` governor, which reacts to bursty per-frame work better than `tegra_wmark`.
-
-# Useful Commands
-
-| Command | Description |
-|--|--|
-| `v4l2-ctl --list-devices` | Show available V4L2 devices. |
-| `v4l2-ctl -d /dev/video0 --list-formats-ext` | Show supported formats — for cameras and codecs alike. |
-| `sudo fdisk -l` | List partition tables, to help set up a USB disk. |
-| `vcgencmd get_camera` | Check whether the camera is detected. |
-| `sudo tegrastats --interval 500` | Jetson: show per-engine utilisation and clocks, e.g. `VIC 36%@115`. |
-
-To install the latest Mosquitto packages, follow the official
-[Readme.txt](https://repo.mosquitto.org/debian/README.txt) for the Eclipse Mosquitto Debian
-repository.
+SFU viewers do not get the built-in `command` and `stream` DataChannels. So snapshots, recording control, camera control and file transfer only work over MQTT. You can turn on `--use-mqtt` together with an SFU: the SFU carries the viewers, and MQTT keeps those commands. See [DataChannels](../reference/datachannels.md).

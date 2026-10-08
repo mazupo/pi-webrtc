@@ -1,47 +1,101 @@
-# Set up the Mosquitto broker
+# Self-hosted Mosquitto
 
-On the device which acts as the Mosquitto server.
+Run your own MQTT broker instead of a cloud service. [Mosquitto](https://mosquitto.org) is a small and popular MQTT broker for Linux.
 
-* Install `mosquitto`
-    ```bash
-    sudo apt install mosquitto mosquitto-clients
-    ```
+pi-webrtc and the browser connect to the broker in different ways:
 
-* Configure the broker in `/etc/mosquitto/mosquitto.conf` likes
-    ```apacheconf 
-    pid_file /run/mosquitto/mosquitto.pid
+| Who connects | Protocol | Port in this guide |
+|---|---|---|
+| pi-webrtc on the device | MQTT | `1883` |
+| The browser | MQTT over WebSocket | `8083`, or `443` through a reverse proxy |
 
-    persistence true
-    persistence_location /var/lib/mosquitto/
+## 1. Install Mosquitto
 
-    log_dest file /var/log/mosquitto/mosquitto.log
-    password_file /etc/mosquitto/p1.txt
-    include_dir /etc/mosquitto/conf.d
+On the server:
 
-    # this will listen for mqtt on tcp
-    listener 1883
-    allow_anonymous false
+```bash
+sudo apt update
+sudo apt install mosquitto mosquitto-clients
+```
 
-    # this will expect websockets connections
-    listener 8083
-    protocol websockets
-    ```
+## 2. Create a user
 
-* Restart the service by using the following command
-    ```bash
-    sudo systemctl restart mosquitto.service
-    ```
+```bash
+sudo mosquitto_passwd -c /etc/mosquitto/passwd <username>
+sudo chown mosquitto:mosquitto /etc/mosquitto/passwd
+```
 
-# Nginx reverse proxy (Optional)
-Use HTTP reverse proxy with connection upgrade to WebSocket.
+The first command asks for a password.
+
+## 3. Add the listeners
+
+Create `/etc/mosquitto/conf.d/pi-webrtc.conf`:
+
 ```apacheconf
+# For pi-webrtc
+listener 1883
+
+# For browsers
+listener 8083
+protocol websockets
+
+allow_anonymous false
+password_file /etc/mosquitto/passwd
+```
+
+Restart Mosquitto:
+
+```bash
+sudo systemctl restart mosquitto
+```
+
+## 4. Test the broker
+
+In one terminal, subscribe:
+
+```bash
+mosquitto_sub -h localhost -p 1883 -u <username> -P <password> -t 'test/#' -v
+```
+
+In a second terminal, publish:
+
+```bash
+mosquitto_pub -h localhost -p 1883 -u <username> -P <password> -t test/hello -m hi
+```
+
+The first terminal should print `test/hello hi`.
+
+## 5. Add TLS for browsers
+
+The [web app](https://app.mazupo.com) uses HTTPS, so the browser can only use a secure WebSocket (`wss://`). Put the broker behind a reverse proxy that has a TLS certificate. For example, with nginx:
+
+```nginx
 location /mqtt {
     proxy_pass http://127.0.0.1:8083;
     proxy_http_version 1.1;
-    proxy_set_header X-Real-IP $remote_addr;
-    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-    proxy_set_header Host $host;
     proxy_set_header Upgrade $http_upgrade;
     proxy_set_header Connection "Upgrade";
+    proxy_set_header Host $host;
+    proxy_set_header X-Real-IP $remote_addr;
+    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
 }
 ```
+
+The browser then connects to port `443` with the path `/mqtt`.
+
+## 6. Connect pi-webrtc
+
+```bash
+./pi-webrtc ... \
+    --use-mqtt \
+    --mqtt-host=<broker-host> \
+    --mqtt-port=1883 \
+    --mqtt-username=<username> \
+    --mqtt-password=<password>
+```
+
+If the device connects to the broker over the internet, use TLS on port `8883` instead of `1883`. See the [Mosquitto TLS guide](https://mosquitto.org/man/mosquitto-tls-7.html).
+
+## The client library
+
+pi-webrtc uses the Mosquitto client library from your OS. The release needs `libmosquitto1`, and building from source needs `libmosquitto-dev`. Both come from `apt`, so you do not need to build Mosquitto yourself.

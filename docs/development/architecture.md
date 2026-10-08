@@ -2,13 +2,13 @@
 
 `pi-webrtc` is one process that pulls frames from a camera once and fans them out to three
 consumers: the WebRTC encoder, the recorder, and — in the
-[sponsor build](SPONSORS.md#sponsor-benefits) — the detector. Everything else is arranged
+[sponsor build](../sponsors.md#sponsor-benefits) — the detector. Everything else is arranged
 around avoiding a second copy of that frame.
 
 ```mermaid
 graph LR
     subgraph Capture
-        CAM[Camera<br/>libcamera / libargus / V4L2]
+        CAM[Camera<br/>libcamera / libargus / V4L2 / RTSP]
         MIC[Microphone<br/>PulseAudio / ALSA]
     end
 
@@ -30,7 +30,7 @@ graph LR
     end
 
     subgraph Signaling
-        SIG[MQTT / WHEP / LiveKit]
+        SIG[MQTT / WHEP / LiveKit / Cloudflare]
     end
 
     CAM --> MAIN
@@ -51,19 +51,21 @@ graph LR
 ## Capture
 
 One capturer runs per camera, chosen by the `--camera` backend prefix — `LibcameraCapturer`,
-`LibargusCapturer`, or `V4l2Capturer`. Audio comes from `PaCapturer` (PulseAudio) or
+`LibargusCapturer`, or `V4l2Capturer` — or by an `rtsp://` URL, which gets an `RtspCapturer`.
+The RTSP capturer reads the stream with libavformat and decodes it with the hardware decoder
+when `--hw-accel` finds one, or with libavcodec. Audio comes from `PaCapturer` (PulseAudio) or
 `AlsaCapturer` (`--force-alsa`).
 
 When `--sub-width` and `--sub-height` are set, the camera produces a second, smaller stream
-alongside the main one. `--webrtc-source` and `--record-source` then decide which consumer gets
+alongside the main one. `LibcameraCapturer` and `LibargusCapturer` can produce one. `--webrtc-source` and `--record-source` then decide which consumer gets
 which, so you can record at full resolution while streaming a downscaled copy, or vice versa.
-See [Sub-stream](CONFIGURATION.md#sub-stream).
+See [Sub-stream](../reference/configuration.md#sub-stream).
 
 ## WebRTC
 
 `Conductor` owns the peer connection factory and the track sources. Which encoder is used
 depends on `--hw-accel` and on the codecs the client offers — see
-[Encoding](ENCODING.md). With hardware acceleration, frames
+[Encoding](../media/encoding.md). With hardware acceleration, frames
 move between decoder, scaler, and encoder as DMA buffers and never round-trip through the
 CPU.
 
@@ -80,7 +82,7 @@ the DataChannel. The concrete recorder depends on the platform — `V4L2H264Reco
 `JetsonRecorder`, or `OpenH264Recorder` encodes the frames the capturer delivers. Audio is
 encoded to AAC by `AudioRecorder` and muxed into the same MP4.
 
-See [Recording](RECORDING.md).
+See [Recording](../recording/README.md).
 
 ## Signaling
 
@@ -99,7 +101,7 @@ SFU handshake is relayed through it, and the session id Cloudflare assigns is pu
 the device's uid so a viewer can find the stream. That second call is kept off the reconnect
 path — the registry failing says nothing about a stream that is already flowing.
 
-See [Signaling](SIGNALING.md).
+See [Signaling](../signaling/README.md).
 
 ## Platform
 
@@ -109,6 +111,6 @@ compiles in the matching capture and codec backends:
 | | Raspberry Pi | Jetson |
 |---|---|---|
 | CSI capture | libcamera | libargus (EGL) |
-| USB / legacy capture | V4L2 | V4L2 |
+| USB and RTSP capture | V4L2, RTSP | V4L2, RTSP |
 | Hardware codec | V4L2 M2M (`/dev/video10-12`), H264 | NVENC, H264 + AV1 |
 | Software codec | OpenH264 + libyuv | OpenH264 + libyuv |

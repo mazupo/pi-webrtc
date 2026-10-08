@@ -1,12 +1,15 @@
 # Encoding
 
+pi-webrtc encodes the video for each WebRTC connection, so each connection can follow its own network. This page shows which encoder it uses, and how the frames move from the camera to the encoder.
+
 - [Hardware Encoding](#hardware-encoding)
 - [Software Encoding](#software-encoding)
+- [RTSP Input](#rtsp-input)
 
 Which encoder WebRTC uses depends on `--hw-accel` and on the codecs the client offers in its
 SDP. It is worth running `v4l2-ctl -d /dev/video0 --list-formats-ext` before choosing a source
-format, since that decides which of the pipelines below you end up on. See [Camera](CAMERA.md)
-for the backends and their formats.
+format, since that decides which of the pipelines below you end up on. See [Video & Audio](README.md)
+for the sources and their formats.
 
 ## Hardware Encoding
 
@@ -16,9 +19,10 @@ With `--hw-accel`, `pi-webrtc` uses hardware video encoding when available.
 | --------------------------- | ----------------- |
 | Raspberry Pi 3 / 4 / Zero 2 | H264 (V4L2 M2M)   |
 | Raspberry Pi 5              | None              |
-| NVIDIA Jetson               | H264, AV1         |
+| NVIDIA Jetson Orin          | H264, AV1         |
+| NVIDIA Jetson Orin Nano     | None              |
 
-The client selects the codec during SDP negotiation. On Jetson, both H264 and AV1 are hardware-encoded; AV1 requires an Orin-generation module.
+The client selects the codec during SDP negotiation. On a Jetson Orin, both H264 and AV1 are hardware-encoded.
 
 Recording re-encodes the frames the camera delivers, using the same hardware encoder when available and OpenH264 otherwise. To keep a camera's own `h264` stream untouched, record it outside `pi-webrtc`, for example through a [MediaMTX](https://github.com/bluenviron/mediamtx) proxy.
 
@@ -75,7 +79,7 @@ A(camera) -- yuv420 --> C(hw scaler) --yuv420--> D(hw encoder) --h264-->E(webrtc
 A --yuv420--> F(hw encoder) -- h264--> G(mp4)
 ```
 
-The camera delivers uncompressed `yuv420`, so check the [bandwidth tables](CAMERA.md#libcamera) before
+The camera delivers uncompressed `yuv420`, so check the [bandwidth tables](csi-camera.md#bandwidth-limits) before
 asking for high resolution and frame rate together. This path is useful on a Pi Zero, or when
 CPU is already spoken for by other services. Recording runs its own hardware encoder instance
 on the same frames.
@@ -133,3 +137,20 @@ A --yuv420--> F(openh264) -- h264--> G(mp4)
 ```
 
 For devices with no hardware encoder but plenty of CSI/USB bandwidth.
+
+## RTSP Input
+
+An RTSP stream is already compressed. pi-webrtc decodes it, then encodes it again for WebRTC. This is what lets it change the bitrate and the resolution for each connection.
+
+```mermaid
+graph LR
+A(RTSP stream) -- h264 / h265 / mjpeg --> B(decoder) -- yuv420 --> C(scaler) --yuv420--> D(encoder) --> E(webrtc client)
+```
+
+| Platform | Hardware decoding (`--hw-accel`) | Software decoding |
+| --- | --- | --- |
+| Raspberry Pi 3 / 4 / Zero 2 | H.264 and MJPEG, up to 1920×1088 | H.265, and larger streams |
+| Raspberry Pi 5 | None | H.264 and H.265 with libavcodec, MJPEG with libyuv |
+| NVIDIA Jetson | H.264, H.265 and MJPEG | Used only when the hardware decoder is not available |
+
+See [RTSP cameras](rtsp.md) for the setup.
