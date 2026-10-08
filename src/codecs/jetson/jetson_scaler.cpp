@@ -1,4 +1,7 @@
 #include "codecs/jetson/jetson_scaler.h"
+
+#include <cstring>
+
 #include "common/latency_tracer.h"
 #include "common/logging.h"
 #include "common/v4l2_utils.h"
@@ -16,6 +19,7 @@ JetsonScaler::JetsonScaler(ScalerConfig config)
     : config_(config),
       num_buffer_(2),
       abort_(false),
+      upload_surface_(nullptr),
       free_buffers_(num_buffer_),
       capturing_tasks_(num_buffer_) {}
 
@@ -34,6 +38,11 @@ JetsonScaler::~JetsonScaler() {
             NvBufSurfaceDestroy(surface) != 0) {
             ERROR_PRINT("Failed to Destroy NvBuffer");
         }
+    }
+
+    if (upload_surface_) {
+        NvBufSurfaceUnMap(upload_surface_, 0, -1);
+        NvBufSurfaceDestroy(upload_surface_);
     }
 
     DEBUG_PRINT("~JetsonScaler");
@@ -104,8 +113,14 @@ void JetsonScaler::EmplaceBuffer(V4L2FrameBufferRef frame_buffer,
     NvBufSurface *src_surface = nullptr;
     NvBufSurface *dst_surface = nullptr;
     int ret = -1;
-    if (NvBufSurfaceFromFd(frame_buffer->GetDmaFd(), (void **)(&src_surface)) == 0 &&
-        NvBufSurfaceFromFd(dst_dma_fd, (void **)(&dst_surface)) == 0) {
+    if (frame_buffer->GetDmaFd() > 0) {
+        if (NvBufSurfaceFromFd(frame_buffer->GetDmaFd(), (void **)(&src_surface)) != 0) {
+            src_surface = nullptr;
+        }
+    } else {
+        src_surface = UploadToSurface(frame_buffer);
+    }
+    if (src_surface && NvBufSurfaceFromFd(dst_dma_fd, (void **)(&dst_surface)) == 0) {
         ret = NvBufSurfTransform(src_surface, dst_surface, &transform_params_);
     }
     if (traced) {
@@ -139,6 +154,83 @@ void JetsonScaler::EmplaceBuffer(V4L2FrameBufferRef frame_buffer,
             latency::Count(latency::Counter::kScalerQueueFull);
         }
     }
+}
+
+NvBufSurface *JetsonScaler::UploadToSurface(const V4L2FrameBufferRef &frame_buffer) {
+    const uint32_t format = frame_buffer->format();
+    if (!upload_surface_) {
+        NvBufSurfaceColorFormat color_format;
+        if (format == V4L2_PIX_FMT_YUV420) {
+            color_format = NVBUF_COLOR_FORMAT_YUV420;
+        } else if (format == V4L2_PIX_FMT_YUYV) {
+            color_format = NVBUF_COLOR_FORMAT_YUYV;
+        } else {
+            ERROR_PRINT("The Jetson scaler cannot read %s frames from CPU memory",
+                        v4l2_util::FourccToString(format).c_str());
+            abort_ = true;
+            return nullptr;
+        }
+
+        NvBufSurfaceAllocateParams params{};
+        params.params.width = config_.src_width;
+        params.params.height = config_.src_height;
+        params.params.layout = NVBUF_LAYOUT_PITCH;
+        params.params.colorFormat = color_format;
+        params.params.memType = NVBUF_MEM_SURFACE_ARRAY;
+        params.memtag = NvBufSurfaceTag_VIDEO_CONVERT;
+
+        if (NvBufSurfaceAllocate(&upload_surface_, 1, &params) != 0) {
+            ERROR_PRINT("Failed to allocate the NvBuffer for CPU frames");
+            upload_surface_ = nullptr;
+            abort_ = true;
+            return nullptr;
+        }
+        upload_surface_->numFilled = 1;
+
+        if (NvBufSurfaceMap(upload_surface_, 0, -1, NVBUF_MAP_WRITE) != 0) {
+            ERROR_PRINT("Failed to map the NvBuffer for CPU frames");
+            abort_ = true;
+            return nullptr;
+        }
+        INFO_PRINT("Copying %s frames from CPU memory to the hardware scaler",
+                   v4l2_util::FourccToString(format).c_str());
+    }
+
+    // Where each plane of the frame starts, and its bytes per row.
+    const auto *src = static_cast<const uint8_t *>(frame_buffer->Data());
+    const int stride = frame_buffer->stride();
+    const int plane_height = frame_buffer->plane_height();
+    const uint8_t *src_planes[3] = {src, nullptr, nullptr};
+    int src_pitches[3] = {stride, stride / 2, stride / 2};
+    uint32_t frame_size = stride * plane_height * 3 / 2;
+    if (format == V4L2_PIX_FMT_YUYV) {
+        src_pitches[0] = stride * 2;
+        frame_size = stride * 2 * plane_height;
+    } else {
+        src_planes[1] = src + stride * plane_height;
+        src_planes[2] = src_planes[1] + (stride / 2) * (plane_height / 2);
+    }
+    if (!src || frame_buffer->size() < frame_size) {
+        ERROR_PRINT("Dropped a %u-byte frame; a %dx%d %s frame needs %u bytes",
+                    frame_buffer->size(), config_.src_width, config_.src_height,
+                    v4l2_util::FourccToString(format).c_str(), frame_size);
+        return nullptr;
+    }
+
+    // The NvBuffer pads each row to its own pitch, so copy one row at a time.
+    NvBufSurfaceParams &surface = upload_surface_->surfaceList[0];
+    for (uint32_t p = 0; p < surface.planeParams.num_planes; ++p) {
+        auto *dst = static_cast<uint8_t *>(surface.mappedAddr.addr[p]);
+        const uint32_t row_bytes =
+            surface.planeParams.width[p] * surface.planeParams.bytesPerPix[p];
+        for (uint32_t row = 0; row < surface.planeParams.height[p]; ++row) {
+            memcpy(dst + row * surface.planeParams.pitch[p], src_planes[p] + row * src_pitches[p],
+                   row_bytes);
+        }
+    }
+    NvBufSurfaceSyncForDevice(upload_surface_, 0, -1);
+
+    return upload_surface_;
 }
 
 void JetsonScaler::CaptureBuffer() {

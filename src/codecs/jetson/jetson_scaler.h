@@ -35,12 +35,17 @@ class JetsonScaler : public IFrameProcessor {
     ScalerConfig config_;
     int num_buffer_;
     std::atomic<bool> abort_;
+    // Holds a copy of each frame that arrives in CPU memory, such as from a V4L2 loopback device
+    // or a raw USB camera. NvBufSurfTransform reads only NvBufSurface memory.
+    NvBufSurface *upload_surface_;
     std::unique_ptr<Worker> worker_;
     NvBufSurfTransformRect src_rect_;
     NvBufSurfTransformRect dst_rect_;
     NvBufSurfTransformParams transform_params_;
     ThreadSafeQueue<int> free_buffers_;
     ThreadSafeQueue<CaptureTask> capturing_tasks_;
+
+    NvBufSurface *UploadToSurface(const V4L2FrameBufferRef &frame_buffer);
 };
 
 #endif
