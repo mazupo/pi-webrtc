@@ -60,7 +60,7 @@ A Pi 5 decodes 1080p H.264 in about 6 ms per frame on one CPU core.
 ## Camera settings
 
 - On a Pi 3, Pi 4 or Zero 2, use H.264. The hardware there does not decode H.265.
-- Set the keyframe interval (GOP, or "I-frame interval") to 1 or 2 seconds. Viewers see the first frame only after a keyframe.
+- Set the keyframe interval (GOP, or "I-frame interval") to 1 or 2 seconds. Viewers see the first frame only after a keyframe. If the camera has a separate IDR interval, set it the same. A Jetson decoder can start only from an IDR frame.
 - If you only need a small picture, use the camera's second, smaller stream. It is less work to decode.
 
 ## Put MediaMTX in between
@@ -229,3 +229,4 @@ The samples whose names start with `source30` or `source4` read video files from
 | `The RTSP stream changed from ... to ...; restart to follow it.` | The size or the codec changed. pi-webrtc exits. Let systemd start it again. |
 | `The RTSP stream uses a codec other than H264, H265 or MJPEG.` | Change the codec in the camera settings. |
 | `No V4L2 hardware decoder at /dev/video10.` | Normal on a Pi 5. It decodes in software. |
+| `The H264 decoder has not found a frame to start from yet; it waits for the next IDR frame.` | On a Jetson. The stream has few IDR frames, so the first picture comes late. pi-webrtc keeps waiting. Set the IDR interval to 1 or 2 seconds. |

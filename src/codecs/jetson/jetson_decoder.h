@@ -2,6 +2,7 @@
 #define JETSON_DECODER_H_
 
 #include <atomic>
+#include <chrono>
 #include <functional>
 #include <memory>
 #include <string>
@@ -33,6 +34,10 @@ class JetsonDecoder : public IFrameProcessor {
     uint32_t frame_size_;
     std::atomic<bool> abort_;
     std::atomic<bool> capture_ready_;
+    // When the first frame was queued while waiting for the stream size.
+    std::chrono::steady_clock::time_point first_input_time_;
+    bool waiting_for_size_;
+    bool warned_slow_start_;
     NvBufSurfTransformRect src_rect_;
     NvBufSurfTransformRect dst_rect_;
     NvBufSurfTransformParams transform_params_;
@@ -43,6 +48,7 @@ class JetsonDecoder : public IFrameProcessor {
     bool AllocateFrameBuffers();
     void Start();
     bool EnsureCapturePlane();
+    bool SetupCapturePlane();
     bool PrepareCaptureBuffer();
     void Transform(int src_dma_fd, const std::function<void(V4L2FrameBufferRef)> &on_capture);
     void SendEOS();

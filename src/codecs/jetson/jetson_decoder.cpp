@@ -16,6 +16,10 @@ const int FRAME_BUFFER_NUM = 4;
 const uint32_t MIN_INPUT_SIZE = 2 * 1024 * 1024;
 // A dropped compressed frame corrupts the picture until the next keyframe, so wait instead.
 const int INPUT_WAIT_MS = 200;
+// Only the first frame waits for the stream size; later frames poll.
+const int FIRST_SIZE_WAIT_MS = 1000;
+// Warn when no IDR frame has arrived after this long.
+const auto SLOW_START_WARNING = std::chrono::seconds(5);
 
 std::atomic<uint32_t> global_dec_id{0};
 
@@ -38,6 +42,8 @@ JetsonDecoder::JetsonDecoder(DecoderConfig config, std::string name)
       frame_size_(config.width * config.height * 3 / 2),
       abort_(true),
       capture_ready_(false),
+      waiting_for_size_(false),
+      warned_slow_start_(false),
       src_rect_({}),
       dst_rect_({}),
       transform_params_({}),
@@ -155,11 +161,37 @@ bool JetsonDecoder::EnsureCapturePlane() {
         return true;
     }
 
+    // The size arrives only with an IDR frame, which can be seconds away, so do not block on it.
+    const auto now = std::chrono::steady_clock::now();
+    int wait_ms = 0;
+    if (!waiting_for_size_) {
+        waiting_for_size_ = true;
+        first_input_time_ = now;
+        wait_ms = FIRST_SIZE_WAIT_MS;
+    }
+
     struct v4l2_event ev;
     memset(&ev, 0, sizeof(ev));
-    if (decoder_->dqEvent(ev, 1000) < 0 || ev.type != V4L2_EVENT_RESOLUTION_CHANGE)
-        ORIGINATE_ERROR("Could not get the resolution of the decoded stream");
+    if (decoder_->dqEvent(ev, wait_ms) < 0 || ev.type != V4L2_EVENT_RESOLUTION_CHANGE) {
+        if (!warned_slow_start_ && now - first_input_time_ >= SLOW_START_WARNING) {
+            warned_slow_start_ = true;
+            WARN_PRINT("The %s decoder has not found a frame to start from yet; it waits for the "
+                       "next IDR frame. Set the camera's IDR or keyframe interval to 1-2 seconds.",
+                       v4l2_util::FourccToString(config_.src_pix_fmt).c_str());
+        }
+        return false;
+    }
 
+    if (!SetupCapturePlane()) {
+        abort_ = true;
+        return false;
+    }
+
+    capture_ready_ = true;
+    return true;
+}
+
+bool JetsonDecoder::SetupCapturePlane() {
     struct v4l2_format format;
     struct v4l2_crop crop;
     if (decoder_->capture_plane.getFormat(format) < 0)
@@ -194,13 +226,7 @@ bool JetsonDecoder::EnsureCapturePlane() {
     decoder_->capture_plane.setDQThreadCallback(CapturePlaneDqCallback);
     decoder_->capture_plane.startDQThread(this);
 
-    if (!PrepareCaptureBuffer()) {
-        return false;
-    }
-
-    capture_ready_ = true;
-
-    return true;
+    return PrepareCaptureBuffer();
 }
 
 bool JetsonDecoder::PrepareCaptureBuffer() {
@@ -265,8 +291,8 @@ void JetsonDecoder::EmplaceBuffer(V4L2FrameBufferRef frame_buffer,
         return;
     }
 
+    // Nothing is decoded before the size is known, so queue no task.
     if (!EnsureCapturePlane()) {
-        abort_ = true;
         return;
     }
 
