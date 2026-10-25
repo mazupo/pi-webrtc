@@ -1,7 +1,9 @@
 #include "v4l2_capturer.h"
 
 // Linux
+#include <errno.h>
 #include <linux/videodev2.h>
+#include <string.h>
 #include <sys/mman.h>
 #include <sys/select.h>
 
@@ -12,6 +14,9 @@
 #include "capturer/decoder_factory.h"
 #include "common/latency_tracer.h"
 #include "common/logging.h"
+
+// Failed dequeues in a row before the camera counts as gone.
+constexpr int kMaxDequeueFailures = 30;
 
 std::shared_ptr<V4L2Capturer> V4L2Capturer::Create(Args args) {
     auto ptr = std::make_shared<V4L2Capturer>(args);
@@ -31,6 +36,7 @@ V4L2Capturer::V4L2Capturer(Args args)
       hw_accel_(args.hw_accel),
       hw_decoder_(false),
       has_first_keyframe_(false),
+      dequeue_failures_(0),
       format_(args.format),
       config_(args) {}
 
@@ -153,8 +159,11 @@ void V4L2Capturer::CaptureImage() {
     tv.tv_usec = 200000;
     int r = select(fd_ + 1, &fds, NULL, NULL, &tv);
     if (r == -1) {
-        ERROR_PRINT("select failed");
-        return;
+        if (errno == EINTR) {
+            return;
+        }
+        ERROR_PRINT("select failed: %s", strerror(errno));
+        exit(EXIT_FAILURE);
     } else if (r == 0) { // timeout
         DEBUG_PRINT("capture timeout");
         return;
@@ -165,8 +174,14 @@ void V4L2Capturer::CaptureImage() {
     buf.memory = capture_.memory;
 
     if (!v4l2_util::DequeueBuffer(fd_, &buf)) {
+        // An unplugged camera fails every call at once, so exit instead of spinning.
+        if (errno == ENODEV || ++dequeue_failures_ >= kMaxDequeueFailures) {
+            ERROR_PRINT("Camera /dev/video%d stopped giving frames. Exiting.", camera_id_);
+            exit(EXIT_FAILURE);
+        }
         return;
     }
+    dequeue_failures_ = 0;
 
     auto buffer = V4L2Buffer::FromV4L2((uint8_t *)capture_.buffers[buf.index].start, buf, format_);
     auto frame_buffer = V4L2FrameBuffer::Create(width_, height_, buffer);

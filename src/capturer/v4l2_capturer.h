@@ -45,6 +45,7 @@ class V4L2Capturer : public VideoCapturer {
     bool hw_accel_;
     bool hw_decoder_;
     bool has_first_keyframe_;
+    int dequeue_failures_;
     uint32_t format_;
     Args config_;
     V4L2BufferGroup capture_;
