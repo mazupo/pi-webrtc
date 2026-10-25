@@ -80,4 +80,4 @@ Skip this step if you use `--no-audio`. A service has no user session, so PulseA
     journalctl -u pi-webrtc.service -f
     ```
 
-`Restart=always` also helps with [RTSP input](../media/rtsp.md): pi-webrtc exits when the RTSP stream changes its size or codec, and systemd starts it again.
+`Restart=always` also brings pi-webrtc back after it exits on purpose: when an [RTSP stream](../media/rtsp.md) changes its size or codec, or when a [USB camera](../media/usb-camera.md) is unplugged.
