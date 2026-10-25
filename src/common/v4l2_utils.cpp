@@ -196,7 +196,10 @@ bool InitBuffer(int fd, V4L2BufferGroup *gbuffer, v4l2_buf_type type, v4l2_memor
 
 bool DequeueBuffer(int fd, v4l2_buffer *buffer) {
     if (ioctl(fd, VIDIOC_DQBUF, buffer) < 0) {
-        ERROR_PRINT("fd(%d) dequeue buffer: %s", fd, strerror(errno));
+        int err = errno;
+        ERROR_PRINT("fd(%d) dequeue buffer: %s", fd, strerror(err));
+        // Callers check errno, so logging must not change it.
+        errno = err;
         return false;
     }
     return true;

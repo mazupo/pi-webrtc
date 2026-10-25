@@ -40,6 +40,10 @@ Use a format, size and frame rate from that list. For a camera on `/dev/video2` 
 
 Always set `--v4l2-format`. Most USB cameras do not support the default, `i420`.
 
+## If the camera is unplugged
+
+pi-webrtc exits when the camera disappears. Run it as a [service](../deployment/run-as-service.md) with `Restart=always`. systemd keeps starting it again, so the stream comes back when you plug the camera in.
+
 ## Other V4L2 devices
 
 V4L2 also covers virtual cameras (V4L2 loopback). See [Virtual cameras](virtual-camera.md).
