@@ -9,7 +9,7 @@
 
 #include "args.h"
 #include "capturer/video_capturer.h"
-#include "common/interface/subject.h"
+#include "common/subject.h"
 #include "common/v4l2_frame_buffer.h"
 #include "common/worker.h"
 

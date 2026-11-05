@@ -8,7 +8,7 @@
 #include "args.h"
 #include "capturer/video_capturer.h"
 #include "codecs/frame_processor.h"
-#include "common/interface/subject.h"
+#include "common/subject.h"
 #include "common/v4l2_frame_buffer.h"
 #include "common/worker.h"
 #include "v4l2/v4l2_utils.h"

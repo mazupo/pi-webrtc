@@ -117,7 +117,7 @@ void AlsaCapturer::CaptureSamples() {
     shared_buffer_ = {.start = reinterpret_cast<uint8_t *>(float_capture_buffer_.data()),
                       .length = static_cast<unsigned int>(sample_count),
                       .channels = static_cast<unsigned int>(channels_)};
-    Next(shared_buffer_);
+    subject_.Next(shared_buffer_);
 }
 
 void AlsaCapturer::StartCapture() {

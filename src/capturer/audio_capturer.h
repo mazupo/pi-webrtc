@@ -3,8 +3,9 @@
 
 #include <cstdint>
 #include <memory>
+#include <utility>
 
-#include "common/interface/subject.h"
+#include "common/subject.h"
 #include "common/worker.h"
 
 struct AudioBuffer {
@@ -13,7 +14,7 @@ struct AudioBuffer {
     unsigned int channels;
 };
 
-class AudioCapturer : public Subject<AudioBuffer> {
+class AudioCapturer {
   public:
     AudioCapturer() = default;
     virtual ~AudioCapturer() = default;
@@ -23,17 +24,20 @@ class AudioCapturer : public Subject<AudioBuffer> {
     int channels() const { return channels_; }
     int sample_rate() const { return sample_rate_; }
     int frames_per_chunk() const { return sample_rate_ * kChunkDurationMs / 1000; }
+    Subscription Subscribe(Subject<AudioBuffer>::Callback callback) {
+        return subject_.Subscribe(std::move(callback));
+    }
 
   protected:
     AudioCapturer(int channels, int sample_rate)
         : channels_(channels),
           sample_rate_(sample_rate) {}
-    using Subject<AudioBuffer>::Next;
     virtual void StartCapture() = 0;
 
     int channels_ = 0;
     int sample_rate_ = 0;
     AudioBuffer shared_buffer_{};
+    Subject<AudioBuffer> subject_;
     std::unique_ptr<Worker> worker_;
 };
 

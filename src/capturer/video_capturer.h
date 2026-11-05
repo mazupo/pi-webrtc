@@ -2,7 +2,7 @@
 #define VIDEO_CAPTURER_H_
 
 #include "args.h"
-#include "common/interface/subject.h"
+#include "common/subject.h"
 #include "common/v4l2_frame_buffer.h"
 
 // multiple video stream capturer interface
