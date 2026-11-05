@@ -11,17 +11,18 @@
 
 #include "common/logging.h"
 
-std::shared_ptr<MqttService> MqttService::Create(Args args, std::shared_ptr<Conductor> conductor) {
-    return std::make_shared<MqttService>(args, conductor);
+std::shared_ptr<MqttService> MqttService::Create(MqttConfig config,
+                                                 std::shared_ptr<Conductor> conductor) {
+    return std::make_shared<MqttService>(config, conductor);
 }
 
-MqttService::MqttService(Args args, std::shared_ptr<Conductor> conductor)
+MqttService::MqttService(MqttConfig config, std::shared_ptr<Conductor> conductor)
     : conductor_(conductor),
-      port_(args.mqtt_port),
-      uid_(args.uid),
-      hostname_(args.mqtt_host),
-      username_(args.mqtt_username),
-      password_(args.mqtt_password),
+      port_(config.port),
+      uid_(config.uid),
+      hostname_(config.host),
+      username_(config.username),
+      password_(config.password),
       connection_(nullptr) {
     peer_registry_.OnExpired([this](const std::string &peer_id) {
         OnPeerExpired(peer_id);

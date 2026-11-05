@@ -1,4 +1,3 @@
-#include "args.h"
 #include "capturer/libcamera_capturer.h"
 #include "codecs/v4l2/v4l2_encoder.h"
 
@@ -16,18 +15,18 @@ int main(int argc, char *argv[]) {
     bool has_first_keyframe_ = false;
     int images_nb = 0;
     int record_sec = 100;
-    Args args{
+    VideoCaptureConfig config{
         .camera_id = 0,
-        .fps = 30,
+        .format = V4L2_PIX_FMT_YUV420,
         .width = 1920,
         .height = 1080,
-        .format = V4L2_PIX_FMT_YUV420,
+        .fps = 30,
         .hw_accel = true,
     };
 
-    auto capturer = LibcameraCapturer::Create(args);
-    auto encoder = V4L2Encoder::Create({.width = args.width,
-                                        .height = args.height,
+    auto capturer = LibcameraCapturer::Create(config);
+    auto encoder = V4L2Encoder::Create({.width = config.width,
+                                        .height = config.height,
                                         .is_dma_src = true,
                                         .src_pix_fmt = V4L2_PIX_FMT_YUV420});
 
@@ -70,7 +69,7 @@ int main(int argc, char *argv[]) {
                 frame_count = 0;
             }
 
-            if (images_nb++ > args.fps * record_sec) {
+            if (images_nb++ > config.fps * record_sec) {
                 is_finished = true;
                 cond_var.notify_all();
             }

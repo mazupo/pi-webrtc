@@ -1,5 +1,5 @@
-#ifndef ARGS_H_
-#define ARGS_H_
+#ifndef CONFIG_H_
+#define CONFIG_H_
 
 #include <chrono>
 #include <cstdint>
@@ -9,14 +9,14 @@
 #include <unordered_map>
 #include <vector>
 
+#include "capturer/capture_config.h"
+#include "codecs/rtc_encoder_config.h"
+#include "recorder/recorder_config.h"
+#include "signaling/signaling_config.h"
+
 enum RecordMode {
     Background = 0,
     OnDemand = 1,
-};
-
-enum RecordType {
-    Video = 0,
-    Snapshot = 1,
 };
 
 enum class CameraSource {
@@ -63,137 +63,82 @@ template <typename DEFAULT> struct TimeVal {
     std::chrono::nanoseconds value;
 };
 
-struct Args {
-    // video input
-    int num_streams = 1;
+struct AppConfig {
+    // shared by several modules; the parser copies them into each module config
     int fps = 30;
-    int width = 640;
-    int height = 480;
-    int rotation = 0;
+    bool hw_accel = false;
+    std::string uid = "";
+    bool enable_ipc = false;
+    bool no_audio = false;
 
+    // video input
     CameraSource camera_source = CameraSource::LibCamera;
-    uint32_t format = 0;
-    uint32_t camera_id = 0;
     std::string camera = "libcamera:0";
     std::string v4l2_format = "i420";
     std::string alias = ""; // per-camera alias for recording subdirectory prefix
 
-    // sub stream for multiple resolution capture
-    int sub_width = 0;
-    int sub_height = 0;
-
     // which capture stream each consumer reads from: "main" or "sub"
     std::string record_source = "main";
     std::string webrtc_source = "main";
-    // derived from --record-source / --webrtc-source, 0: main stream, 1: sub stream
-    int record_stream_idx = 0; // recording stream index
-    int live_stream_idx = 0;   // webrtc live stream index
+    // derived from --webrtc-source, 0: main stream, 1: sub stream
+    int live_stream_idx = 0;
 
-    // audio input
-    int sample_rate = 48000;
-    int channels = 2;
-    bool no_audio = false;
+    // audio
     bool force_alsa = false;
 
-    // libcamera control options
-    float sharpness = 1.0f;
-    float contrast = 1.0f;
-    float brightness = 0.0f;
-    float saturation = 1.0f;
-    float ev = 0.0f;
+    // libcamera control options, parsed into video.controls
     std::string shutter_ = "0";
-    TimeVal<std::chrono::microseconds> shutter;
-    float gain = 0.0f;
     std::string ae_metering = "centre";
-    int ae_metering_mode = 0;
     std::string exposure = "normal";
-    int ae_mode = 0;
     std::string awb = "auto";
-    int awb_mode = 0;
     std::string autofocus_mode = "default";
-    int af_mode = -1;
     std::string awbgains = "0,0";
-    float awb_gain_r = 0.0f;
-    float awb_gain_b = 0.0f;
     std::string denoise = "auto";
-    int denoise_mode = 0;
     std::string tuning_file = "-";
     std::string af_range = "normal";
-    int af_range_mode = 0;
     std::string af_speed = "normal";
-    int af_speed_mode = 0;
     std::string af_window = "0,0,0,0";
-    float af_window_x = 0.0f;
-    float af_window_y = 0.0f;
-    float af_window_width = 0.0f;
-    float af_window_height = 0.0f;
     std::string lens_position_ = "";
-    std::optional<float> lens_position;
-    bool set_default_lens_position = false;
 
     // recording
     std::string record_type_str = "both";
-    int record_type = -1;
     std::string record_mode_str = "both";
     int record_mode = -1;
-    std::string record_path = "";
     std::string record_ondemand_path = "";
-    int file_duration = 60;
 
     // ipc
-    bool enable_ipc = false;
     std::string socket_path = "/tmp/pi-webrtc-ipc.sock";
     bool enable_gamepad = false;
     std::string gamepad_socket_path = "/tmp/pi-webrtc-gamepad.sock";
 
     // webrtc
-    int jpeg_quality = 30;
     int peer_timeout = 60;
-    // Video sender bitrate bounds in kbps; 0 leaves WebRTC's own default in place.
+    // Video sender bitrate floor and start in kbps (the max is encoder.max_bitrate); 0 leaves
+    // WebRTC's own default in place.
     int min_bitrate = 0;
     int start_bitrate = 0;
-    int max_bitrate = 0;
-    bool hw_accel = false;
-    bool no_adaptive = false;
-    std::string scalability_mode = "";
-    int min_playout_delay_ms = 0;
-    int max_playout_delay_ms = -1;
     bool latency_trace = false;
     int latency_trace_interval = 5;
-    std::string uid = "";
     std::string stun_url = "stun:stun.l.google.com:19302";
     std::string turn_url = "";
     std::string turn_username = "";
     std::string turn_password = "";
 
-    // mqtt signaling
+    // signaling; each service's own settings are in mqtt, whep, livekit and cloudflare
     bool use_mqtt = false;
-    int mqtt_port = 1883;
-    std::string mqtt_host = "localhost";
-    std::string mqtt_username = "";
-    std::string mqtt_password = "";
-
-    // WHEP signaling
     bool use_whep = false;
-    uint16_t whep_port = 8080;
-
-    // LiveKit signaling
     bool use_livekit = false;
-    std::string livekit_url = ""; // e.g. ws://127.0.0.1:7880, wss://your-sfu-host.example.com
-    // derived from --livekit-url, not CLI options
-    bool livekit_use_tls = false;
-    uint16_t livekit_port = 0;
-    std::string livekit_host = "";
-    std::string livekit_room = "";
-    std::string livekit_key = "";
-
-    // Cloudflare Realtime SFU signaling, through a cf-sfu-worker
     bool use_cloudflare = false;
-    std::vector<std::string> cloudflare_rooms;
 
-    // API that hosts the cf-sfu-worker, e.g. https://api.mazupo.com
-    std::string api_url = "";
-    std::string api_key = ""; // the worker's device public key
+    // settings handed to each module
+    VideoCaptureConfig video;
+    AudioCaptureConfig audio;
+    RtcEncoderConfig encoder;
+    RecorderConfig recorder;
+    MqttConfig mqtt;
+    WhepConfig whep;
+    LiveKitConfig livekit;
+    CloudflareConfig cloudflare;
 };
 
-#endif // ARGS_H_
+#endif // CONFIG_H_

@@ -51,16 +51,16 @@ timeval MonotonicNow() {
 
 } // namespace
 
-std::shared_ptr<RtspCapturer> RtspCapturer::Create(Args args) {
-    auto ptr = std::make_shared<RtspCapturer>(args);
+std::shared_ptr<RtspCapturer> RtspCapturer::Create(VideoCaptureConfig config) {
+    auto ptr = std::make_shared<RtspCapturer>(config);
     ptr->Initialize();
     ptr->StartCapture();
     return ptr;
 }
 
-RtspCapturer::RtspCapturer(Args args)
-    : config_(args),
-      url_(args.camera),
+RtspCapturer::RtspCapturer(VideoCaptureConfig config)
+    : config_(config),
+      url_(config.camera),
       hw_decoder_(false),
       has_first_keyframe_(false),
       retrying_(false),

@@ -1,4 +1,3 @@
-#include "args.h"
 #include "capturer/libargus_capturer.h"
 
 #include <chrono>
@@ -14,9 +13,9 @@ int main() {
     bool is_finished = false;
     int frame_count = 0;
     int record_sec = 5;
-    Args args{.fps = 60, .width = 1280, .height = 720};
+    VideoCaptureConfig config{.width = 1280, .height = 720, .fps = 60};
 
-    auto capturer = LibargusCapturer::Create(args);
+    auto capturer = LibargusCapturer::Create(config);
 
     auto start_time = std::chrono::steady_clock::now();
     auto record_start_time = start_time;

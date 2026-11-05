@@ -1,8 +1,6 @@
 #include "signaling/whep_service.h"
 
 int main() {
-    Args args;
-
     boost::asio::io_context ioc;
 
     boost::asio::steady_timer timer(ioc, std::chrono::seconds(5));
@@ -13,7 +11,7 @@ int main() {
         }
     });
 
-    auto whep_service = WhepService::Create(args, nullptr, ioc);
+    auto whep_service = WhepService::Create({}, nullptr, ioc);
     whep_service->Connect();
 
     ioc.run();

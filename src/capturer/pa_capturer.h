@@ -6,14 +6,14 @@
 #include <pulse/error.h>
 #include <pulse/simple.h>
 
-#include "args.h"
 #include "capturer/audio_capturer.h"
+#include "capturer/capture_config.h"
 
 class PaCapturer : public AudioCapturer {
   public:
-    static std::shared_ptr<AudioCapturer> Create(Args args);
+    static std::shared_ptr<AudioCapturer> Create(AudioCaptureConfig config);
 
-    PaCapturer(Args args);
+    PaCapturer(AudioCaptureConfig config);
     ~PaCapturer();
 
   protected:

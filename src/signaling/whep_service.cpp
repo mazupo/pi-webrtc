@@ -120,15 +120,16 @@ WhepTarget WhepTarget::Parse(std::string_view target) {
     return result;
 }
 
-std::shared_ptr<WhepService> WhepService::Create(Args args, std::shared_ptr<Conductor> conductor,
+std::shared_ptr<WhepService> WhepService::Create(WhepConfig config,
+                                                 std::shared_ptr<Conductor> conductor,
                                                  boost::asio::io_context &ioc) {
-    return std::make_shared<WhepService>(args, conductor, ioc);
+    return std::make_shared<WhepService>(config, conductor, ioc);
 }
 
-WhepService::WhepService(Args args, std::shared_ptr<Conductor> conductor,
+WhepService::WhepService(WhepConfig config, std::shared_ptr<Conductor> conductor,
                          boost::asio::io_context &ioc)
     : conductor_(conductor),
-      port_(args.whep_port),
+      port_(config.port),
       acceptor_({ioc, {boost::asio::ip::address_v6::any(), port_}}) {}
 
 WhepService::~WhepService() { Disconnect(); }
