@@ -5,9 +5,9 @@
 #include <memory>
 #include <string>
 
+#include "codecs/jpeg/libjpeg_encoder.h"
 #include "proto/packet.pb.h"
 
-#include "common/jpeg_util.h"
 #include "rtc/datachannel/rtc_channel.h"
 
 // This is the only class with file-transfer methods on it.
@@ -21,7 +21,7 @@ class StreamChannel : public RtcChannel {
                   std::unique_ptr<ChannelFraming> framing);
 
     void Send(const std::string &request_id, const protocol::QueryFileResponse &response);
-    void Send(const std::string &request_id, jpeg_util::JpegBuffer image);
+    void Send(const std::string &request_id, libjpeg_encoder::JpegBuffer image);
     void Send(const std::string &request_id, std::ifstream &file);
 
   protected:

@@ -1,12 +1,12 @@
-#ifndef COMMON_JPEG_UTIL_H_
-#define COMMON_JPEG_UTIL_H_
+#ifndef LIBJPEG_ENCODER_H_
+#define LIBJPEG_ENCODER_H_
 
 #include <cstdint>
 #include <cstdlib>
 #include <memory>
 #include <string>
 
-namespace jpeg_util {
+namespace libjpeg_encoder {
 
 struct FreeDeleter {
     void operator()(uint8_t *ptr) const {
@@ -26,6 +26,6 @@ JpegBuffer ConvertYuvToJpeg(const uint8_t *yuv_data, int width, int height, int 
 void CreateJpegImage(const uint8_t *yuv_data, int width, int height, const std::string &url,
                      int quality);
 
-} // namespace jpeg_util
+} // namespace libjpeg_encoder
 
-#endif // COMMON_JPEG_UTIL_H_
+#endif // LIBJPEG_ENCODER_H_

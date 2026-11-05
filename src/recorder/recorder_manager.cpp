@@ -14,7 +14,7 @@ extern "C" {
 #include <libavutil/opt.h>
 }
 
-#include "common/jpeg_util.h"
+#include "codecs/jpeg/libjpeg_encoder.h"
 #include "common/logging.h"
 #include "common/utils.h"
 #include "common/v4l2_frame_buffer.h"
@@ -465,8 +465,8 @@ void RecorderManager::MakePreviewImage(std::string path) {
             return;
         }
         auto i420buff = video_src->GetI420Frame(record_stream_idx);
-        jpeg_util::CreateJpegImage(i420buff->DataY(), i420buff->width(), i420buff->height(), path,
-                                   jpeg_quality);
+        libjpeg_encoder::CreateJpegImage(i420buff->DataY(), i420buff->width(), i420buff->height(),
+                                         path, jpeg_quality);
     }).detach();
 }
 

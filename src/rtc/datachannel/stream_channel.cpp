@@ -30,7 +30,7 @@ void StreamChannel::Send(const std::string &request_id,
                body.size());
 }
 
-void StreamChannel::Send(const std::string &request_id, jpeg_util::JpegBuffer image) {
+void StreamChannel::Send(const std::string &request_id, libjpeg_encoder::JpegBuffer image) {
     SendStream(request_id, "image/jpeg", image.start.get(), image.length);
     DEBUG_PRINT("Image sent: %lu bytes", image.length);
 }

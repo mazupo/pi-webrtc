@@ -16,6 +16,7 @@ target_link_libraries(${PROJECT_NAME} PUBLIC
   proto
   track
   ipc
+  jpeg_codecs
   player
   recorder
   ${WEBRTC_LIBRARY}

@@ -1,4 +1,4 @@
-#include "common/jpeg_util.h"
+#include "codecs/jpeg/libjpeg_encoder.h"
 
 #include <iostream>
 #include <memory>
@@ -8,7 +8,7 @@
 
 #include "common/logging.h"
 
-namespace jpeg_util {
+namespace libjpeg_encoder {
 
 namespace {
 
@@ -82,4 +82,4 @@ void CreateJpegImage(const uint8_t *yuv_data, int width, int height, const std::
     }
 }
 
-} // namespace jpeg_util
+} // namespace libjpeg_encoder

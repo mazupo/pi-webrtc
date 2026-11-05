@@ -28,7 +28,7 @@
 #include "capturer/pa_capturer.h"
 #include "capturer/rtsp_capturer.h"
 #include "capturer/v4l2_capturer.h"
-#include "common/jpeg_util.h"
+#include "codecs/jpeg/libjpeg_encoder.h"
 #include "common/logging.h"
 #include "ipc/gamepad_endpoint.h"
 #include "ipc/ipc_endpoint.h"
@@ -339,7 +339,7 @@ void Conductor::TakeSnapshot(const CommandChannel::Context &ctx) {
         auto quality = std::clamp(ctx.request.take_snapshot().quality(), 0u, 100u);
 
         auto i420buff = video_capture_source_->GetI420Frame(args.live_stream_idx);
-        auto jpg_buffer = jpeg_util::ConvertYuvToJpeg(
+        auto jpg_buffer = libjpeg_encoder::ConvertYuvToJpeg(
             i420buff->DataY(), video_capture_source_->width(args.live_stream_idx),
             video_capture_source_->height(args.live_stream_idx), quality);
         ctx.stream->Send(ctx.request_id, std::move(jpg_buffer));
