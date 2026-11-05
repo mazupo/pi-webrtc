@@ -11,7 +11,7 @@
 #include <modules/video_capture/video_capture_factory.h>
 #include <third_party/libyuv/include/libyuv.h>
 
-#include "capturer/decoder_factory.h"
+#include "codecs/decoder_factory.h"
 #include "common/latency_tracer.h"
 #include "common/logging.h"
 
