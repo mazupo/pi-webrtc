@@ -119,7 +119,7 @@ inline int ParseEnum(const std::unordered_map<std::string, int> table, const std
     return it->second;
 }
 
-void Parser::ParseArgs(int argc, char *argv[], Args &args) {
+void Parser::ParseArgs(int argc, char *argv[], AppConfig &args) {
     bpo::options_description opts("Options");
 
     // clang-format off
@@ -134,13 +134,13 @@ void Parser::ParseArgs(int argc, char *argv[], Args &args) {
         ("uid", bpo::value<std::string>(&args.uid)->default_value(args.uid),
             "The unique id to identify the device.")
         ("fps", bpo::value<int>(&args.fps)->default_value(args.fps), "Specify the camera frames per second.")
-        ("width", bpo::value<int>(&args.width)->default_value(args.width), "Set camera frame width.")
-        ("height", bpo::value<int>(&args.height)->default_value(args.height), "Set camera frame height.")
-        ("rotation", bpo::value<int>(&args.rotation)->default_value(args.rotation),
+        ("width", bpo::value<int>(&args.video.width)->default_value(args.video.width), "Set camera frame width.")
+        ("height", bpo::value<int>(&args.video.height)->default_value(args.video.height), "Set camera frame height.")
+        ("rotation", bpo::value<int>(&args.video.rotation)->default_value(args.video.rotation),
             "Set the rotation angle of the camera (0, 90, 180, 270).")
-        ("sub-width", bpo::value<int>(&args.sub_width)->default_value(args.sub_width),
+        ("sub-width", bpo::value<int>(&args.video.sub_width)->default_value(args.video.sub_width),
             "Set sub stream frame width for AI processing, default is 0 (disabled).")
-        ("sub-height", bpo::value<int>(&args.sub_height)->default_value(args.sub_height),
+        ("sub-height", bpo::value<int>(&args.video.sub_height)->default_value(args.video.sub_height),
             "Set sub stream frame height for AI processing, default is 0 (disabled).")
         ("record-source", bpo::value<std::string>(&args.record_source)->default_value(args.record_source),
             "Which capture stream the recorder consumes: 'main' or 'sub'. "
@@ -148,25 +148,25 @@ void Parser::ParseArgs(int argc, char *argv[], Args &args) {
         ("webrtc-source", bpo::value<std::string>(&args.webrtc_source)->default_value(args.webrtc_source),
             "Which capture stream WebRTC publishes: 'main' or 'sub'. "
             "'sub' needs --sub-width and --sub-height.")
-        ("sample-rate", bpo::value<int>(&args.sample_rate)->default_value(args.sample_rate),
+        ("sample-rate", bpo::value<int>(&args.audio.sample_rate)->default_value(args.audio.sample_rate),
             "Set the microphone sample rate (in Hz).")
         ("no-audio", bpo::bool_switch(&args.no_audio)->default_value(args.no_audio), "Runs without audio source.")
         ("force-alsa", bpo::bool_switch(&args.force_alsa)->default_value(args.force_alsa),
             "Force using ALSA for audio capture and playout instead of PulseAudio.")
 #if defined(USE_LIBCAMERA_CAPTURE)
-        ("sharpness", bpo::value<float>(&args.sharpness)->default_value(args.sharpness),
+        ("sharpness", bpo::value<float>(&args.video.controls.sharpness)->default_value(args.video.controls.sharpness),
             "Adjust the sharpness of the libcamera output in range 0.0 to 15.99")
-        ("contrast", bpo::value<float>(&args.contrast)->default_value(args.contrast),
+        ("contrast", bpo::value<float>(&args.video.controls.contrast)->default_value(args.video.controls.contrast),
             "Adjust the contrast of the libcamera output in range 0.0 to 15.99")
-        ("brightness", bpo::value<float>(&args.brightness)->default_value(args.brightness),
+        ("brightness", bpo::value<float>(&args.video.controls.brightness)->default_value(args.video.controls.brightness),
             "Adjust the brightness of the libcamera output in range -1.0 to 1.0")
-        ("saturation", bpo::value<float>(&args.saturation)->default_value(args.saturation),
+        ("saturation", bpo::value<float>(&args.video.controls.saturation)->default_value(args.video.controls.saturation),
             "Adjust the saturation of the libcamera output in range 0.0 to 15.99")
-        ("ev", bpo::value<float>(&args.ev)->default_value(args.ev),
+        ("ev", bpo::value<float>(&args.video.controls.ev)->default_value(args.video.controls.ev),
             "Set the EV (exposure value compensation) in range -10.0 to 10.0")
         ("shutter", bpo::value<std::string>(&args.shutter_)->default_value(args.shutter_),
             "Set manual shutter speed in microseconds (0 = auto)")
-        ("gain", bpo::value<float>(&args.gain)->default_value(args.gain),
+        ("gain", bpo::value<float>(&args.video.controls.gain)->default_value(args.video.controls.gain),
             "Set manual analog gain (0 = auto)")
         ("metering", bpo::value<std::string>(&args.ae_metering)->default_value(args.ae_metering),
             "Metering mode: centre, spot, average, custom")
@@ -196,19 +196,19 @@ void Parser::ParseArgs(int argc, char *argv[], Args &args) {
             "or 'both' to do both simultaneously.")
         ("record-mode", bpo::value<std::string>(&args.record_mode_str)->default_value(args.record_mode_str),
             "Recording mode: 'background', 'on-demand' (DataChannel controlled), or 'both'.")
-        ("record-path", bpo::value<std::string>(&args.record_path)->default_value(args.record_path),
+        ("record-path", bpo::value<std::string>(&args.recorder.path)->default_value(args.recorder.path),
             "Set the path where background recording video files will be saved. "
             "If the value is empty or unavailable, the background recorder will not start.")
         ("record-ondemand-path", bpo::value<std::string>(&args.record_ondemand_path)->default_value(args.record_ondemand_path),
             "Path for on-demand recordings triggered via DataChannel. "
             "Defaults to ${record-path}/on-demand/ if not set.")
-        ("file-duration", bpo::value<int>(&args.file_duration)->default_value(args.file_duration),
+        ("file-duration", bpo::value<int>(&args.recorder.file_duration)->default_value(args.recorder.file_duration),
             "The duration (in seconds) of each video file, or the interval between snapshots.")
-        ("jpeg-quality", bpo::value<int>(&args.jpeg_quality)->default_value(args.jpeg_quality),
+        ("jpeg-quality", bpo::value<int>(&args.recorder.jpeg_quality)->default_value(args.recorder.jpeg_quality),
             "Set the quality of the snapshot and thumbnail images in range 0 to 100.")
         ("peer-timeout", bpo::value<int>(&args.peer_timeout)->default_value(args.peer_timeout),
             "The connection timeout (in seconds) after receiving a remote offer")
-        ("max-bitrate", bpo::value<int>(&args.max_bitrate)->default_value(args.max_bitrate),
+        ("max-bitrate", bpo::value<int>(&args.encoder.max_bitrate)->default_value(args.encoder.max_bitrate),
             "Maximum video bitrate (kbps). 0: 0.08 bpp with adaptive scaling (~10 Mbps at 1080p60, "
             "min. 2.5 Mbps), or 2.5 Mbps with --no-adaptive.")
         ("start-bitrate", bpo::value<int>(&args.start_bitrate)->default_value(args.start_bitrate),
@@ -222,16 +222,16 @@ void Parser::ParseArgs(int argc, char *argv[], Args &args) {
         ("hw-accel", bpo::bool_switch(&args.hw_accel)->default_value(args.hw_accel),
             "Enable hardware acceleration by sharing DMA buffers between the decoder, "
             "scaler, and encoder to reduce CPU usage.")
-        ("no-adaptive", bpo::bool_switch(&args.no_adaptive)->default_value(args.no_adaptive),
+        ("no-adaptive", bpo::bool_switch(&args.encoder.no_adaptive)->default_value(args.encoder.no_adaptive),
             "Disable WebRTC's adaptive resolution scaling. When enabled, "
             "the output resolution will remain fixed regardless of network or device conditions.")
-        ("scalability-mode", bpo::value<std::string>(&args.scalability_mode)->default_value(args.scalability_mode),
+        ("scalability-mode", bpo::value<std::string>(&args.encoder.scalability_mode)->default_value(args.encoder.scalability_mode),
             "Temporal layers for the software video encoders, e.g. L1T2 or L1T3. "
             "Not supported with --hw-accel. Empty keeps WebRTC's default (L1T1).")
-        ("min-playout-delay-ms", bpo::value<int>(&args.min_playout_delay_ms)->default_value(args.min_playout_delay_ms),
+        ("min-playout-delay-ms", bpo::value<int>(&args.encoder.min_playout_delay_ms)->default_value(args.encoder.min_playout_delay_ms),
             "Lower bound of the playout delay requested from the receiver, in milliseconds. "
             "Only takes effect together with --max-playout-delay-ms.")
-        ("max-playout-delay-ms", bpo::value<int>(&args.max_playout_delay_ms)->default_value(args.max_playout_delay_ms),
+        ("max-playout-delay-ms", bpo::value<int>(&args.encoder.max_playout_delay_ms)->default_value(args.encoder.max_playout_delay_ms),
             "Upper bound of the playout delay requested from the receiver via the playout-delay "
             "RTP header extension, in milliseconds. The receiver adapts its jitter buffer "
             "within [min, max]; 0 for both asks it to render as soon as possible. "
@@ -260,37 +260,37 @@ void Parser::ParseArgs(int argc, char *argv[], Args &args) {
             "Set the TURN server password for WebRTC authentication.")
         ("use-mqtt", bpo::bool_switch(&args.use_mqtt)->default_value(args.use_mqtt),
             "Use MQTT to exchange sdp and ice candidates.")
-        ("mqtt-host", bpo::value<std::string>(&args.mqtt_host)->default_value(args.mqtt_host),
+        ("mqtt-host", bpo::value<std::string>(&args.mqtt.host)->default_value(args.mqtt.host),
             "Set the MQTT server host.")
-        ("mqtt-port", bpo::value<int>(&args.mqtt_port)->default_value(args.mqtt_port), "Set the MQTT server port.")
-        ("mqtt-username", bpo::value<std::string>(&args.mqtt_username)->default_value(args.mqtt_username),
+        ("mqtt-port", bpo::value<int>(&args.mqtt.port)->default_value(args.mqtt.port), "Set the MQTT server port.")
+        ("mqtt-username", bpo::value<std::string>(&args.mqtt.username)->default_value(args.mqtt.username),
             "Set the MQTT server username.")
-        ("mqtt-password", bpo::value<std::string>(&args.mqtt_password)->default_value(args.mqtt_password),
+        ("mqtt-password", bpo::value<std::string>(&args.mqtt.password)->default_value(args.mqtt.password),
             "Set the MQTT server password.")
         ("use-whep", bpo::bool_switch(&args.use_whep)->default_value(args.use_whep),
             "Use WHEP (WebRTC-HTTP Egress Protocol) to exchange SDP and ICE candidates.")
-        ("whep-port", bpo::value<uint16_t>(&args.whep_port)->default_value(args.whep_port),
+        ("whep-port", bpo::value<uint16_t>(&args.whep.port)->default_value(args.whep.port),
             "Local HTTP server port that serves WHEP signaling.")
         ("use-livekit", bpo::bool_switch(&args.use_livekit)->default_value(args.use_livekit),
             "Enables the LiveKit client to connect to a LiveKit SFU server.")
-        ("livekit-url", bpo::value<std::string>(&args.livekit_url)->default_value(args.livekit_url),
+        ("livekit-url", bpo::value<std::string>(&args.livekit.url)->default_value(args.livekit.url),
             "The LiveKit server URL, e.g. `ws://127.0.0.1:7880` or `wss://your-sfu-host.example.com`. "
             "The scheme selects TLS. The port defaults to 443 for `wss` and 80 otherwise.")
-        ("livekit-room", bpo::value<std::string>(&args.livekit_room)->default_value(args.livekit_room),
+        ("livekit-room", bpo::value<std::string>(&args.livekit.room)->default_value(args.livekit.room),
             "The LiveKit room name to join.")
-        ("livekit-key", bpo::value<std::string>(&args.livekit_key)->default_value(args.livekit_key),
+        ("livekit-key", bpo::value<std::string>(&args.livekit.key)->default_value(args.livekit.key),
             "The LiveKit API key used to authenticate with the server.")
         ("use-cloudflare", bpo::bool_switch(&args.use_cloudflare)->default_value(args.use_cloudflare),
             "Publish to a Cloudflare Realtime SFU through a cf-sfu-worker at --api-url. The device "
             "publishes only while someone watches one of its rooms. Requires --api-url, --api-key "
             "and --cloudflare-room.")
-        ("cloudflare-room", bpo::value<std::vector<std::string>>(&args.cloudflare_rooms),
+        ("cloudflare-room", bpo::value<std::vector<std::string>>(&args.cloudflare.rooms),
             "A room this device joins on the Cloudflare worker. Viewers watch a room. Give the "
             "option once per room, up to 4 rooms. To let people watch only this device, add a "
             "room that only this device joins.")
-        ("api-url", bpo::value<std::string>(&args.api_url)->default_value(args.api_url),
+        ("api-url", bpo::value<std::string>(&args.cloudflare.api_url)->default_value(args.cloudflare.api_url),
             "The Cloudflare worker's API URL, e.g. https://api.mazupo.com/sfu.")
-        ("api-key", bpo::value<std::string>(&args.api_key)->default_value(args.api_key),
+        ("api-key", bpo::value<std::string>(&args.cloudflare.api_key)->default_value(args.cloudflare.api_key),
             "The worker's device public key.")
         ("config", bpo::value<std::string>()->default_value(""),
             "Path to a YAML configuration file. All CLI options can be specified as YAML keys. "
@@ -349,22 +349,22 @@ void Parser::ParseArgs(int argc, char *argv[], Args &args) {
         exit(0);
     }
 
-    if (!args.scalability_mode.empty()) {
-        if (!webrtc::ScalabilityModeStringToEnum(args.scalability_mode)) {
-            ERROR_PRINT("Unknown --scalability-mode: %s", args.scalability_mode.c_str());
+    if (!args.encoder.scalability_mode.empty()) {
+        if (!webrtc::ScalabilityModeStringToEnum(args.encoder.scalability_mode)) {
+            ERROR_PRINT("Unknown --scalability-mode: %s", args.encoder.scalability_mode.c_str());
             exit(1);
         }
     }
 
-    if (args.sub_height > 0 && args.sub_width > 0) {
-        if (args.sub_width > args.width || args.sub_height > args.height) {
-            args.sub_width = args.width;
-            args.sub_height = args.height;
+    if (args.video.sub_height > 0 && args.video.sub_width > 0) {
+        if (args.video.sub_width > args.video.width || args.video.sub_height > args.video.height) {
+            args.video.sub_width = args.video.width;
+            args.video.sub_height = args.video.height;
             INFO_PRINT("Sub stream resolution should not be larger than main stream. Set to %dx%d",
-                       args.sub_width, args.sub_height);
+                       args.video.sub_width, args.video.sub_height);
         }
-        args.num_streams += 1;
-        args.record_stream_idx = ParseEnum(stream_source_table, args.record_source);
+        args.video.num_streams += 1;
+        args.recorder.stream_idx = ParseEnum(stream_source_table, args.record_source);
         args.live_stream_idx = ParseEnum(stream_source_table, args.webrtc_source);
     } else {
         // Validate the values even though there is nothing to select between, so a typo is
@@ -374,7 +374,7 @@ void Parser::ParseArgs(int argc, char *argv[], Args &args) {
         if (args.record_source != "main" || args.webrtc_source != "main") {
             INFO_PRINT("No sub-stream configured, reading both consumers from the main stream.");
         }
-        args.record_stream_idx = 0;
+        args.recorder.stream_idx = 0;
         args.live_stream_idx = 0;
     }
 
@@ -384,28 +384,29 @@ void Parser::ParseArgs(int argc, char *argv[], Args &args) {
     }
 
     // Normalized once here so every consumer can just concatenate a path.
-    while (!args.api_url.empty() && args.api_url.back() == '/') {
-        args.api_url.pop_back();
+    while (!args.cloudflare.api_url.empty() && args.cloudflare.api_url.back() == '/') {
+        args.cloudflare.api_url.pop_back();
     }
 
-    if (args.api_url.empty()) {
-        if (!args.api_key.empty()) {
+    if (args.cloudflare.api_url.empty()) {
+        if (!args.cloudflare.api_key.empty()) {
             ERROR_PRINT("--api-key needs --api-url.");
             exit(1);
         }
     } else {
-        if (args.api_url.rfind("https://", 0) != 0 && args.api_url.rfind("http://", 0) != 0) {
+        if (args.cloudflare.api_url.rfind("https://", 0) != 0 &&
+            args.cloudflare.api_url.rfind("http://", 0) != 0) {
             ERROR_PRINT("--api-url must be a full url, e.g. https://api.mazupo.com/sfu.");
             exit(1);
         }
-        if (args.api_key.empty()) {
+        if (args.cloudflare.api_key.empty()) {
             ERROR_PRINT("--api-key is required when --api-url is specified.");
             exit(1);
         }
     }
 
     if (args.use_cloudflare) {
-        if (args.api_url.empty()) {
+        if (args.cloudflare.api_url.empty()) {
             ERROR_PRINT("--api-url is required when --use-cloudflare is specified.");
             exit(1);
         }
@@ -415,7 +416,7 @@ void Parser::ParseArgs(int argc, char *argv[], Args &args) {
             exit(1);
         }
         std::vector<std::string> rooms;
-        for (const auto &room : args.cloudflare_rooms) {
+        for (const auto &room : args.cloudflare.rooms) {
             if (!IsWorkerId(room)) {
                 ERROR_PRINT("Invalid --cloudflare-room \"%s\": use 1 to 64 letters, digits, '.', "
                             "'_' or '-', and start with a letter or digit.",
@@ -435,23 +436,23 @@ void Parser::ParseArgs(int argc, char *argv[], Args &args) {
                         kMaxCloudflareRooms, rooms.size());
             exit(1);
         }
-        args.cloudflare_rooms = rooms;
+        args.cloudflare.rooms = rooms;
     }
 
     if (args.use_mqtt) {
-        if (args.mqtt_host.empty()) {
+        if (args.mqtt.host.empty()) {
             ERROR_PRINT("--mqtt-host is required when --use-mqtt is specified.");
             exit(1);
         }
     }
 
     if (args.use_livekit) {
-        if (args.livekit_url.empty()) {
+        if (args.livekit.url.empty()) {
             ERROR_PRINT("--livekit-url is required when --use-livekit is specified.");
             exit(1);
         }
-        ParseWsUrl(args);
-        if (args.livekit_room.empty()) {
+        ParseWsUrl(args.livekit);
+        if (args.livekit.room.empty()) {
             ERROR_PRINT("--livekit-room is required when --use-livekit is specified.");
             exit(1);
         }
@@ -467,51 +468,56 @@ void Parser::ParseArgs(int argc, char *argv[], Args &args) {
         exit(1);
     }
 
-    if (!args.record_path.empty()) {
-        if (args.record_path.front() != '/') {
+    if (!args.recorder.path.empty()) {
+        if (args.recorder.path.front() != '/') {
             INFO_PRINT("The file path needs to start with a \"/\" character");
             exit(1);
         }
-        if (args.record_path.back() != '/') {
-            args.record_path += '/';
+        if (args.recorder.path.back() != '/') {
+            args.recorder.path += '/';
         }
     }
 
 #if defined(USE_LIBCAMERA_CAPTURE)
-    args.sharpness = std::clamp(args.sharpness, 0.0f, 15.99f);
-    args.contrast = std::clamp(args.contrast, 0.0f, 15.99f);
-    args.brightness = std::clamp(args.brightness, -1.0f, 1.0f);
-    args.saturation = std::clamp(args.saturation, 0.0f, 15.99f);
-    args.ev = std::clamp(args.ev, -10.0f, 10.0f);
-    args.shutter.set(args.shutter_);
-    args.ae_metering_mode = ParseEnum(ae_metering_table, args.ae_metering);
-    args.ae_mode = ParseEnum(exposure_table, args.exposure);
-    args.awb_mode = ParseEnum(awb_table, args.awb);
+    args.video.controls.sharpness = std::clamp(args.video.controls.sharpness, 0.0f, 15.99f);
+    args.video.controls.contrast = std::clamp(args.video.controls.contrast, 0.0f, 15.99f);
+    args.video.controls.brightness = std::clamp(args.video.controls.brightness, -1.0f, 1.0f);
+    args.video.controls.saturation = std::clamp(args.video.controls.saturation, 0.0f, 15.99f);
+    args.video.controls.ev = std::clamp(args.video.controls.ev, -10.0f, 10.0f);
+    TimeVal<std::chrono::microseconds> shutter;
+    shutter.set(args.shutter_);
+    args.video.controls.shutter_us = shutter.get<std::chrono::microseconds>();
+    args.video.controls.ae_metering_mode = ParseEnum(ae_metering_table, args.ae_metering);
+    args.video.controls.ae_mode = ParseEnum(exposure_table, args.exposure);
+    args.video.controls.awb_mode = ParseEnum(awb_table, args.awb);
 
-    if (sscanf(args.awbgains.c_str(), "%f,%f", &args.awb_gain_r, &args.awb_gain_b) != 2) {
+    if (sscanf(args.awbgains.c_str(), "%f,%f", &args.video.controls.awb_gain_r,
+               &args.video.controls.awb_gain_b) != 2) {
         throw std::runtime_error("Invalid AWB gains");
     }
 
-    args.denoise_mode = ParseEnum(denoise_table, args.denoise);
+    args.video.controls.denoise_mode = ParseEnum(denoise_table, args.denoise);
 
     if (args.tuning_file != "-") {
         setenv("LIBCAMERA_RPI_TUNING_FILE", args.tuning_file.c_str(), 1);
     }
 
-    args.af_mode = ParseEnum(afMode_table, args.autofocus_mode);
-    args.af_range_mode = ParseEnum(afRange_table, args.af_range);
-    args.af_speed_mode = ParseEnum(afSpeed_table, args.af_speed);
+    args.video.controls.af_mode = ParseEnum(afMode_table, args.autofocus_mode);
+    args.video.controls.af_range_mode = ParseEnum(afRange_table, args.af_range);
+    args.video.controls.af_speed_mode = ParseEnum(afSpeed_table, args.af_speed);
 
-    if (sscanf(args.af_window.c_str(), "%f,%f,%f,%f", &args.af_window_x, &args.af_window_y,
-               &args.af_window_width, &args.af_window_height) != 4) {
-        args.af_window_x = args.af_window_y = args.af_window_width = args.af_window_height = 0;
+    if (sscanf(args.af_window.c_str(), "%f,%f,%f,%f", &args.video.controls.af_window_x,
+               &args.video.controls.af_window_y, &args.video.controls.af_window_width,
+               &args.video.controls.af_window_height) != 4) {
+        args.video.controls.af_window_x = args.video.controls.af_window_y =
+            args.video.controls.af_window_width = args.video.controls.af_window_height = 0;
     }
 
     float f = 0.0;
     if (std::istringstream(args.lens_position_) >> f) {
-        args.lens_position = f;
+        args.video.controls.lens_position = f;
     } else if (args.lens_position_ == "default") {
-        args.set_default_lens_position = true;
+        args.video.controls.set_default_lens_position = true;
     } else if (!args.lens_position_.empty()) {
         throw std::runtime_error("Invalid lens position: " + args.lens_position_);
     }
@@ -521,86 +527,103 @@ void Parser::ParseArgs(int argc, char *argv[], Args &args) {
         args.enable_ipc = true;
     }
 
-    args.jpeg_quality = std::clamp(args.jpeg_quality, 0, 100);
+    args.recorder.jpeg_quality = std::clamp(args.recorder.jpeg_quality, 0, 100);
     args.latency_trace_interval = std::clamp(args.latency_trace_interval, 1, 3600);
-    if (args.max_playout_delay_ms >= 0) {
-        args.max_playout_delay_ms = std::clamp(
-            args.max_playout_delay_ms, 0, static_cast<int>(webrtc::VideoPlayoutDelay::kMax.ms()));
-        args.min_playout_delay_ms =
-            std::clamp(args.min_playout_delay_ms, 0, args.max_playout_delay_ms);
+    if (args.encoder.max_playout_delay_ms >= 0) {
+        args.encoder.max_playout_delay_ms =
+            std::clamp(args.encoder.max_playout_delay_ms, 0,
+                       static_cast<int>(webrtc::VideoPlayoutDelay::kMax.ms()));
+        args.encoder.min_playout_delay_ms =
+            std::clamp(args.encoder.min_playout_delay_ms, 0, args.encoder.max_playout_delay_ms);
     }
 
     const bool sub = args.live_stream_idx == 1;
-    const double pixels = static_cast<double>(sub ? args.sub_width : args.width) *
-                          (sub ? args.sub_height : args.height);
+    const double pixels = static_cast<double>(sub ? args.video.sub_width : args.video.width) *
+                          (sub ? args.video.sub_height : args.video.height);
 
     // WebRTC's defaults lock an adaptive stream at a low resolution: below 500 kbps it scales
     // anything over VGA down before the first frame, and its max caps at 2500 whatever the fps.
-    if (!args.no_adaptive && args.max_bitrate <= 0) {
+    if (!args.encoder.no_adaptive && args.encoder.max_bitrate <= 0) {
         const int bpp_kbps = static_cast<int>(pixels * args.fps * kAdaptiveBitsPerPixel / 1000);
-        args.max_bitrate = std::max(kAdaptiveMinMaxBitrateKbps, bpp_kbps);
+        args.encoder.max_bitrate = std::max(kAdaptiveMinMaxBitrateKbps, bpp_kbps);
     }
 #if defined(USE_JETSON_HW_ENCODER)
-    if (args.hw_accel && args.no_adaptive && args.min_bitrate <= 0) {
+    if (args.hw_accel && args.encoder.no_adaptive && args.min_bitrate <= 0) {
         const double frame_bits = std::max(pixels * kJetsonMinBitsPerPixel, kJetsonMinFrameBits);
         args.min_bitrate = static_cast<int>(frame_bits * args.fps / 1000);
     }
 #endif
-    if (!args.no_adaptive && args.start_bitrate <= 0) {
+    if (!args.encoder.no_adaptive && args.start_bitrate <= 0) {
         args.start_bitrate = std::max(kAdaptiveStartBitrateKbps, args.min_bitrate);
     }
 
     // BitrateSettings is rejected outright unless 0 <= min <= start <= max, so an inconsistent
     // pair is pulled into range rather than silently disabling every bound.
-    if (args.max_bitrate > 0) {
-        args.start_bitrate = std::min(args.start_bitrate, args.max_bitrate);
-        args.min_bitrate = std::min(args.min_bitrate, args.max_bitrate);
+    if (args.encoder.max_bitrate > 0) {
+        args.start_bitrate = std::min(args.start_bitrate, args.encoder.max_bitrate);
+        args.min_bitrate = std::min(args.min_bitrate, args.encoder.max_bitrate);
     }
     if (args.start_bitrate > 0) {
         args.min_bitrate = std::min(args.min_bitrate, args.start_bitrate);
     }
-    if (args.min_bitrate > 0 || args.start_bitrate > 0 || args.max_bitrate > 0) {
+    if (args.min_bitrate > 0 || args.start_bitrate > 0 || args.encoder.max_bitrate > 0) {
         INFO_PRINT("Video bitrate: min %d, start %d, max %d kbps (0 keeps WebRTC's default).",
-                   args.min_bitrate, args.start_bitrate, args.max_bitrate);
+                   args.min_bitrate, args.start_bitrate, args.encoder.max_bitrate);
     }
 
-    args.record_type = ParseEnum(record_type_table, args.record_type_str);
+    args.recorder.type = ParseEnum(record_type_table, args.record_type_str);
     args.record_mode = ParseEnum(record_mode_table, args.record_mode_str);
 
     // Resolve on-demand path fallback
     if (args.record_mode != RecordMode::Background && args.record_ondemand_path.empty() &&
-        !args.record_path.empty()) {
-        args.record_ondemand_path = args.record_path + "on-demand/";
+        !args.recorder.path.empty()) {
+        args.record_ondemand_path = args.recorder.path + "on-demand/";
     }
     if (!args.record_ondemand_path.empty() && args.record_ondemand_path.back() != '/') {
         args.record_ondemand_path += '/';
     }
 
     ParseDevice(args);
+    CopySharedOptions(args);
 }
 
-void Parser::ParseWsUrl(Args &args) {
-    auto invalid = [&args](const std::string &reason) {
-        ERROR_PRINT("Invalid --livekit-url \"%s\": %s", args.livekit_url.c_str(), reason.c_str());
+void Parser::CopySharedOptions(AppConfig &args) {
+    args.video.fps = args.fps;
+    args.video.hw_accel = args.hw_accel;
+    args.encoder.fps = args.fps;
+    args.encoder.hw_accel = args.hw_accel;
+    args.recorder.hw_accel = args.hw_accel;
+    args.mqtt.uid = args.uid;
+    args.livekit.uid = args.uid;
+    args.livekit.enable_ipc = args.enable_ipc;
+    args.livekit.no_audio = args.no_audio;
+    args.cloudflare.uid = args.uid;
+    args.cloudflare.enable_ipc = args.enable_ipc;
+    args.cloudflare.no_audio = args.no_audio;
+}
+
+void Parser::ParseWsUrl(LiveKitConfig &config) {
+    auto invalid = [&config](const std::string &reason) {
+        ERROR_PRINT("Invalid --livekit-url \"%s\": %s", config.url.c_str(), reason.c_str());
         exit(1);
     };
 
-    auto scheme_end = args.livekit_url.find("://");
+    auto scheme_end = config.url.find("://");
     if (scheme_end == std::string::npos) {
         invalid("missing scheme, expected ws://, wss://, http:// or https://");
     }
 
-    std::string scheme = args.livekit_url.substr(0, scheme_end);
+    std::string scheme = config.url.substr(0, scheme_end);
     std::transform(scheme.begin(), scheme.end(), scheme.begin(), ::tolower);
     if (scheme == "ws" || scheme == "http") {
-        args.livekit_use_tls = false;
+        config.use_tls = false;
     } else if (scheme == "wss" || scheme == "https") {
-        args.livekit_use_tls = true;
+        config.use_tls = true;
     } else {
         invalid("unsupported scheme \"" + scheme + "\", expected ws, wss, http or https");
     }
 
-    std::string rest = args.livekit_url.substr(scheme_end + 3);
+    std::string rest = config.url.substr(scheme_end + 3);
     auto path_start = rest.find('/');
     std::string authority = rest.substr(0, path_start);
     if (path_start != std::string::npos && rest.substr(path_start) != "/") {
@@ -613,7 +636,7 @@ void Parser::ParseWsUrl(Args &args) {
         if (bracket_end == std::string::npos) {
             invalid("unterminated IPv6 literal, expected a closing \"]\"");
         }
-        args.livekit_host = authority.substr(1, bracket_end - 1);
+        config.host = authority.substr(1, bracket_end - 1);
         if (bracket_end + 1 < authority.size()) {
             if (authority[bracket_end + 1] != ':') {
                 invalid("unexpected characters after the IPv6 literal");
@@ -622,19 +645,19 @@ void Parser::ParseWsUrl(Args &args) {
         }
     } else {
         auto colon = authority.find(':');
-        args.livekit_host = authority.substr(0, colon);
+        config.host = authority.substr(0, colon);
         if (colon != std::string::npos) {
             port_str = authority.substr(colon + 1);
         }
     }
 
-    if (args.livekit_host.empty()) {
+    if (config.host.empty()) {
         invalid("the host is empty");
     }
 
     // Left at 0 when the URL omits the port, so the signaling client applies its own
     // scheme-based default.
-    args.livekit_port = 0;
+    config.port = 0;
     if (!port_str.empty()) {
         if (port_str.find_first_not_of("0123456789") != std::string::npos) {
             invalid("\"" + port_str + "\" is not a valid port number");
@@ -644,11 +667,12 @@ void Parser::ParseWsUrl(Args &args) {
         if (port == 0 || port > 65535) {
             invalid("port " + port_str + " is out of range (1-65535)");
         }
-        args.livekit_port = static_cast<uint16_t>(port);
+        config.port = static_cast<uint16_t>(port);
     }
 }
 
-void Parser::ParseDevice(Args &args) {
+void Parser::ParseDevice(AppConfig &args) {
+    args.video.camera = args.camera;
     if (args.camera.rfind("rtsp://", 0) == 0 || args.camera.rfind("rtsps://", 0) == 0) {
         args.camera_source = CameraSource::Rtsp;
         return;
@@ -664,7 +688,7 @@ void Parser::ParseDevice(Args &args) {
     std::string id = args.camera.substr(pos + 1);
 
     try {
-        args.camera_id = std::stoi(id);
+        args.video.camera_id = std::stoi(id);
     } catch (const std::exception &e) {
         throw std::runtime_error("Invalid camera ID: " + id);
     }
@@ -672,8 +696,8 @@ void Parser::ParseDevice(Args &args) {
     if (prefix == "libcamera") {
 #if defined(USE_LIBCAMERA_CAPTURE)
         args.camera_source = CameraSource::LibCamera;
-        args.format = V4L2_PIX_FMT_YUV420;
-        INFO_PRINT("Using libcamera, ID: %d", args.camera_id);
+        args.video.format = V4L2_PIX_FMT_YUV420;
+        INFO_PRINT("Using libcamera, ID: %d", args.video.camera_id);
 #elif defined(JETSON_PLATFORM)
         throw std::runtime_error("Jetson does not support libcamera. Use v4l2:<id> instead.");
 #else
@@ -683,7 +707,7 @@ void Parser::ParseDevice(Args &args) {
     } else if (prefix == "libargus") {
 #if defined(USE_LIBARGUS_CAPTURE)
         args.camera_source = CameraSource::LibArgus;
-        args.format = V4L2_PIX_FMT_NV12;
+        args.video.format = V4L2_PIX_FMT_NV12;
 #elif defined(RPI_PLATFORM)
         throw std::runtime_error("Raspberry Pi does not support libargus. Use v4l2:<id> instead.");
 #else
@@ -691,8 +715,8 @@ void Parser::ParseDevice(Args &args) {
 #endif
     } else if (prefix == "v4l2") {
         args.camera_source = CameraSource::V4L2;
-        args.format = ParseEnum(v4l2_fmt_table, args.v4l2_format);
-        INFO_PRINT("Using V4L2, ID: %d", args.camera_id);
+        args.video.format = ParseEnum(v4l2_fmt_table, args.v4l2_format);
+        INFO_PRINT("Using V4L2, ID: %d", args.video.camera_id);
         INFO_PRINT("V4L2 format: %s", args.v4l2_format.c_str());
 
     } else {

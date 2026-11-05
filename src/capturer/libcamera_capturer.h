@@ -7,17 +7,17 @@
 #include <libcamera/libcamera.h>
 #include <modules/video_capture/video_capture.h>
 
-#include "args.h"
+#include "capturer/capture_config.h"
 #include "capturer/video_capturer.h"
-#include "common/interface/subject.h"
+#include "common/subject.h"
 #include "common/v4l2_frame_buffer.h"
 #include "common/worker.h"
 
 class LibcameraCapturer : public VideoCapturer {
   public:
-    static std::shared_ptr<LibcameraCapturer> Create(Args args);
+    static std::shared_ptr<LibcameraCapturer> Create(VideoCaptureConfig config);
 
-    LibcameraCapturer(Args args);
+    LibcameraCapturer(VideoCaptureConfig config);
     ~LibcameraCapturer() override;
 
     int fps() const override;
@@ -26,7 +26,6 @@ class LibcameraCapturer : public VideoCapturer {
     bool has_sub_stream() const override;
     bool is_dma_capture() const override;
     uint32_t format() const override;
-    Args config() const override;
 
     bool SetControls(int key, int value) override;
     void StartCapture() override;
@@ -53,7 +52,6 @@ class LibcameraCapturer : public VideoCapturer {
     int rotation_;
     int buffer_count_;
     uint32_t format_;
-    Args config_;
     std::mutex control_mutex_;
     std::atomic<bool> is_controls_updated_;
 
@@ -71,7 +69,7 @@ class LibcameraCapturer : public VideoCapturer {
     StreamState &StreamAt(int stream_idx);
 
     void InitCamera();
-    void InitControls(Args arg);
+    void InitControls(CameraControls requested);
     void AllocateBuffer();
     void RequestComplete(libcamera::Request *request);
 };

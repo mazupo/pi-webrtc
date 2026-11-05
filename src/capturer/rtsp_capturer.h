@@ -10,18 +10,18 @@ extern "C" {
 #include <libavformat/avformat.h>
 }
 
-#include "args.h"
+#include "capturer/capture_config.h"
 #include "capturer/video_capturer.h"
 #include "codecs/frame_processor.h"
-#include "common/interface/subject.h"
+#include "common/subject.h"
 #include "common/v4l2_frame_buffer.h"
 #include "common/worker.h"
 
 class RtspCapturer : public VideoCapturer {
   public:
-    static std::shared_ptr<RtspCapturer> Create(Args args);
+    static std::shared_ptr<RtspCapturer> Create(VideoCaptureConfig config);
 
-    RtspCapturer(Args args);
+    RtspCapturer(VideoCaptureConfig config);
     ~RtspCapturer() override;
 
     int fps() const override;
@@ -29,7 +29,6 @@ class RtspCapturer : public VideoCapturer {
     int height(int stream_idx = 0) const override;
     bool is_dma_capture() const override;
     uint32_t format() const override;
-    Args config() const override;
     void StartCapture() override;
 
     webrtc::scoped_refptr<webrtc::I420BufferInterface> GetI420Frame(int stream_idx = 0) override;
@@ -45,7 +44,7 @@ class RtspCapturer : public VideoCapturer {
         std::vector<uint8_t> parameter_sets;
     };
 
-    Args config_;
+    VideoCaptureConfig config_;
     std::string url_;
     StreamInfo stream_;
     bool hw_decoder_;
@@ -57,7 +56,7 @@ class RtspCapturer : public VideoCapturer {
     std::atomic<bool> stopping_;
     std::mutex retry_mtx_;
     std::condition_variable retry_cv_;
-    std::unique_ptr<IFrameProcessor> decoder_;
+    std::unique_ptr<FrameProcessor> decoder_;
     std::mutex frame_mtx_;
     V4L2FrameBufferRef frame_buffer_;
     Subject<V4L2FrameBufferRef> stream_subject_;

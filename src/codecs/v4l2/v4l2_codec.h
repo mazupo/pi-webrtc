@@ -4,10 +4,10 @@
 #include "codecs/frame_processor.h"
 #include "common/latency_tracer.h"
 #include "common/thread_safe_queue.h"
-#include "common/v4l2_utils.h"
 #include "common/worker.h"
+#include "v4l2/v4l2_utils.h"
 
-class V4L2Codec : public IFrameProcessor {
+class V4L2Codec : public FrameProcessor {
   public:
     V4L2Codec();
     ~V4L2Codec() override;

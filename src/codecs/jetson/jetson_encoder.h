@@ -7,7 +7,7 @@
 
 #include <NvVideoEncoder.h>
 
-class JetsonEncoder : public IFrameProcessor {
+class JetsonEncoder : public FrameProcessor {
   public:
     static std::unique_ptr<JetsonEncoder> Create(EncoderConfig config);
 

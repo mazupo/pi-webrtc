@@ -15,7 +15,7 @@ extern "C" {
 }
 #include <third_party/libyuv/include/libyuv.h>
 
-#include "common/jpeg_util.h"
+#include "codecs/jpeg/libjpeg_encoder.h"
 #include "common/logging.h"
 
 namespace fs = std::filesystem;
@@ -466,7 +466,7 @@ std::string GetThumbnailBase64(const std::string &file_path, int scale_denom, in
                       frame->data[2], frame->linesize[2], src_w, src_h, dst_y, dst_w, dst_u,
                       dst_w / 2, dst_v, dst_w / 2, dst_w, dst_h, libyuv::kFilterBilinear);
 
-    auto jpeg = jpeg_util::ConvertYuvToJpeg(i420.data(), dst_w, dst_h, quality);
+    auto jpeg = libjpeg_encoder::ConvertYuvToJpeg(i420.data(), dst_w, dst_h, quality);
     if (jpeg.start && jpeg.length > 0) {
         result = ToBase64(std::string(reinterpret_cast<char *>(jpeg.start.get()), jpeg.length));
     }

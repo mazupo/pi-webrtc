@@ -1,4 +1,4 @@
-#include "rtc/conductor.h"
+#include "conductor.h"
 
 #include <api/audio/builtin_audio_processing_builder.h>
 #include <api/audio_codecs/builtin_audio_decoder_factory.h>
@@ -28,15 +28,15 @@
 #include "capturer/pa_capturer.h"
 #include "capturer/rtsp_capturer.h"
 #include "capturer/v4l2_capturer.h"
-#include "common/jpeg_util.h"
+#include "codecs/encoder_factory.h"
+#include "codecs/jpeg/libjpeg_encoder.h"
 #include "common/logging.h"
 #include "ipc/gamepad_endpoint.h"
 #include "ipc/ipc_endpoint.h"
 #include "recorder/media_query.h"
-#include "rtc/custom_video_encoder_factory.h"
 #include "track/v4l2dma_track_source.h"
 
-std::shared_ptr<Conductor> Conductor::Create(Args args) {
+std::shared_ptr<Conductor> Conductor::Create(AppConfig args) {
     auto ptr = std::make_shared<Conductor>(args);
     ptr->InitializePeerConnectionFactory();
     ptr->InitializeTracks();
@@ -44,7 +44,7 @@ std::shared_ptr<Conductor> Conductor::Create(Args args) {
     return ptr;
 }
 
-Conductor::Conductor(Args args)
+Conductor::Conductor(AppConfig args)
     : args(args) {}
 
 Conductor::~Conductor() {
@@ -69,13 +69,11 @@ Conductor::~Conductor() {
     webrtc::CleanupSSL();
 }
 
-Args Conductor::config() const { return args; }
+AppConfig Conductor::config() const { return args; }
 
 std::shared_ptr<AudioCapturer> Conductor::AudioSource() const { return audio_capture_source_; }
 
 std::shared_ptr<VideoCapturer> Conductor::VideoSource() const { return video_capture_source_; }
-
-std::shared_ptr<EndpointRegistry> Conductor::IpcEndpoints() const { return endpoint_registry_; }
 
 void Conductor::InitializeTracks() {
     if (!audio_track_ && !args.no_audio) {
@@ -85,10 +83,10 @@ void Conductor::InitializeTracks() {
                 return nullptr;
             } else if (args.force_alsa) {
                 INFO_PRINT("Force use Alsa capturer.");
-                return AlsaCapturer::Create(args);
+                return AlsaCapturer::Create(args.audio);
             } else {
                 INFO_PRINT("Use PulseAudio capturer.");
-                return PaCapturer::Create(args);
+                return PaCapturer::Create(args.audio);
             }
         })();
 
@@ -108,20 +106,20 @@ void Conductor::InitializeTracks() {
         video_capture_source_ = ([this]() -> std::shared_ptr<VideoCapturer> {
             if (args.camera_source == CameraSource::V4L2) {
                 INFO_PRINT("Camera: Use v4l2 capturer.");
-                return V4L2Capturer::Create(args);
+                return V4L2Capturer::Create(args.video);
             } else if (args.camera_source == CameraSource::Rtsp) {
                 INFO_PRINT("Camera: Use RTSP capturer.");
-                return RtspCapturer::Create(args);
+                return RtspCapturer::Create(args.video);
             }
 #if defined(USE_LIBCAMERA_CAPTURE)
             else if (args.camera_source == CameraSource::LibCamera) {
                 INFO_PRINT("Camera: Use libcamera capturer.");
-                return LibcameraCapturer::Create(args);
+                return LibcameraCapturer::Create(args.video);
             }
 #elif defined(USE_LIBARGUS_CAPTURE)
             else if (args.camera_source == CameraSource::LibArgus) {
                 INFO_PRINT("Camera: Use libargus capturer.");
-                return LibargusCapturer::Create(args);
+                return LibargusCapturer::Create(args.video);
             }
 #endif
             ERROR_PRINT("Capturer is undefined.");
@@ -130,11 +128,13 @@ void Conductor::InitializeTracks() {
 
         video_track_source_ = ([this]() -> webrtc::scoped_refptr<ScaleTrackSource> {
             if (args.hw_accel) {
-                if (auto source = V4L2DmaTrackSource::Create(video_capture_source_)) {
+                if (auto source = V4L2DmaTrackSource::Create(
+                        video_capture_source_, args.live_stream_idx, args.encoder.no_adaptive)) {
                     return source;
                 }
             }
-            return ScaleTrackSource::Create(video_capture_source_);
+            return ScaleTrackSource::Create(video_capture_source_, args.live_stream_idx,
+                                            args.encoder.no_adaptive);
         })();
 
         video_track_ =
@@ -144,7 +144,7 @@ void Conductor::InitializeTracks() {
 
 void Conductor::ApplyBitrateSettings(
     webrtc::scoped_refptr<webrtc::PeerConnectionInterface> peer_connection) {
-    if (args.min_bitrate <= 0 && args.start_bitrate <= 0 && args.max_bitrate <= 0) {
+    if (args.min_bitrate <= 0 && args.start_bitrate <= 0 && args.encoder.max_bitrate <= 0) {
         return;
     }
 
@@ -155,8 +155,8 @@ void Conductor::ApplyBitrateSettings(
     if (args.start_bitrate > 0) {
         settings.start_bitrate_bps = args.start_bitrate * 1000;
     }
-    if (args.max_bitrate > 0) {
-        settings.max_bitrate_bps = args.max_bitrate * 1000;
+    if (args.encoder.max_bitrate > 0) {
+        settings.max_bitrate_bps = args.encoder.max_bitrate * 1000;
     }
 
     auto result = peer_connection->SetBitrate(settings);
@@ -194,12 +194,12 @@ void Conductor::AddTracks(webrtc::scoped_refptr<RtcPeer> peer) {
             if (args.min_bitrate > 0) {
                 parameters.encodings[0].min_bitrate_bps = args.min_bitrate * 1000;
             }
-            if (args.max_bitrate > 0) {
-                parameters.encodings[0].max_bitrate_bps = args.max_bitrate * 1000;
+            if (args.encoder.max_bitrate > 0) {
+                parameters.encodings[0].max_bitrate_bps = args.encoder.max_bitrate * 1000;
             }
             parameters.encodings[0].max_framerate = video_capture_source_->fps();
-            if (!args.scalability_mode.empty()) {
-                parameters.encodings[0].scalability_mode = args.scalability_mode;
+            if (!args.encoder.scalability_mode.empty()) {
+                parameters.encodings[0].scalability_mode = args.encoder.scalability_mode;
             }
         }
         auto set_res = video_sender_->SetParameters(parameters);
@@ -250,6 +250,7 @@ webrtc::scoped_refptr<RtcPeer> Conductor::CreatePeerConnection(PeerConfig config
     }
 
     peer->SetPeer(result.MoveValue());
+    peer->SetEndpointRegistry(endpoint_registry_); // null unless --enable-ipc
     ApplyBitrateSettings(peer->GetPeer());
 
     if (!config.no_data_channels) {
@@ -274,8 +275,6 @@ std::optional<std::string> Conductor::ResolveWebrtcAlias(const std::string &requ
 }
 
 void Conductor::InitializeDataChannels(webrtc::scoped_refptr<RtcPeer> peer) {
-    peer->SetEndpointRegistry(endpoint_registry_);
-
     if (peer->is_sfu_peer() && !peer->is_publisher()) {
         // A LiveKit subscriber peer opens via onDataChannel.
         return;
@@ -339,7 +338,7 @@ void Conductor::TakeSnapshot(const CommandChannel::Context &ctx) {
         auto quality = std::clamp(ctx.request.take_snapshot().quality(), 0u, 100u);
 
         auto i420buff = video_capture_source_->GetI420Frame(args.live_stream_idx);
-        auto jpg_buffer = jpeg_util::ConvertYuvToJpeg(
+        auto jpg_buffer = libjpeg_encoder::ConvertYuvToJpeg(
             i420buff->DataY(), video_capture_source_->width(args.live_stream_idx),
             video_capture_source_->height(args.live_stream_idx), quality);
         ctx.stream->Send(ctx.request_id, std::move(jpg_buffer));
@@ -359,7 +358,7 @@ void Conductor::QueryFile(const CommandChannel::Context &ctx) {
         return;
     }
 
-    if (args.record_path.empty()) {
+    if (args.recorder.path.empty()) {
         ERROR_PRINT("Recording path is not set, unable to query files.");
         return;
     }
@@ -368,7 +367,7 @@ void Conductor::QueryFile(const CommandChannel::Context &ctx) {
     auto type = req.type();
     const bool is_timelapse = (req.mode() == protocol::VideoMode::TIMELAPSE);
     const std::string &parameter = req.parameter();
-    auto search_dir = is_timelapse ? args.record_path + "timelapse" : args.record_path;
+    auto search_dir = is_timelapse ? args.recorder.path + "timelapse" : args.recorder.path;
 
     DEBUG_PRINT("Received query request: mode=%s, type=%d, param=%s",
                 (is_timelapse ? "TIMELAPSE" : "RECORDING"), req.type(), parameter.c_str());
@@ -420,7 +419,7 @@ void Conductor::TransferFile(const CommandChannel::Context &ctx) {
         return;
     }
 
-    if (args.record_path.empty()) {
+    if (args.recorder.path.empty()) {
         return;
     }
 
@@ -550,7 +549,7 @@ void Conductor::InitializePeerConnectionFactory() {
     deps.adm = adm_;
     deps.audio_encoder_factory = webrtc::CreateBuiltinAudioEncoderFactory();
     deps.audio_decoder_factory = webrtc::CreateBuiltinAudioDecoderFactory();
-    deps.video_encoder_factory = CreateCustomVideoEncoderFactory(args);
+    deps.video_encoder_factory = CreateRtcEncoderFactory(args.encoder);
     deps.video_decoder_factory = std::make_unique<webrtc::VideoDecoderFactoryTemplate<
         webrtc::OpenH264DecoderTemplateAdapter, webrtc::LibvpxVp8DecoderTemplateAdapter,
         webrtc::LibvpxVp9DecoderTemplateAdapter, webrtc::Dav1dDecoderTemplateAdapter>>();

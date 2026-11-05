@@ -9,8 +9,6 @@ extern "C" {
 #include <libavformat/avformat.h>
 }
 
-#include "args.h"
-#include "codecs/v4l2/v4l2_decoder.h"
 #include "common/thread_safe_queue.h"
 #include "common/v4l2_frame_buffer.h"
 #include "recorder/recorder.h"

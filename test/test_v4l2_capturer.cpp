@@ -27,14 +27,14 @@ int main(int argc, char *argv[]) {
     bool is_finished = false;
     int i = 0;
     int images_nb = 10;
-    Args args{.camera_id = 0,
-              .fps = 15,
-              .width = 1280,
-              .height = 720,
-              .format = V4L2_PIX_FMT_MJPEG,
-              .hw_accel = true};
+    VideoCaptureConfig config{.camera_id = 0,
+                              .format = V4L2_PIX_FMT_MJPEG,
+                              .width = 1280,
+                              .height = 720,
+                              .fps = 15,
+                              .hw_accel = true};
 
-    auto capturer = V4L2Capturer::Create(args);
+    auto capturer = V4L2Capturer::Create(config);
     auto observer = capturer->Subscribe([&](V4L2FrameBufferRef frame_buffer) {
         if (i < images_nb) {
             WriteImage(frame_buffer->GetRawBuffer(), ++i);

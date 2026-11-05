@@ -3,12 +3,12 @@
 int main() {
     // The service reads the fields derived from --livekit-url, so set them directly rather
     // than linking the whole parser in just to expand a URL. Designated initializers must
-    // follow the declaration order in args.h.
-    Args args{
+    // follow the declaration order in LiveKitConfig.
+    LiveKitConfig config{
+        .host = "localhost",
+        .room = "",
+        .key = "",
         .uid = "test_device",
-        .livekit_host = "localhost",
-        .livekit_room = "",
-        .livekit_key = "",
     };
 
     net::io_context ioc;
@@ -21,7 +21,7 @@ int main() {
         }
     });
 
-    auto ws_service = LiveKitService::Create(args, nullptr, ioc);
+    auto ws_service = LiveKitService::Create(config, nullptr, ioc);
     ws_service->Connect();
 
     ioc.run();

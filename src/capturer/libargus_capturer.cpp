@@ -41,19 +41,19 @@ EGLDisplay GetEglDisplay() {
 
 } // namespace
 
-std::shared_ptr<LibargusCapturer> LibargusCapturer::Create(Args args) {
-    auto ptr = std::make_shared<LibargusCapturer>(args);
+std::shared_ptr<LibargusCapturer> LibargusCapturer::Create(VideoCaptureConfig config) {
+    auto ptr = std::make_shared<LibargusCapturer>(config);
     ptr->Initialize();
     ptr->StartCapture();
     return ptr;
 }
 
-LibargusCapturer::LibargusCapturer(Args args)
-    : camera_id_(args.camera_id),
-      num_streams_(args.num_streams),
-      fps_(args.fps),
+LibargusCapturer::LibargusCapturer(VideoCaptureConfig config)
+    : camera_id_(config.camera_id),
+      num_streams_(config.num_streams),
+      fps_(config.fps),
       format_(V4L2_PIX_FMT_NV12),
-      config_(args) {}
+      config_(config) {}
 
 LibargusCapturer::~LibargusCapturer() {
     if (icapture_session_) {
@@ -168,7 +168,7 @@ void LibargusCapturer::InitStreams() {
     isource_settings->setSensorMode(mode);
     isource_settings->setFrameDurationRange(
         Argus::Range<uint64_t>(static_cast<uint64_t>(1e9 / fps_)));
-    float max_gain = (config_.gain > 0.0f) ? config_.gain : 8.0f;
+    float max_gain = (config_.controls.gain > 0.0f) ? config_.controls.gain : 8.0f;
     isource_settings->setGainRange(Argus::Range<float>(1.0f, max_gain));
 }
 
@@ -361,8 +361,6 @@ int LibargusCapturer::height(int stream_idx) const {
 bool LibargusCapturer::is_dma_capture() const { return true; }
 
 uint32_t LibargusCapturer::format() const { return format_; }
-
-Args LibargusCapturer::config() const { return config_; }
 
 webrtc::scoped_refptr<webrtc::I420BufferInterface> LibargusCapturer::GetI420Frame(int stream_idx) {
     if (stream_idx <= 0 || stream_idx >= num_streams_) {

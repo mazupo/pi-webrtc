@@ -5,19 +5,19 @@
 
 #include <modules/video_capture/video_capture.h>
 
-#include "args.h"
+#include "capturer/capture_config.h"
 #include "capturer/video_capturer.h"
 #include "codecs/frame_processor.h"
-#include "common/interface/subject.h"
+#include "common/subject.h"
 #include "common/v4l2_frame_buffer.h"
-#include "common/v4l2_utils.h"
 #include "common/worker.h"
+#include "v4l2/v4l2_utils.h"
 
 class V4L2Capturer : public VideoCapturer {
   public:
-    static std::shared_ptr<V4L2Capturer> Create(Args args);
+    static std::shared_ptr<V4L2Capturer> Create(VideoCaptureConfig config);
 
-    V4L2Capturer(Args args);
+    V4L2Capturer(VideoCaptureConfig config);
     ~V4L2Capturer() override;
 
     int fps() const override;
@@ -25,7 +25,6 @@ class V4L2Capturer : public VideoCapturer {
     int height(int stream_idx = 0) const override;
     bool is_dma_capture() const override;
     uint32_t format() const override;
-    Args config() const override;
 
     bool SetControls(int key, int value) override;
     void StartCapture() override;
@@ -47,10 +46,9 @@ class V4L2Capturer : public VideoCapturer {
     bool has_first_keyframe_;
     int dequeue_failures_;
     uint32_t format_;
-    Args config_;
     V4L2BufferGroup capture_;
     std::unique_ptr<Worker> worker_;
-    std::unique_ptr<IFrameProcessor> decoder_;
+    std::unique_ptr<FrameProcessor> decoder_;
 
     std::mutex frame_mtx_;
     V4L2FrameBufferRef frame_buffer_;

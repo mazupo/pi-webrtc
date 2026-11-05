@@ -8,7 +8,7 @@ extern "C" {
 #include "codecs/frame_processor.h"
 
 // Decodes H264/H265 with libavcodec into I420 frames, using the DRM hwaccel when asked and offered.
-class FfmpegDecoder : public IFrameProcessor {
+class FfmpegDecoder : public FrameProcessor {
   public:
     static std::unique_ptr<FfmpegDecoder> Create(DecoderConfig config, bool try_hw);
 

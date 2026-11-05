@@ -4,9 +4,10 @@
 
 using json = nlohmann::json;
 
-std::shared_ptr<LiveKitService>
-LiveKitService::Create(Args args, std::shared_ptr<Conductor> conductor, net::io_context &ioc) {
-    return std::make_shared<LiveKitService>(args, conductor, ioc);
+std::shared_ptr<LiveKitService> LiveKitService::Create(LiveKitConfig config,
+                                                       std::shared_ptr<PeerFactory> peer_factory,
+                                                       net::io_context &ioc) {
+    return std::make_shared<LiveKitService>(config, peer_factory, ioc);
 }
 
 std::string LiveKitService::UrlEncode(const std::string &value) {
@@ -43,10 +44,10 @@ std::string LiveKitService::BuildWebSocketTarget(const std::string &basePath,
     return target.str();
 }
 
-LiveKitService::LiveKitService(Args args, std::shared_ptr<Conductor> conductor,
+LiveKitService::LiveKitService(LiveKitConfig config, std::shared_ptr<PeerFactory> peer_factory,
                                net::io_context &ioc)
-    : conductor_(conductor),
-      args_(args),
+    : peer_factory_(peer_factory),
+      config_(config),
       ssl_ctx_(ssl::context::tls_client),
       ws_(InitWebSocket(ioc)),
       resolver_(net::make_strand(ioc)),
@@ -55,7 +56,7 @@ LiveKitService::LiveKitService(Args args, std::shared_ptr<Conductor> conductor,
 LiveKitService::~LiveKitService() { Disconnect(); }
 
 WebSocketVariant LiveKitService::InitWebSocket(net::io_context &ioc) {
-    if (args_.livekit_use_tls) {
+    if (config_.use_tls) {
         // The SSL context created via boost::asio::ssl::context uses the underlying BoringSSL
         // implementation (when linked with WebRTC or other BoringSSL-based libraries). BoringSSL is
         // not a drop-in replacement for OpenSSL and does not implement all OpenSSL APIs. As a
@@ -75,11 +76,11 @@ WebSocketVariant LiveKitService::InitWebSocket(net::io_context &ioc) {
 }
 
 void LiveKitService::Connect() {
-    auto port = args_.livekit_port != 0 ? args_.livekit_port : (args_.livekit_use_tls ? 443 : 80);
-    INFO_PRINT("Connect to WebSocket %s:%d", args_.livekit_host.c_str(), port);
+    auto port = config_.port != 0 ? config_.port : (config_.use_tls ? 443 : 80);
+    INFO_PRINT("Connect to WebSocket %s:%d", config_.host.c_str(), port);
 
     resolver_.async_resolve(
-        args_.livekit_host, std::to_string(port),
+        config_.host, std::to_string(port),
         [this](boost::system::error_code ec, tcp::resolver::results_type results) {
             OnResolve(ec, results);
         });
@@ -136,19 +137,19 @@ void LiveKitService::OnConnect(beast::error_code ec) {
 
 void LiveKitService::OnHandshake(websocket::stream<tcp::socket> &ws) {
     std::string target =
-        BuildWebSocketTarget("/rtc", {{"apiKey", args_.livekit_key},
-                                      {"roomId", args_.livekit_room},
-                                      {"userId", args_.uid},
-                                      {"canSubscribe", args_.enable_ipc ? "1" : "0"}});
-    ws.async_handshake(args_.livekit_host, target, [this](boost::system::error_code ec) {
+        BuildWebSocketTarget("/rtc", {{"apiKey", config_.key},
+                                      {"roomId", config_.room},
+                                      {"userId", config_.uid},
+                                      {"canSubscribe", config_.enable_ipc ? "1" : "0"}});
+    ws.async_handshake(config_.host, target, [this](boost::system::error_code ec) {
         OnHandshake(ec);
     });
 }
 
 void LiveKitService::OnHandshake(websocket::stream<ssl::stream<tcp::socket>> &ws) {
     // Servers that route by SNI reject the handshake outright when it is missing.
-    if (!SSL_set_tlsext_host_name(ws.next_layer().native_handle(), args_.livekit_host.c_str())) {
-        ERROR_PRINT("Failed to set the SNI hostname: %s", args_.livekit_host.c_str());
+    if (!SSL_set_tlsext_host_name(ws.next_layer().native_handle(), config_.host.c_str())) {
+        ERROR_PRINT("Failed to set the SNI hostname: %s", config_.host.c_str());
         return;
     }
 
@@ -159,11 +160,11 @@ void LiveKitService::OnHandshake(websocket::stream<ssl::stream<tcp::socket>> &ws
                 return;
             }
             std::string target =
-                BuildWebSocketTarget("/rtc", {{"apiKey", args_.livekit_key},
-                                              {"roomId", args_.livekit_room},
-                                              {"userId", args_.uid},
-                                              {"canSubscribe", args_.enable_ipc ? "1" : "0"}});
-            ws.async_handshake(args_.livekit_host, target, [this](boost::system::error_code ec) {
+                BuildWebSocketTarget("/rtc", {{"apiKey", config_.key},
+                                              {"roomId", config_.room},
+                                              {"userId", config_.uid},
+                                              {"canSubscribe", config_.enable_ipc ? "1" : "0"}});
+            ws.async_handshake(config_.host, target, [this](boost::system::error_code ec) {
                 OnHandshake(ec);
             });
         });
@@ -216,8 +217,8 @@ void LiveKitService::OnMessage(const std::string &req) {
     std::string message = jsonObj["message"];
 
     if (action == "join") {
-        if (!conductor_) {
-            ERROR_PRINT("Conductor is not initialized.");
+        if (!peer_factory_) {
+            ERROR_PRINT("The peer factory is not initialized.");
             return;
         }
 
@@ -233,7 +234,7 @@ void LiveKitService::OnMessage(const std::string &req) {
 
         // SFU peers are a fixed publisher/subscriber pair held by this service directly, so
         // they are not registered anywhere.
-        pub_peer_ = conductor_->CreatePeerConnection(config);
+        pub_peer_ = peer_factory_->CreatePeerConnection(config);
         if (pub_peer_) {
             pub_peer_->OnLocalSdp([this](const std::string &peer_id, const std::string &sdp,
                                          const std::string &type) {
@@ -246,7 +247,7 @@ void LiveKitService::OnMessage(const std::string &req) {
         }
 
         config.is_publisher = false;
-        sub_peer_ = conductor_->CreatePeerConnection(config);
+        sub_peer_ = peer_factory_->CreatePeerConnection(config);
         if (sub_peer_) {
             sub_peer_->OnLocalSdp([this](const std::string &peer_id, const std::string &sdp,
                                          const std::string &type) {
@@ -258,9 +259,9 @@ void LiveKitService::OnMessage(const std::string &req) {
             });
         }
 
-        Write("addVideoTrack", args_.uid);
-        if (!args_.no_audio) {
-            Write("addAudioTrack", args_.uid);
+        Write("addVideoTrack", config_.uid);
+        if (!config_.no_audio) {
+            Write("addAudioTrack", config_.uid);
         }
 
         pub_peer_->CreateOffer();

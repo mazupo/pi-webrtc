@@ -11,33 +11,32 @@
 #include <modules/video_capture/video_capture_factory.h>
 #include <third_party/libyuv/include/libyuv.h>
 
-#include "capturer/decoder_factory.h"
+#include "codecs/decoder_factory.h"
 #include "common/latency_tracer.h"
 #include "common/logging.h"
 
 constexpr int kMaxDequeueFailures = 30;
 
-std::shared_ptr<V4L2Capturer> V4L2Capturer::Create(Args args) {
-    auto ptr = std::make_shared<V4L2Capturer>(args);
+std::shared_ptr<V4L2Capturer> V4L2Capturer::Create(VideoCaptureConfig config) {
+    auto ptr = std::make_shared<V4L2Capturer>(config);
     ptr->Initialize();
     ptr->StartCapture();
     return ptr;
 }
 
-V4L2Capturer::V4L2Capturer(Args args)
-    : camera_id_(args.camera_id),
+V4L2Capturer::V4L2Capturer(VideoCaptureConfig config)
+    : camera_id_(config.camera_id),
       fd_(-1),
-      fps_(args.fps),
-      width_(args.width),
-      height_(args.height),
-      rotation_(args.rotation),
+      fps_(config.fps),
+      width_(config.width),
+      height_(config.height),
+      rotation_(config.rotation),
       buffer_count_(4),
-      hw_accel_(args.hw_accel),
+      hw_accel_(config.hw_accel),
       hw_decoder_(false),
       has_first_keyframe_(false),
       dequeue_failures_(0),
-      format_(args.format),
-      config_(args) {}
+      format_(config.format) {}
 
 V4L2Capturer::~V4L2Capturer() {
     worker_.reset();
@@ -118,8 +117,6 @@ int V4L2Capturer::height(int stream_idx) const { return height_; }
 bool V4L2Capturer::is_dma_capture() const { return hw_decoder_; }
 
 uint32_t V4L2Capturer::format() const { return format_; }
-
-Args V4L2Capturer::config() const { return config_; }
 
 bool V4L2Capturer::IsCompressedFormat() const {
     return format_ == V4L2_PIX_FMT_MJPEG || format_ == V4L2_PIX_FMT_H264;

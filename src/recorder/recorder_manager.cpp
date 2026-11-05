@@ -14,7 +14,7 @@ extern "C" {
 #include <libavutil/opt.h>
 }
 
-#include "common/jpeg_util.h"
+#include "codecs/jpeg/libjpeg_encoder.h"
 #include "common/logging.h"
 #include "common/utils.h"
 #include "common/v4l2_frame_buffer.h"
@@ -158,9 +158,9 @@ const unsigned long MIN_FREE_BYTE = 400 * 1024 * 1024;
 const char *CONTAINER_FORMAT = "mp4";
 const char *PREVIEW_IMAGE_EXTENSION = ".jpg";
 
-std::unique_ptr<RecorderManager> RecorderManager::Create(std::shared_ptr<VideoCapturer> video_src,
+std::unique_ptr<RecorderManager> RecorderManager::Create(std::shared_ptr<FrameSource> video_src,
                                                          std::shared_ptr<AudioCapturer> audio_src,
-                                                         Args config, bool auto_start) {
+                                                         RecorderConfig config, bool auto_start) {
     auto instance = std::make_unique<RecorderManager>(config);
     instance->auto_start_ = auto_start;
 
@@ -192,22 +192,22 @@ void RecorderManager::StartRotationThread() {
             if (rotation_abort_.load())
                 break;
             rotation_requested_.store(false);
-            DEBUG_PRINT("Rotate files in path: %s", config.record_path.c_str());
-            while (!rotation_abort_.load() && !CheckDriveSpace(config.record_path, MIN_FREE_BYTE)) {
-                RotateFiles(config.record_path);
+            DEBUG_PRINT("Rotate files in path: %s", config.path.c_str());
+            while (!rotation_abort_.load() && !CheckDriveSpace(config.path, MIN_FREE_BYTE)) {
+                RotateFiles(config.path);
                 std::this_thread::sleep_for(std::chrono::milliseconds(100));
             }
         }
     });
 }
 
-void RecorderManager::CreateVideoRecorder(std::shared_ptr<VideoCapturer> capturer) {
+void RecorderManager::CreateVideoRecorder(std::shared_ptr<FrameSource> capturer) {
     video_src_ = capturer;
     fps = capturer->fps();
-    width = capturer->width(config.record_stream_idx);
-    height = capturer->height(config.record_stream_idx);
+    width = capturer->width(config.stream_idx);
+    height = capturer->height(config.stream_idx);
     video_recorder = ([this, capturer]() -> std::unique_ptr<VideoRecorder> {
-        if (config.record_type == RecordType::Snapshot) {
+        if (config.type == RecordType::Snapshot) {
             return nullptr;
         }
         if (config.hw_accel) {
@@ -225,7 +225,7 @@ void RecorderManager::CreateVideoRecorder(std::shared_ptr<VideoCapturer> capture
 
 void RecorderManager::CreateAudioRecorder(std::shared_ptr<AudioCapturer> audio_src) {
     audio_recorder = ([this, &audio_src]() -> std::unique_ptr<AudioRecorder> {
-        if (config.record_type == RecordType::Snapshot) {
+        if (config.type == RecordType::Snapshot) {
             return nullptr;
         } else {
             return AudioRecorder::Create(audio_src->sample_rate());
@@ -233,16 +233,16 @@ void RecorderManager::CreateAudioRecorder(std::shared_ptr<AudioCapturer> audio_s
     })();
 }
 
-RecorderManager::RecorderManager(Args config)
+RecorderManager::RecorderManager(RecorderConfig config)
     : config(config),
       fmt_ctx(nullptr),
       auto_start_(true),
       header_written_(false),
       base_start_time_{},
       is_recording_(false),
-      record_path(config.record_path) {}
+      record_path(config.path) {}
 
-void RecorderManager::SubscribeVideoSource(std::shared_ptr<VideoCapturer> video_src) {
+void RecorderManager::SubscribeVideoSource(std::shared_ptr<FrameSource> video_src) {
     video_subscription_ = video_src->Subscribe(
         [this](V4L2FrameBufferRef buffer) {
             if (auto_start_ && !is_recording_) {
@@ -273,7 +273,7 @@ void RecorderManager::SubscribeVideoSource(std::shared_ptr<VideoCapturer> video_
                 video_recorder->OnBuffer(buffer);
             }
         },
-        config.record_stream_idx);
+        config.stream_idx);
 
     if (video_recorder) {
         video_recorder->OnPacketed([this](AVPacket *pkt) {
@@ -349,7 +349,7 @@ void RecorderManager::Start() {
     utils::CreateFolder(folder);
     current_filepath_ = new_file.GetFullPath();
 
-    if (config.record_type != RecordType::Snapshot) {
+    if (config.type != RecordType::Snapshot) {
         std::lock_guard<std::mutex> lock(ctx_mux);
         if (avformat_alloc_output_context2(&fmt_ctx, nullptr, CONTAINER_FORMAT,
                                            current_filepath_.c_str()) < 0) {
@@ -391,7 +391,7 @@ void RecorderManager::Start() {
         audio_recorder->Start();
     }
 
-    if (config.record_type != RecordType::Video) {
+    if (config.type != RecordType::Video) {
         auto image_path = ReplaceExtension(current_filepath_, PREVIEW_IMAGE_EXTENSION);
         MakePreviewImage(image_path);
     }
@@ -457,7 +457,7 @@ void RecorderManager::MakePreviewImage(std::string path) {
     // reference, preventing use-after-free if RecorderManager is destroyed
     // before the 3-second delay completes.
     auto video_src = video_src_;
-    auto record_stream_idx = config.record_stream_idx;
+    auto record_stream_idx = config.stream_idx;
     auto jpeg_quality = config.jpeg_quality;
     std::thread([video_src, path, record_stream_idx, jpeg_quality]() {
         std::this_thread::sleep_for(std::chrono::seconds(3));
@@ -465,8 +465,8 @@ void RecorderManager::MakePreviewImage(std::string path) {
             return;
         }
         auto i420buff = video_src->GetI420Frame(record_stream_idx);
-        jpeg_util::CreateJpegImage(i420buff->DataY(), i420buff->width(), i420buff->height(), path,
-                                   jpeg_quality);
+        libjpeg_encoder::CreateJpegImage(i420buff->DataY(), i420buff->width(), i420buff->height(),
+                                         path, jpeg_quality);
     }).detach();
 }
 

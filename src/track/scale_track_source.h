@@ -4,12 +4,13 @@
 #include <media/base/adapted_video_track_source.h>
 #include <rtc_base/timestamp_aligner.h>
 
-#include "capturer/video_capturer.h"
+#include "capturer/frame_source.h"
 
 class ScaleTrackSource : public webrtc::AdaptedVideoTrackSource {
   public:
-    static webrtc::scoped_refptr<ScaleTrackSource> Create(std::shared_ptr<VideoCapturer> capturer);
-    ScaleTrackSource(std::shared_ptr<VideoCapturer> capturer);
+    static webrtc::scoped_refptr<ScaleTrackSource> Create(std::shared_ptr<FrameSource> source,
+                                                          int stream_idx, bool no_adaptive);
+    ScaleTrackSource(std::shared_ptr<FrameSource> source, int stream_idx, bool no_adaptive);
     ~ScaleTrackSource();
 
     SourceState state() const override;
@@ -22,7 +23,8 @@ class ScaleTrackSource : public webrtc::AdaptedVideoTrackSource {
     int width;
     int height;
     int stream_idx;
-    std::shared_ptr<VideoCapturer> capturer;
+    bool no_adaptive;
+    std::shared_ptr<FrameSource> source;
     webrtc::TimestampAligner timestamp_aligner;
 
   private:

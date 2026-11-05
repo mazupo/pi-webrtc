@@ -9,8 +9,8 @@
 
 constexpr unsigned int kTargetLatencyUs = 40000;
 
-std::shared_ptr<AudioCapturer> AlsaCapturer::Create(Args args) {
-    auto ptr = std::make_shared<AlsaCapturer>(args);
+std::shared_ptr<AudioCapturer> AlsaCapturer::Create(AudioCaptureConfig config) {
+    auto ptr = std::make_shared<AlsaCapturer>(config);
     if (!ptr->CreateFloat32Source()) {
         return nullptr;
     }
@@ -18,8 +18,8 @@ std::shared_ptr<AudioCapturer> AlsaCapturer::Create(Args args) {
     return ptr;
 }
 
-AlsaCapturer::AlsaCapturer(Args args)
-    : AudioCapturer(args.channels, args.sample_rate),
+AlsaCapturer::AlsaCapturer(AudioCaptureConfig config)
+    : AudioCapturer(config.channels, config.sample_rate),
       pcm_handle_(nullptr) {}
 
 AlsaCapturer::~AlsaCapturer() {
@@ -117,7 +117,7 @@ void AlsaCapturer::CaptureSamples() {
     shared_buffer_ = {.start = reinterpret_cast<uint8_t *>(float_capture_buffer_.data()),
                       .length = static_cast<unsigned int>(sample_count),
                       .channels = static_cast<unsigned int>(channels_)};
-    Next(shared_buffer_);
+    subject_.Next(shared_buffer_);
 }
 
 void AlsaCapturer::StartCapture() {

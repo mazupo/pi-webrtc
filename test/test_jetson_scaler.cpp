@@ -1,4 +1,3 @@
-#include "args.h"
 #include "capturer/libargus_capturer.h"
 #include "codecs/jetson/jetson_encoder.h"
 #include "codecs/jetson/jetson_scaler.h"
@@ -19,19 +18,20 @@ int main(int argc, char *argv[]) {
     int record_sec = 100;
     int adapted_width = 1280;
     int adapted_height = 720;
-    Args args{
+    VideoCaptureConfig config{
         .camera_id = 0,
-        .fps = 30,
         .width = 1920,
         .height = 1080,
+        .fps = 30,
         .hw_accel = true, // hw will use dma fd
     };
 
-    auto capturer = LibargusCapturer::Create(args);
-    auto scaler = JetsonScaler::Create({args.width, args.height, adapted_width, adapted_height});
+    auto capturer = LibargusCapturer::Create(config);
+    auto scaler =
+        JetsonScaler::Create({config.width, config.height, adapted_width, adapted_height});
     auto encoder = JetsonEncoder::Create({.width = adapted_width,
                                           .height = adapted_height,
-                                          .is_dma_src = args.hw_accel,
+                                          .is_dma_src = config.hw_accel,
                                           .dst_pix_fmt = V4L2_PIX_FMT_H264});
 
     int cam_frame_count = 0;
@@ -97,7 +97,7 @@ int main(int argc, char *argv[]) {
                     frame_count = 0;
                 }
 
-                if (images_nb++ > args.fps * record_sec) {
+                if (images_nb++ > config.fps * record_sec) {
                     is_finished = true;
                     cond_var.notify_all();
                 }

@@ -1,4 +1,3 @@
-#include "args.h"
 #include "capturer/rtsp_capturer.h"
 
 #include <algorithm>
@@ -15,19 +14,18 @@ int main(int argc, char *argv[]) {
         return 1;
     }
 
-    Args args;
-    args.camera = argv[1];
-    args.camera_source = CameraSource::Rtsp;
+    VideoCaptureConfig config;
+    config.camera = argv[1];
     int seconds = 10;
     for (int i = 2; i < argc; i++) {
         if (std::string(argv[i]) == "--hw-accel") {
-            args.hw_accel = true;
+            config.hw_accel = true;
         } else {
             seconds = std::atoi(argv[i]);
         }
     }
 
-    auto capturer = RtspCapturer::Create(args);
+    auto capturer = RtspCapturer::Create(config);
     int report_every = std::max(capturer->fps(), 1);
     std::atomic<int> frames{0};
     std::atomic<std::chrono::steady_clock::rep> first_frame{0};

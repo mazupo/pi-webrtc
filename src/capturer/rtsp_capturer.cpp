@@ -9,10 +9,10 @@ extern "C" {
 #include <libavutil/opt.h>
 }
 
-#include "capturer/decoder_factory.h"
+#include "codecs/decoder_factory.h"
 #include "common/latency_tracer.h"
 #include "common/logging.h"
-#include "common/v4l2_utils.h"
+#include "common/v4l2_buffer.h"
 
 namespace {
 
@@ -51,16 +51,16 @@ timeval MonotonicNow() {
 
 } // namespace
 
-std::shared_ptr<RtspCapturer> RtspCapturer::Create(Args args) {
-    auto ptr = std::make_shared<RtspCapturer>(args);
+std::shared_ptr<RtspCapturer> RtspCapturer::Create(VideoCaptureConfig config) {
+    auto ptr = std::make_shared<RtspCapturer>(config);
     ptr->Initialize();
     ptr->StartCapture();
     return ptr;
 }
 
-RtspCapturer::RtspCapturer(Args args)
-    : config_(args),
-      url_(args.camera),
+RtspCapturer::RtspCapturer(VideoCaptureConfig config)
+    : config_(config),
+      url_(config.camera),
       hw_decoder_(false),
       has_first_keyframe_(false),
       retrying_(false),
@@ -290,8 +290,6 @@ int RtspCapturer::height(int stream_idx) const { return stream_.height; }
 bool RtspCapturer::is_dma_capture() const { return hw_decoder_; }
 
 uint32_t RtspCapturer::format() const { return stream_.format; }
-
-Args RtspCapturer::config() const { return config_; }
 
 void RtspCapturer::SetFrameBuffer(V4L2FrameBufferRef frame_buffer) {
     std::lock_guard<std::mutex> lock(frame_mtx_);

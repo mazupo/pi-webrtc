@@ -1,9 +1,9 @@
 #include "ipc/unix_socket_server.h"
 
-#include "args.h"
+#include "config.h"
 
 int main() {
-    Args args;
+    AppConfig args;
 
     auto server = UnixSocketServer::Create(args.socket_path);
     server->Start();

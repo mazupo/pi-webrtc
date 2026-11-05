@@ -7,7 +7,7 @@ extern "C" {
 }
 
 #include "common/logging.h"
-#include "common/v4l2_utils.h"
+#include "common/v4l2_buffer.h"
 
 namespace {
 

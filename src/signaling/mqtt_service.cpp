@@ -11,17 +11,18 @@
 
 #include "common/logging.h"
 
-std::shared_ptr<MqttService> MqttService::Create(Args args, std::shared_ptr<Conductor> conductor) {
-    return std::make_shared<MqttService>(args, conductor);
+std::shared_ptr<MqttService> MqttService::Create(MqttConfig config,
+                                                 std::shared_ptr<PeerFactory> peer_factory) {
+    return std::make_shared<MqttService>(config, peer_factory);
 }
 
-MqttService::MqttService(Args args, std::shared_ptr<Conductor> conductor)
-    : conductor_(conductor),
-      port_(args.mqtt_port),
-      uid_(args.uid),
-      hostname_(args.mqtt_host),
-      username_(args.mqtt_username),
-      password_(args.mqtt_password),
+MqttService::MqttService(MqttConfig config, std::shared_ptr<PeerFactory> peer_factory)
+    : peer_factory_(peer_factory),
+      port_(config.port),
+      uid_(config.uid),
+      hostname_(config.host),
+      username_(config.username),
+      password_(config.password),
       connection_(nullptr) {
     peer_registry_.OnExpired([this](const std::string &peer_id) {
         OnPeerExpired(peer_id);
@@ -31,12 +32,12 @@ MqttService::MqttService(Args args, std::shared_ptr<Conductor> conductor)
 MqttService::~MqttService() { Disconnect(); }
 
 webrtc::scoped_refptr<RtcPeer> MqttService::CreatePeer(PeerConfig config) {
-    if (!conductor_) {
-        ERROR_PRINT("Conductor is not initialized.");
+    if (!peer_factory_) {
+        ERROR_PRINT("The peer factory is not initialized.");
         return nullptr;
     }
 
-    auto peer = conductor_->CreatePeerConnection(config);
+    auto peer = peer_factory_->CreatePeerConnection(config);
     peer_registry_.Add(peer);
     return peer;
 }
@@ -270,7 +271,7 @@ void MqttService::OnMessage(struct mosquitto *mosq, void *obj,
         bool has_media = (payload.find("m=video") != std::string::npos ||
                           payload.find("m=audio") != std::string::npos);
         if (has_media) {
-            conductor_->EnsureTracksAdded(peer);
+            peer_factory_->EnsureTracksAdded(peer);
         }
         OnRemoteSdp(peer->id(), payload);
     } else if (topic_type == TopicType::Answer) {

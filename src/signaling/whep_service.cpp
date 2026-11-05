@@ -120,15 +120,16 @@ WhepTarget WhepTarget::Parse(std::string_view target) {
     return result;
 }
 
-std::shared_ptr<WhepService> WhepService::Create(Args args, std::shared_ptr<Conductor> conductor,
+std::shared_ptr<WhepService> WhepService::Create(WhepConfig config,
+                                                 std::shared_ptr<PeerFactory> peer_factory,
                                                  boost::asio::io_context &ioc) {
-    return std::make_shared<WhepService>(args, conductor, ioc);
+    return std::make_shared<WhepService>(config, peer_factory, ioc);
 }
 
-WhepService::WhepService(Args args, std::shared_ptr<Conductor> conductor,
+WhepService::WhepService(WhepConfig config, std::shared_ptr<PeerFactory> peer_factory,
                          boost::asio::io_context &ioc)
-    : conductor_(conductor),
-      port_(args.whep_port),
+    : peer_factory_(peer_factory),
+      port_(config.port),
       acceptor_({ioc, {boost::asio::ip::address_v6::any(), port_}}) {}
 
 WhepService::~WhepService() { Disconnect(); }
@@ -152,12 +153,12 @@ void WhepService::Disconnect() {
 }
 
 webrtc::scoped_refptr<RtcPeer> WhepService::CreatePeer(PeerConfig config) {
-    if (!conductor_) {
-        ERROR_PRINT("Conductor is not initialized.");
+    if (!peer_factory_) {
+        ERROR_PRINT("The peer factory is not initialized.");
         return nullptr;
     }
 
-    auto peer = conductor_->CreatePeerConnection(config);
+    auto peer = peer_factory_->CreatePeerConnection(config);
     if (!peer) {
         return nullptr;
     }
@@ -172,10 +173,10 @@ webrtc::scoped_refptr<RtcPeer> WhepService::GetPeer(const std::string &peer_id) 
 void WhepService::RemovePeer(const std::string &peer_id) { peer_registry_.Remove(peer_id); }
 
 std::optional<std::string> WhepService::ResolveStream(const std::string &stream) const {
-    if (!conductor_) {
+    if (!peer_factory_) {
         return std::nullopt;
     }
-    return conductor_->ResolveWebrtcAlias(stream);
+    return peer_factory_->ResolveWebrtcAlias(stream);
 }
 
 void WhepService::AcceptConnection() {

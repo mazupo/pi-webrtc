@@ -14,21 +14,9 @@ target_include_directories(${PROJECT_NAME} PUBLIC
 
 target_link_libraries(${PROJECT_NAME} PUBLIC
   proto
-  track
+  capturer
   ipc
+  jpeg_codecs
   player
-  recorder
   ${WEBRTC_LIBRARY}
 )
-
-if(USE_JETSON_HW_ENCODER)
-  target_link_libraries(${PROJECT_NAME} PUBLIC
-    jetson_codecs
-  )
-endif()
-
-if(USE_RPI_HW_ENCODER)
-  target_link_libraries(${PROJECT_NAME} PUBLIC
-    v4l2_codecs
-  )
-endif()

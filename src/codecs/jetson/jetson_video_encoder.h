@@ -8,15 +8,16 @@
 #include <atomic>
 #include <optional>
 
-#include "args.h"
 #include "codecs/jetson/jetson_encoder.h"
-#include "common/v4l2_utils.h"
+#include "codecs/rtc_encoder_config.h"
+#include "common/v4l2_buffer.h"
 
 class JetsonVideoEncoder : public webrtc::VideoEncoder {
   public:
     static std::unique_ptr<webrtc::VideoEncoder>
-    Create(Args args, webrtc::VideoCodecType codec_type = webrtc::kVideoCodecGeneric);
-    JetsonVideoEncoder(Args args, webrtc::VideoCodecType codec_type = webrtc::kVideoCodecGeneric);
+    Create(RtcEncoderConfig config, webrtc::VideoCodecType codec_type = webrtc::kVideoCodecGeneric);
+    JetsonVideoEncoder(RtcEncoderConfig config,
+                       webrtc::VideoCodecType codec_type = webrtc::kVideoCodecGeneric);
 
     int32_t InitEncode(const webrtc::VideoCodec *codec_settings,
                        const VideoEncoder::Settings &settings) override;

@@ -43,9 +43,9 @@ struct DecoderConfig {
     bool is_dma_dst = false;
 };
 
-class IFrameProcessor {
+class FrameProcessor {
   public:
-    virtual ~IFrameProcessor() = default;
+    virtual ~FrameProcessor() = default;
 
     /**
      * Submits a frame buffer to a processing unit (e.g., ISP, encoder).
