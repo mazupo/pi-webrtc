@@ -121,19 +121,6 @@ void ReportCtrlFailure(int fd, uint32_t id, int32_t value, const char *op) {
 
 } // namespace
 
-std::string FourccToString(uint32_t fourcc) {
-    int length = 4;
-    std::string buf;
-    buf.resize(length);
-
-    for (int i = 0; i < length; i++) {
-        const int c = fourcc & 0xff;
-        buf[i] = c;
-        fourcc >>= 8;
-    }
-    return buf;
-}
-
 int OpenDevice(const char *file) {
     int fd = open(file, O_RDWR);
     if (fd < 0) {

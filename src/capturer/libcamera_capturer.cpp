@@ -5,7 +5,7 @@
 
 #include "common/latency_tracer.h"
 #include "common/logging.h"
-#include "common/v4l2_utils.h"
+#include "common/v4l2_buffer.h"
 #include <libcamera/geometry.h>
 
 std::shared_ptr<LibcameraCapturer> LibcameraCapturer::Create(Args args) {
