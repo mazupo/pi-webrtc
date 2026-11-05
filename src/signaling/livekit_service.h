@@ -4,7 +4,7 @@
 #include "signaling/signaling_config.h"
 #include "signaling/signaling_service.h"
 
-#include "rtc/conductor.h"
+#include "rtc/peer_factory.h"
 
 #include <boost/asio.hpp>
 #include <boost/asio/ssl.hpp>
@@ -28,13 +28,13 @@ using WebSocketVariant = std::variant<websocket::stream<tcp::socket>, // non-TLS
 class LiveKitService : public SignalingService {
   public:
     static std::shared_ptr<LiveKitService> Create(LiveKitConfig config,
-                                                  std::shared_ptr<Conductor> conductor,
+                                                  std::shared_ptr<PeerFactory> peer_factory,
                                                   boost::asio::io_context &ioc);
     static std::string UrlEncode(const std::string &value);
     static std::string BuildWebSocketTarget(const std::string &basePath,
                                             const std::map<std::string, std::string> &params);
 
-    LiveKitService(LiveKitConfig config, std::shared_ptr<Conductor> conductor,
+    LiveKitService(LiveKitConfig config, std::shared_ptr<PeerFactory> peer_factory,
                    boost::asio::io_context &ioc);
     ~LiveKitService() override;
 
@@ -42,7 +42,7 @@ class LiveKitService : public SignalingService {
     void Disconnect() override;
 
   private:
-    std::shared_ptr<Conductor> conductor_;
+    std::shared_ptr<PeerFactory> peer_factory_;
     LiveKitConfig config_;
     ssl::context ssl_ctx_; // declared before ws_, which is constructed from it
     WebSocketVariant ws_;

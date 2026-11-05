@@ -10,15 +10,15 @@
 #include <string>
 #include <unordered_map>
 
-#include "rtc/conductor.h"
+#include "rtc/peer_factory.h"
 #include "signaling/peer_registry.h"
 
 class MqttService : public SignalingService {
   public:
     static std::shared_ptr<MqttService> Create(MqttConfig config,
-                                               std::shared_ptr<Conductor> conductor);
+                                               std::shared_ptr<PeerFactory> peer_factory);
 
-    MqttService(MqttConfig config, std::shared_ptr<Conductor> conductor);
+    MqttService(MqttConfig config, std::shared_ptr<PeerFactory> peer_factory);
     ~MqttService() override;
 
     enum class TopicType {
@@ -32,7 +32,7 @@ class MqttService : public SignalingService {
     void Disconnect() override;
 
   private:
-    std::shared_ptr<Conductor> conductor_;
+    std::shared_ptr<PeerFactory> peer_factory_;
     int port_;
     std::string uid_;
     std::string hostname_;

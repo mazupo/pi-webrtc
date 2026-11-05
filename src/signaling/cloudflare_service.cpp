@@ -63,15 +63,16 @@ std::string Join(const google::protobuf::RepeatedPtrField<std::string> &items) {
 
 } // namespace
 
-std::shared_ptr<CloudflareService> CloudflareService::Create(CloudflareConfig config,
-                                                             std::shared_ptr<Conductor> conductor,
-                                                             net::io_context &ioc) {
-    return std::make_shared<CloudflareService>(config, conductor, ioc);
+std::shared_ptr<CloudflareService>
+CloudflareService::Create(CloudflareConfig config, std::shared_ptr<PeerFactory> peer_factory,
+                          net::io_context &ioc) {
+    return std::make_shared<CloudflareService>(config, peer_factory, ioc);
 }
 
-CloudflareService::CloudflareService(CloudflareConfig config, std::shared_ptr<Conductor> conductor,
+CloudflareService::CloudflareService(CloudflareConfig config,
+                                     std::shared_ptr<PeerFactory> peer_factory,
                                      net::io_context &ioc)
-    : conductor_(conductor),
+    : peer_factory_(peer_factory),
       config_(config),
       ioc_(ioc),
       reconnect_timer_(ioc),
@@ -426,8 +427,8 @@ void CloudflareService::StartPublishing() {
     StopPublishing();
     auto publication = publication_;
 
-    if (!conductor_) {
-        ERROR_PRINT("Conductor is not initialized.");
+    if (!peer_factory_) {
+        ERROR_PRINT("The peer factory is not initialized.");
         return;
     }
 
@@ -442,7 +443,7 @@ void CloudflareService::StartPublishing() {
     config.ice_check_interval_strong_connectivity = kNominationCheckMs;
     config.stable_writable_connection_ping_interval_ms = kNominationCheckMs;
 
-    peer_ = conductor_->CreatePeerConnection(config);
+    peer_ = peer_factory_->CreatePeerConnection(config);
     if (!peer_) {
         RetryPublishing("could not create the PeerConnection", kPublishRetrySec);
         return;
@@ -451,7 +452,6 @@ void CloudflareService::StartPublishing() {
     if (config_.enable_ipc) {
         // Any channel puts an m=application section in the offer. The worker sends the ids of
         // _lossy and _reliable after the answer.
-        peer_->SetEndpointRegistry(conductor_->IpcEndpoints());
         webrtc::DataChannelInit init;
         init.negotiated = true;
         init.id = 0;
