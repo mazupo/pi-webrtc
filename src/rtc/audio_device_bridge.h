@@ -13,8 +13,8 @@
 #include <api/scoped_refptr.h>
 
 #include "capturer/audio_capturer.h"
-#include "common/interface/subject.h"
 #include "common/logging.h"
+#include "common/subject.h"
 #include "common/worker.h"
 #include "player/alsa_player.h"
 #include "player/audio_player.h"

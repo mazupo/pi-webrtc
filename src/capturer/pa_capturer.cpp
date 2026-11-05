@@ -80,7 +80,7 @@ void PaCapturer::CaptureSamples() {
     shared_buffer_ = {.start = reinterpret_cast<uint8_t *>(capture_buf_.data()),
                       .length = static_cast<unsigned int>(n_samples),
                       .channels = static_cast<unsigned int>(channels_)};
-    Next(shared_buffer_);
+    subject_.Next(shared_buffer_);
 }
 
 void PaCapturer::StartCapture() {
