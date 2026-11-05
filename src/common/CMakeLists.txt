@@ -1,10 +1,6 @@
 project(common)
 
-find_package(JPEG REQUIRED)
-include_directories(${JPEG_INCLUDE_DIR})
-
 set(COMMON_FILES
-    ${PROJECT_SOURCE_DIR}/jpeg_util.cpp
     ${PROJECT_SOURCE_DIR}/latency_tracer.cpp
     ${PROJECT_SOURCE_DIR}/v4l2_frame_buffer.cpp
     ${PROJECT_SOURCE_DIR}/utils.cpp
@@ -27,7 +23,6 @@ endif()
 target_link_libraries(${PROJECT_NAME}
     ${WEBRTC_LIBRARY}
     uuid
-    ${JPEG_LIBRARIES}
 )
 
 # v4l2_frame_buffer.cpp reads libargus DMA buffers through NvBufSurface
