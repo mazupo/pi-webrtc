@@ -28,12 +28,12 @@
 #include "capturer/pa_capturer.h"
 #include "capturer/rtsp_capturer.h"
 #include "capturer/v4l2_capturer.h"
+#include "codecs/encoder_factory.h"
 #include "codecs/jpeg/libjpeg_encoder.h"
 #include "common/logging.h"
 #include "ipc/gamepad_endpoint.h"
 #include "ipc/ipc_endpoint.h"
 #include "recorder/media_query.h"
-#include "rtc/custom_video_encoder_factory.h"
 #include "track/v4l2dma_track_source.h"
 
 std::shared_ptr<Conductor> Conductor::Create(AppConfig args) {
@@ -552,7 +552,7 @@ void Conductor::InitializePeerConnectionFactory() {
     deps.adm = adm_;
     deps.audio_encoder_factory = webrtc::CreateBuiltinAudioEncoderFactory();
     deps.audio_decoder_factory = webrtc::CreateBuiltinAudioDecoderFactory();
-    deps.video_encoder_factory = CreateCustomVideoEncoderFactory(args.encoder);
+    deps.video_encoder_factory = CreateRtcEncoderFactory(args.encoder);
     deps.video_decoder_factory = std::make_unique<webrtc::VideoDecoderFactoryTemplate<
         webrtc::OpenH264DecoderTemplateAdapter, webrtc::LibvpxVp8DecoderTemplateAdapter,
         webrtc::LibvpxVp9DecoderTemplateAdapter, webrtc::Dav1dDecoderTemplateAdapter>>();
