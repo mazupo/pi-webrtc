@@ -7,7 +7,7 @@
 #include "common/worker.h"
 #include "v4l2/v4l2_utils.h"
 
-class V4L2Codec : public IFrameProcessor {
+class V4L2Codec : public FrameProcessor {
   public:
     V4L2Codec();
     ~V4L2Codec() override;

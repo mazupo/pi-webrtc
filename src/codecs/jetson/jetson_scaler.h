@@ -10,7 +10,7 @@
 
 #include <nvbufsurftransform.h>
 
-class JetsonScaler : public IFrameProcessor {
+class JetsonScaler : public FrameProcessor {
   public:
     struct CaptureTask {
         int dst_dma_fd;

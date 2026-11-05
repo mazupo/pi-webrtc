@@ -48,7 +48,7 @@ class V4L2Capturer : public VideoCapturer {
     uint32_t format_;
     V4L2BufferGroup capture_;
     std::unique_ptr<Worker> worker_;
-    std::unique_ptr<IFrameProcessor> decoder_;
+    std::unique_ptr<FrameProcessor> decoder_;
 
     std::mutex frame_mtx_;
     V4L2FrameBufferRef frame_buffer_;
