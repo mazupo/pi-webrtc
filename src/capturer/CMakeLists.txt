@@ -3,7 +3,6 @@ project(capturer)
 find_package(PkgConfig REQUIRED)
 
 set(CAPTURE_FILES
-    decoder_factory.cpp
     rtsp_capturer.cpp
     v4l2_capturer.cpp
     pa_capturer.cpp
@@ -79,7 +78,7 @@ target_include_directories(${PROJECT_NAME} PUBLIC
 
 target_link_libraries(${PROJECT_NAME} PUBLIC
     common
-    ffmpeg_codecs
+    codecs
     v4l2_utils
     avformat
     avcodec
@@ -89,14 +88,6 @@ target_link_libraries(${PROJECT_NAME} PUBLIC
     ${PULSE_SIMPLE_LINK_LIBRARIES}
     ${ALSA_LINK_LIBRARIES}
 )
-
-if(USE_RPI_HW_ENCODER)
-    target_link_libraries(${PROJECT_NAME} PUBLIC v4l2_codecs)
-endif()
-
-if(USE_JETSON_HW_ENCODER)
-    target_link_libraries(${PROJECT_NAME} PUBLIC jetson_codecs)
-endif()
 
 if(USE_LIBARGUS_CAPTURE)
     target_link_libraries(${PROJECT_NAME} PUBLIC ${JETSON_LIBS})

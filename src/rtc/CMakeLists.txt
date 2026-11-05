@@ -14,6 +14,7 @@ target_include_directories(${PROJECT_NAME} PUBLIC
 
 target_link_libraries(${PROJECT_NAME} PUBLIC
   proto
+  codecs
   track
   ipc
   jpeg_codecs
@@ -21,15 +22,3 @@ target_link_libraries(${PROJECT_NAME} PUBLIC
   recorder
   ${WEBRTC_LIBRARY}
 )
-
-if(USE_JETSON_HW_ENCODER)
-  target_link_libraries(${PROJECT_NAME} PUBLIC
-    jetson_codecs
-  )
-endif()
-
-if(USE_RPI_HW_ENCODER)
-  target_link_libraries(${PROJECT_NAME} PUBLIC
-    v4l2_codecs
-  )
-endif()

@@ -1,19 +1,8 @@
-#include "rtc/custom_video_encoder_factory.h"
-
-#include "common/latency_tracer.h"
-#include "common/logging.h"
-#include "rtc/tracing_video_encoder.h"
-
-#include "codecs/h264/openh264_video_encoder.h"
-
-#if defined(USE_RPI_HW_ENCODER)
-#include "codecs/v4l2/v4l2_h264_encoder.h"
-#elif defined(USE_JETSON_HW_ENCODER)
-#include "codecs/jetson/jetson_video_encoder.h"
-#endif
+#include "codecs/encoder_factory.h"
 
 #include <absl/algorithm/container.h>
 #include <absl/strings/match.h>
+#include <api/environment/environment.h>
 #include <api/video_codecs/scalability_mode_helper.h>
 #include <api/video_codecs/video_codec.h>
 #include <media/base/media_constants.h>
@@ -24,12 +13,38 @@
 #include <modules/video_coding/codecs/vp8/vp8_scalability.h>
 #include <modules/video_coding/codecs/vp9/include/vp9.h>
 
-std::unique_ptr<webrtc::VideoEncoderFactory>
-CreateCustomVideoEncoderFactory(const RtcEncoderConfig &config) {
-    return std::make_unique<CustomVideoEncoderFactory>(config);
-}
+#include "codecs/h264/openh264_video_encoder.h"
+#include "codecs/tracing_video_encoder.h"
+#include "common/latency_tracer.h"
+#include "common/logging.h"
+#if defined(USE_RPI_HW_ENCODER)
+#include "codecs/v4l2/v4l2_encoder.h"
+#include "codecs/v4l2/v4l2_h264_encoder.h"
+#elif defined(USE_JETSON_HW_ENCODER)
+#include "codecs/jetson/jetson_video_encoder.h"
+#endif
 
-CustomVideoEncoderFactory::CustomVideoEncoderFactory(const RtcEncoderConfig &config)
+namespace {
+
+class RtcEncoderFactory : public webrtc::VideoEncoderFactory {
+  public:
+    explicit RtcEncoderFactory(const RtcEncoderConfig &config);
+
+    std::vector<webrtc::SdpVideoFormat> GetSupportedFormats() const override;
+    CodecSupport QueryCodecSupport(const webrtc::SdpVideoFormat &format,
+                                   std::optional<std::string> scalability_mode) const override;
+    std::unique_ptr<webrtc::VideoEncoder> Create(const webrtc::Environment &env,
+                                                 const webrtc::SdpVideoFormat &format) override;
+
+  private:
+    std::unique_ptr<webrtc::VideoEncoder> CreateEncoder(const webrtc::Environment &env,
+                                                        const webrtc::SdpVideoFormat &format);
+
+    RtcEncoderConfig config_;
+    bool hw_encoder_;
+};
+
+RtcEncoderFactory::RtcEncoderFactory(const RtcEncoderConfig &config)
     : config_(config),
       hw_encoder_(config.hw_accel) {
 #if defined(USE_RPI_HW_ENCODER)
@@ -44,21 +59,10 @@ CustomVideoEncoderFactory::CustomVideoEncoderFactory(const RtcEncoderConfig &con
     }
 }
 
-std::vector<webrtc::SdpVideoFormat> CustomVideoEncoderFactory::GetSupportedFormats() const {
+std::vector<webrtc::SdpVideoFormat> RtcEncoderFactory::GetSupportedFormats() const {
     std::vector<webrtc::SdpVideoFormat> supported_codecs;
 
     if (hw_encoder_) {
-#if defined(USE_RPI_HW_ENCODER)
-        // hw h264
-        supported_codecs.push_back(CreateH264Format(
-            webrtc::H264Profile::kProfileConstrainedBaseline, webrtc::H264Level::kLevel4, "1"));
-        supported_codecs.push_back(CreateH264Format(
-            webrtc::H264Profile::kProfileConstrainedBaseline, webrtc::H264Level::kLevel4, "0"));
-        supported_codecs.push_back(CreateH264Format(webrtc::H264Profile::kProfileBaseline,
-                                                    webrtc::H264Level::kLevel4, "1"));
-        supported_codecs.push_back(CreateH264Format(webrtc::H264Profile::kProfileBaseline,
-                                                    webrtc::H264Level::kLevel4, "0"));
-#elif defined(USE_JETSON_HW_ENCODER)
         // hw h264
         // It's tricky that react-native-webrtc not supports level 5.0 or higher.
         supported_codecs.push_back(CreateH264Format(
@@ -69,6 +73,7 @@ std::vector<webrtc::SdpVideoFormat> CustomVideoEncoderFactory::GetSupportedForma
                                                     webrtc::H264Level::kLevel4, "1"));
         supported_codecs.push_back(CreateH264Format(webrtc::H264Profile::kProfileBaseline,
                                                     webrtc::H264Level::kLevel4, "0"));
+#if defined(USE_JETSON_HW_ENCODER)
         // av1
         supported_codecs.push_back(webrtc::SdpVideoFormat(
             webrtc::kAv1CodecName, webrtc::CodecParameterMap(), {webrtc::ScalabilityMode::kL1T1}));
@@ -98,8 +103,8 @@ std::vector<webrtc::SdpVideoFormat> CustomVideoEncoderFactory::GetSupportedForma
 }
 
 webrtc::VideoEncoderFactory::CodecSupport
-CustomVideoEncoderFactory::QueryCodecSupport(const webrtc::SdpVideoFormat &format,
-                                             std::optional<std::string> scalability_mode) const {
+RtcEncoderFactory::QueryCodecSupport(const webrtc::SdpVideoFormat &format,
+                                     std::optional<std::string> scalability_mode) const {
     std::optional<webrtc::ScalabilityMode> mode;
     if (scalability_mode) {
         mode = webrtc::ScalabilityModeStringToEnum(*scalability_mode);
@@ -120,8 +125,7 @@ CustomVideoEncoderFactory::QueryCodecSupport(const webrtc::SdpVideoFormat &forma
 }
 
 std::unique_ptr<webrtc::VideoEncoder>
-CustomVideoEncoderFactory::Create(const webrtc::Environment &env,
-                                  const webrtc::SdpVideoFormat &format) {
+RtcEncoderFactory::Create(const webrtc::Environment &env, const webrtc::SdpVideoFormat &format) {
     auto encoder = CreateEncoder(env, format);
 
     if (latency::Enabled()) {
@@ -131,20 +135,19 @@ CustomVideoEncoderFactory::Create(const webrtc::Environment &env,
 }
 
 std::unique_ptr<webrtc::VideoEncoder>
-CustomVideoEncoderFactory::CreateEncoder(const webrtc::Environment &env,
-                                         const webrtc::SdpVideoFormat &format) {
-#if defined(USE_JETSON_HW_ENCODER)
+RtcEncoderFactory::CreateEncoder(const webrtc::Environment &env,
+                                 const webrtc::SdpVideoFormat &format) {
     if (hw_encoder_) {
-        return JetsonVideoEncoder::Create(config_, webrtc::PayloadStringToCodecType(format.name));
-    }
-#endif
-
-    if (absl::EqualsIgnoreCase(format.name, webrtc::kH264CodecName)) {
 #if defined(USE_RPI_HW_ENCODER)
-        if (hw_encoder_) {
+        if (absl::EqualsIgnoreCase(format.name, webrtc::kH264CodecName)) {
             return V4L2H264Encoder::Create(config_);
         }
+#elif defined(USE_JETSON_HW_ENCODER)
+        return JetsonVideoEncoder::Create(config_, webrtc::PayloadStringToCodecType(format.name));
 #endif
+    }
+
+    if (absl::EqualsIgnoreCase(format.name, webrtc::kH264CodecName)) {
         return Openh264VideoEncoder::Create(config_);
     } else if (absl::EqualsIgnoreCase(format.name, webrtc::kVp8CodecName)) {
         return webrtc::CreateVp8Encoder(env);
@@ -155,4 +158,11 @@ CustomVideoEncoderFactory::CreateEncoder(const webrtc::Environment &env,
     }
 
     return nullptr;
+}
+
+} // namespace
+
+std::unique_ptr<webrtc::VideoEncoderFactory>
+CreateRtcEncoderFactory(const RtcEncoderConfig &config) {
+    return std::make_unique<RtcEncoderFactory>(config);
 }
