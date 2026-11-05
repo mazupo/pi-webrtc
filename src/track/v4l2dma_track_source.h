@@ -17,7 +17,7 @@ class V4L2DmaTrackSource : public ScaleTrackSource {
     int config_width_;
     int config_height_;
     Subscription subscription_;
-    std::unique_ptr<IFrameProcessor> scaler;
+    std::unique_ptr<FrameProcessor> scaler;
 
     void OnFrameCaptured(V4L2FrameBufferRef frame_buffer);
 };

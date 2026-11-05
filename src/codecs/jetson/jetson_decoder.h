@@ -14,7 +14,7 @@
 #include <NvVideoDecoder.h>
 #include <nvbufsurftransform.h>
 
-class JetsonDecoder : public IFrameProcessor {
+class JetsonDecoder : public FrameProcessor {
   public:
     static std::unique_ptr<JetsonDecoder> Create(DecoderConfig config);
 

@@ -6,7 +6,7 @@
 #include "codecs/frame_processor.h"
 
 struct VideoDecoder {
-    std::unique_ptr<IFrameProcessor> processor;
+    std::unique_ptr<FrameProcessor> processor;
     // True when frames come out of a hardware decoder as DMA buffers.
     bool is_hardware = false;
 };

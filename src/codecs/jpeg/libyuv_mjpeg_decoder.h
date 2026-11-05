@@ -4,7 +4,7 @@
 #include "codecs/frame_processor.h"
 
 // Decodes MJPEG to I420 for the hardware scaler and encoder, which cannot take JPEG.
-class LibyuvMjpegDecoder : public IFrameProcessor {
+class LibyuvMjpegDecoder : public FrameProcessor {
   public:
     explicit LibyuvMjpegDecoder(DecoderConfig config);
 

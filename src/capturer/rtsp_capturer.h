@@ -56,7 +56,7 @@ class RtspCapturer : public VideoCapturer {
     std::atomic<bool> stopping_;
     std::mutex retry_mtx_;
     std::condition_variable retry_cv_;
-    std::unique_ptr<IFrameProcessor> decoder_;
+    std::unique_ptr<FrameProcessor> decoder_;
     std::mutex frame_mtx_;
     V4L2FrameBufferRef frame_buffer_;
     Subject<V4L2FrameBufferRef> stream_subject_;
