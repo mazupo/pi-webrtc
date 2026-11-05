@@ -16,7 +16,7 @@ bool IsHwScalerAvailable() {
 #endif
 }
 
-std::unique_ptr<IFrameProcessor> CreateHwScaler(ScalerConfig config) {
+std::unique_ptr<FrameProcessor> CreateHwScaler(ScalerConfig config) {
 #if defined(USE_RPI_HW_ENCODER)
     return V4L2Scaler::Create(config);
 #elif defined(USE_JETSON_HW_ENCODER)

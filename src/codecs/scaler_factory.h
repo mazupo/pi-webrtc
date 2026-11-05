@@ -9,6 +9,6 @@
 bool IsHwScalerAvailable();
 
 // Returns nullptr when the hardware scaler cannot be opened.
-std::unique_ptr<IFrameProcessor> CreateHwScaler(ScalerConfig config);
+std::unique_ptr<FrameProcessor> CreateHwScaler(ScalerConfig config);
 
 #endif // SCALER_FACTORY_H_
