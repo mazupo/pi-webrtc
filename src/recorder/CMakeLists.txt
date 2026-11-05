@@ -27,10 +27,17 @@ add_library(${PROJECT_NAME} ${RECORDER_FILES})
 
 target_link_libraries(${PROJECT_NAME} PUBLIC
     capturer
-    v4l2_codecs
     h264_codecs
     avformat
     avcodec
     avutil
     ${JPEG_LIBRARIES}
 )
+
+if(USE_RPI_HW_ENCODER)
+    target_link_libraries(${PROJECT_NAME} PUBLIC v4l2_codecs)
+endif()
+
+if(USE_JETSON_HW_ENCODER)
+    target_link_libraries(${PROJECT_NAME} PUBLIC jetson_codecs)
+endif()

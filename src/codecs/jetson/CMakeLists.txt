@@ -32,6 +32,7 @@ if(USE_JETSON_HW_ENCODER)
     find_library(NVV4L2_LIBRARY nvv4l2 HINTS ${TEGRA_LIB_DIR})
 
     target_link_libraries(${PROJECT_NAME}
+        common
         ${WEBRTC_LIBRARY}
         ${NVBUF_SURFACE_LIBRARY}
         ${NVBUF_SURFACE_TRANSFORM_LIBRARY}

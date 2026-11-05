@@ -29,3 +29,14 @@ target_link_libraries(${PROJECT_NAME}
     uuid
     ${JPEG_LIBRARIES}
 )
+
+# v4l2_frame_buffer.cpp reads libargus DMA buffers through NvBufSurface
+if(USE_LIBARGUS_CAPTURE)
+    set(TEGRA_LIB_DIR /usr/lib/${CMAKE_LIBRARY_ARCHITECTURE}/tegra)
+    find_library(NVBUF_SURFACE_LIBRARY nvbufsurface HINTS ${TEGRA_LIB_DIR})
+    find_library(NVBUF_SURFACE_TRANSFORM_LIBRARY nvbufsurftransform HINTS ${TEGRA_LIB_DIR})
+    target_link_libraries(${PROJECT_NAME}
+        ${NVBUF_SURFACE_LIBRARY}
+        ${NVBUF_SURFACE_TRANSFORM_LIBRARY}
+    )
+endif()
