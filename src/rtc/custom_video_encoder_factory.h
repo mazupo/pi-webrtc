@@ -4,13 +4,14 @@
 #include <api/environment/environment.h>
 #include <api/video_codecs/video_encoder_factory.h>
 
-#include "args.h"
+#include "codecs/rtc_encoder_config.h"
 
-std::unique_ptr<webrtc::VideoEncoderFactory> CreateCustomVideoEncoderFactory(const Args &args);
+std::unique_ptr<webrtc::VideoEncoderFactory>
+CreateCustomVideoEncoderFactory(const RtcEncoderConfig &config);
 
 class CustomVideoEncoderFactory : public webrtc::VideoEncoderFactory {
   public:
-    CustomVideoEncoderFactory(const Args &args);
+    CustomVideoEncoderFactory(const RtcEncoderConfig &config);
     ~CustomVideoEncoderFactory() = default;
 
     std::vector<webrtc::SdpVideoFormat> GetSupportedFormats() const override;
@@ -24,7 +25,7 @@ class CustomVideoEncoderFactory : public webrtc::VideoEncoderFactory {
     std::unique_ptr<webrtc::VideoEncoder> CreateEncoder(const webrtc::Environment &env,
                                                         const webrtc::SdpVideoFormat &format);
 
-    Args args_;
+    RtcEncoderConfig config_;
     bool hw_encoder_;
 };
 

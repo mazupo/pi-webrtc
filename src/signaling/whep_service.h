@@ -1,6 +1,7 @@
 #ifndef WHEP_SERVICE_H_
 #define WHEP_SERVICE_H_
 
+#include <cstdint>
 #include <functional>
 #include <memory>
 #include <string>
@@ -12,9 +13,9 @@
 #include <boost/beast/http.hpp>
 #include <boost/beast/version.hpp>
 
-#include "args.h"
 #include "rtc/conductor.h"
 #include "signaling/peer_registry.h"
+#include "signaling/signaling_config.h"
 #include "signaling/signaling_service.h"
 
 namespace beast = boost::beast;
@@ -50,10 +51,11 @@ struct WhepTarget {
 class WhepService : public SignalingService,
                     public std::enable_shared_from_this<WhepService> {
   public:
-    static std::shared_ptr<WhepService> Create(Args args, std::shared_ptr<Conductor> conductor,
-                                               boost::asio::io_context &ioc);
+    static std::shared_ptr<WhepService>
+    Create(WhepConfig config, std::shared_ptr<Conductor> conductor, boost::asio::io_context &ioc);
 
-    WhepService(Args args, std::shared_ptr<Conductor> conductor, boost::asio::io_context &ioc);
+    WhepService(WhepConfig config, std::shared_ptr<Conductor> conductor,
+                boost::asio::io_context &ioc);
     ~WhepService() override;
 
     void Connect() override;

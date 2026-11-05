@@ -1,4 +1,3 @@
-#include "args.h"
 #include "capturer/libargus_capturer.h"
 #include "codecs/jetson/jetson_encoder.h"
 
@@ -16,17 +15,17 @@ int main(int argc, char *argv[]) {
     bool has_first_keyframe_ = false;
     int images_nb = 0;
     int record_sec = 100;
-    Args args{
+    VideoCaptureConfig config{
         .camera_id = 0,
-        .fps = 60,
         .width = 1280,
         .height = 720,
+        .fps = 60,
         .hw_accel = false, // hw will use dma fd
     };
 
-    auto capturer = LibargusCapturer::Create(args);
+    auto capturer = LibargusCapturer::Create(config);
     auto encoder = JetsonEncoder::Create(
-        {.width = args.width, .height = args.height, .dst_pix_fmt = V4L2_PIX_FMT_H264});
+        {.width = config.width, .height = config.height, .dst_pix_fmt = V4L2_PIX_FMT_H264});
 
     int cam_frame_count = 0;
     auto cam_start_time = std::chrono::steady_clock::now();
@@ -67,7 +66,7 @@ int main(int argc, char *argv[]) {
                 frame_count = 0;
             }
 
-            if (images_nb++ > args.fps * record_sec) {
+            if (images_nb++ > config.fps * record_sec) {
                 is_finished = true;
                 cond_var.notify_all();
             }

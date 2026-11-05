@@ -63,21 +63,22 @@ std::string Join(const google::protobuf::RepeatedPtrField<std::string> &items) {
 
 } // namespace
 
-std::shared_ptr<CloudflareService>
-CloudflareService::Create(Args args, std::shared_ptr<Conductor> conductor, net::io_context &ioc) {
-    return std::make_shared<CloudflareService>(args, conductor, ioc);
+std::shared_ptr<CloudflareService> CloudflareService::Create(CloudflareConfig config,
+                                                             std::shared_ptr<Conductor> conductor,
+                                                             net::io_context &ioc) {
+    return std::make_shared<CloudflareService>(config, conductor, ioc);
 }
 
-CloudflareService::CloudflareService(Args args, std::shared_ptr<Conductor> conductor,
+CloudflareService::CloudflareService(CloudflareConfig config, std::shared_ptr<Conductor> conductor,
                                      net::io_context &ioc)
     : conductor_(conductor),
-      args_(args),
+      config_(config),
       ioc_(ioc),
       reconnect_timer_(ioc),
       health_timer_(ioc),
       retry_timer_(ioc),
       secret_(NewSecret()) {
-    token_url_ = args_.api_url + "/token";
+    token_url_ = config_.api_url + "/token";
 }
 
 CloudflareService::~CloudflareService() { Disconnect(); }
@@ -108,8 +109,8 @@ void CloudflareService::StartConnection() {
 
 void CloudflareService::RequestToken(uint64_t connection) {
     json body;
-    body["device_id"] = args_.uid;
-    body["room_ids"] = args_.cloudflare_rooms;
+    body["device_id"] = config_.uid;
+    body["room_ids"] = config_.rooms;
     body["can_subscribe"] = false;
     body["secret"] = secret_;
     // Keeps the stream across the reconnect.
@@ -121,7 +122,7 @@ void CloudflareService::RequestToken(uint64_t connection) {
     request.method = http::verb::post;
     request.url = token_url_;
     request.body = body.dump();
-    request.bearer_token = args_.api_key;
+    request.bearer_token = config_.api_key;
     request.timeout_sec = kApiTimeoutSec;
 
     HttpClient::Send(
@@ -184,7 +185,7 @@ void CloudflareService::OnSocketClosed(int code, const std::string &reason) {
         // after a power cut: it lets go once that connection misses its pings for 45 s.
         ERROR_PRINT("Another connection to the Cloudflare worker uses --uid=%s. Give every device "
                     "its own --uid. This device tries again in a while.",
-                    args_.uid.c_str());
+                    config_.uid.c_str());
         StopPublishing();
         publishing_ = false;
         retry_count_ = std::max(retry_count_, 4); // 16 s, then 30 s
@@ -306,7 +307,7 @@ void CloudflareService::OnJoined(const protocol::DeviceJoined &joined) {
     }
 
     INFO_PRINT("Connected to the Cloudflare worker as %s in room(s) %s (%s, generation %u)",
-               args_.uid.c_str(), Join(joined.rooms()).c_str(),
+               config_.uid.c_str(), Join(joined.rooms()).c_str(),
                protocol::DeviceState_Name(joined.state()).c_str(), joined.generation());
 
     // Replies to offers on the old connection are lost.
@@ -447,7 +448,7 @@ void CloudflareService::StartPublishing() {
         return;
     }
 
-    if (args_.enable_ipc) {
+    if (config_.enable_ipc) {
         // Any channel puts an m=application section in the offer. The worker sends the ids of
         // _lossy and _reliable after the answer.
         peer_->SetEndpointRegistry(conductor_->IpcEndpoints());
@@ -505,9 +506,9 @@ void CloudflareService::StartPublishing() {
                 self->RetryPublishing("the offer has no tracks", kPublishRetrySec);
                 return;
             }
-            request.mutable_offer()->set_data_channels(self->args_.enable_ipc);
+            request.mutable_offer()->set_data_channels(self->config_.enable_ipc);
             // With --no-audio there is nothing to play them on.
-            request.mutable_offer()->set_voices(!self->args_.no_audio);
+            request.mutable_offer()->set_voices(!self->config_.no_audio);
             if (self->Send(request)) {
                 self->unanswered_++;
                 self->offer_sent_ = true;

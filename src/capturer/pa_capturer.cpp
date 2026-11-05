@@ -5,8 +5,8 @@
 
 #include "common/logging.h"
 
-std::shared_ptr<AudioCapturer> PaCapturer::Create(Args args) {
-    auto ptr = std::make_shared<PaCapturer>(args);
+std::shared_ptr<AudioCapturer> PaCapturer::Create(AudioCaptureConfig config) {
+    auto ptr = std::make_shared<PaCapturer>(config);
     if (!ptr->CreateFloat32Source()) {
         return nullptr;
     }
@@ -14,8 +14,8 @@ std::shared_ptr<AudioCapturer> PaCapturer::Create(Args args) {
     return ptr;
 }
 
-PaCapturer::PaCapturer(Args args)
-    : AudioCapturer(args.channels, args.sample_rate),
+PaCapturer::PaCapturer(AudioCaptureConfig config)
+    : AudioCapturer(config.channels, config.sample_rate),
       src(nullptr) {}
 
 PaCapturer::~PaCapturer() {

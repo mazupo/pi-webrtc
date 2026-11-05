@@ -48,24 +48,24 @@ std::vector<webrtc::VideoEncoder::ResolutionBitrateLimits> ScaleGears(std::span<
 } // namespace
 
 std::unique_ptr<webrtc::VideoEncoder>
-JetsonVideoEncoder::Create(Args args, webrtc::VideoCodecType codec_type) {
-    return std::make_unique<JetsonVideoEncoder>(args, codec_type);
+JetsonVideoEncoder::Create(RtcEncoderConfig config, webrtc::VideoCodecType codec_type) {
+    return std::make_unique<JetsonVideoEncoder>(config, codec_type);
 }
 
-JetsonVideoEncoder::JetsonVideoEncoder(Args args, webrtc::VideoCodecType codec_type)
-    : target_fps_(args.fps),
+JetsonVideoEncoder::JetsonVideoEncoder(RtcEncoderConfig config, webrtc::VideoCodecType codec_type)
+    : target_fps_(config.fps),
       target_bitrate_bps_(0),
-      max_bitrate_kbps_(args.max_bitrate),
+      max_bitrate_kbps_(config.max_bitrate),
       callback_(nullptr) {
-    if (args.max_playout_delay_ms >= 0) {
+    if (config.max_playout_delay_ms >= 0) {
         playout_delay_ =
-            webrtc::VideoPlayoutDelay(webrtc::TimeDelta::Millis(args.min_playout_delay_ms),
-                                      webrtc::TimeDelta::Millis(args.max_playout_delay_ms));
+            webrtc::VideoPlayoutDelay(webrtc::TimeDelta::Millis(config.min_playout_delay_ms),
+                                      webrtc::TimeDelta::Millis(config.max_playout_delay_ms));
     }
-    if (!args.no_adaptive && codec_type == webrtc::kVideoCodecH264) {
-        bitrate_limits_ = ScaleGears(kH264Gears, args.fps);
-    } else if (!args.no_adaptive && codec_type == webrtc::kVideoCodecAV1) {
-        bitrate_limits_ = ScaleGears(kAv1Gears, args.fps);
+    if (!config.no_adaptive && codec_type == webrtc::kVideoCodecH264) {
+        bitrate_limits_ = ScaleGears(kH264Gears, config.fps);
+    } else if (!config.no_adaptive && codec_type == webrtc::kVideoCodecAV1) {
+        bitrate_limits_ = ScaleGears(kAv1Gears, config.fps);
     }
 }
 

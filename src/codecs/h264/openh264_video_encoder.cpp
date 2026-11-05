@@ -32,23 +32,23 @@ int NumberOfThreads(std::optional<int> encoder_thread_limit, int number_of_cores
 
 } // namespace
 
-std::unique_ptr<webrtc::VideoEncoder> Openh264VideoEncoder::Create(Args args) {
-    return std::make_unique<Openh264VideoEncoder>(args);
+std::unique_ptr<webrtc::VideoEncoder> Openh264VideoEncoder::Create(RtcEncoderConfig config) {
+    return std::make_unique<Openh264VideoEncoder>(config);
 }
 
-Openh264VideoEncoder::Openh264VideoEncoder(Args args)
+Openh264VideoEncoder::Openh264VideoEncoder(RtcEncoderConfig config)
     : width_(0),
       height_(0),
-      target_fps_(args.fps),
+      target_fps_(config.fps),
       target_bitrate_bps_(0),
       num_temporal_layers_(1),
       tl0sync_limit_(1),
       number_of_cores_(1),
       callback_(nullptr) {
-    if (args.max_playout_delay_ms >= 0) {
+    if (config.max_playout_delay_ms >= 0) {
         playout_delay_ =
-            webrtc::VideoPlayoutDelay(webrtc::TimeDelta::Millis(args.min_playout_delay_ms),
-                                      webrtc::TimeDelta::Millis(args.max_playout_delay_ms));
+            webrtc::VideoPlayoutDelay(webrtc::TimeDelta::Millis(config.min_playout_delay_ms),
+                                      webrtc::TimeDelta::Millis(config.max_playout_delay_ms));
     }
 }
 

@@ -9,14 +9,14 @@
 #include <api/video_codecs/video_encoder.h>
 #include <modules/video_coding/codecs/h264/include/h264.h>
 
-#include "args.h"
+#include "codecs/rtc_encoder_config.h"
 #include "codecs/v4l2/v4l2_encoder.h"
 #include "common/v4l2_buffer.h"
 
 class V4L2H264Encoder : public webrtc::VideoEncoder {
   public:
-    static std::unique_ptr<webrtc::VideoEncoder> Create(Args args);
-    V4L2H264Encoder(Args args);
+    static std::unique_ptr<webrtc::VideoEncoder> Create(RtcEncoderConfig config);
+    V4L2H264Encoder(RtcEncoderConfig config);
 
     int32_t InitEncode(const webrtc::VideoCodec *codec_settings,
                        const VideoEncoder::Settings &settings) override;

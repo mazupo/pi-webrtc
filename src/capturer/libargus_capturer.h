@@ -3,7 +3,7 @@
 
 #include <vector>
 
-#include "args.h"
+#include "capturer/capture_config.h"
 #include "capturer/video_capturer.h"
 #include "common/logging.h"
 #include "common/worker.h"
@@ -71,9 +71,9 @@ class StreamHandler : public Subject<V4L2FrameBufferRef> {
 
 class LibargusCapturer : public VideoCapturer {
   public:
-    static std::shared_ptr<LibargusCapturer> Create(Args args);
+    static std::shared_ptr<LibargusCapturer> Create(VideoCaptureConfig config);
 
-    LibargusCapturer(Args args);
+    LibargusCapturer(VideoCaptureConfig config);
     ~LibargusCapturer();
 
     int fps() const override;
@@ -94,7 +94,7 @@ class LibargusCapturer : public VideoCapturer {
     int num_streams_;
     int fps_;
     uint32_t format_;
-    Args config_;
+    VideoCaptureConfig config_;
 
     Argus::CameraDevice *camera_device_ = nullptr;
     Argus::UniqueObj<Argus::CameraProvider> camera_provider_;

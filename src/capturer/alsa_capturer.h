@@ -6,14 +6,14 @@
 #include <cstdint>
 #include <vector>
 
-#include "args.h"
 #include "capturer/audio_capturer.h"
+#include "capturer/capture_config.h"
 
 class AlsaCapturer : public AudioCapturer {
   public:
-    static std::shared_ptr<AudioCapturer> Create(Args args);
+    static std::shared_ptr<AudioCapturer> Create(AudioCaptureConfig config);
 
-    AlsaCapturer(Args args);
+    AlsaCapturer(AudioCaptureConfig config);
     ~AlsaCapturer();
 
   protected:

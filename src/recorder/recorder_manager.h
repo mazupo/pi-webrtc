@@ -3,6 +3,7 @@
 
 #include <condition_variable>
 #include <mutex>
+#include <string>
 #include <thread>
 
 extern "C" {
@@ -11,18 +12,18 @@ extern "C" {
 #include <libavutil/audio_fifo.h>
 }
 
-#include "args.h"
 #include "capturer/audio_capturer.h"
 #include "capturer/frame_source.h"
 #include "recorder/audio_recorder.h"
+#include "recorder/recorder_config.h"
 #include "recorder/video_recorder.h"
 
 class RecorderManager {
   public:
     static std::unique_ptr<RecorderManager> Create(std::shared_ptr<FrameSource> video_src,
                                                    std::shared_ptr<AudioCapturer> audio_src,
-                                                   Args config, bool auto_start = true);
-    RecorderManager(Args config);
+                                                   RecorderConfig config, bool auto_start = true);
+    RecorderManager(RecorderConfig config);
     ~RecorderManager();
     void WriteIntoFile(AVPacket *pkt);
     void Start();
@@ -32,7 +33,7 @@ class RecorderManager {
 
   protected:
     std::mutex ctx_mux;
-    Args config;
+    RecorderConfig config;
     uint fps;
     int width;
     int height;

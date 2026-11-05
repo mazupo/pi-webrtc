@@ -1,4 +1,3 @@
-#include "args.h"
 #include "capturer/v4l2_capturer.h"
 #include "codecs/jetson/jetson_decoder.h"
 
@@ -23,15 +22,15 @@ int main(int argc, char *argv[]) {
     bool is_finished = false;
     int images_nb = 0;
     int record_sec = 1;
-    Args args{.fps = 30,
-              .width = 160,
-              .height = 120,
-              .format = V4L2_PIX_FMT_MJPEG,
-              .camera_id = 2,
-              .hw_accel = false};
+    VideoCaptureConfig config{.camera_id = 2,
+                              .format = V4L2_PIX_FMT_MJPEG,
+                              .width = 160,
+                              .height = 120,
+                              .fps = 30,
+                              .hw_accel = false};
 
-    auto capturer = V4L2Capturer::Create(args);
-    auto decoder = JetsonDecoder::Create({args.width, args.height, capturer->format(), true});
+    auto capturer = V4L2Capturer::Create(config);
+    auto decoder = JetsonDecoder::Create({config.width, config.height, capturer->format(), true});
     if (!decoder) {
         fprintf(stderr, "Failed to create the jetson decoder\n");
         return 1;
@@ -45,7 +44,7 @@ int main(int argc, char *argv[]) {
                 return;
             }
 
-            if (images_nb++ < args.fps * record_sec) {
+            if (images_nb++ < config.fps * record_sec) {
                 auto i420 = decoded_buffer->ToI420();
                 long sum = 0;
                 for (int i = 0; i < i420->width() * i420->height(); i++) {
@@ -55,7 +54,7 @@ int main(int argc, char *argv[]) {
                 printf("Buffer index: %d\n  dma fd: %d\n  %dx%d\n  mean luma: %.1f%s\n", images_nb,
                        decoded_buffer->GetDmaFd(), i420->width(), i420->height(), mean,
                        sum == 0 ? "  <-- ALL BLACK" : "");
-                WriteYuvImage(i420->DataY(), args.width * args.height * 3 / 2, images_nb);
+                WriteYuvImage(i420->DataY(), config.width * config.height * 3 / 2, images_nb);
             } else {
                 is_finished = true;
                 cond_var.notify_all();
