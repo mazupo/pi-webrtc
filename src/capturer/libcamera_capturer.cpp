@@ -258,8 +258,6 @@ bool LibcameraCapturer::is_dma_capture() const { return true; }
 
 uint32_t LibcameraCapturer::format() const { return format_; }
 
-Args LibcameraCapturer::config() const { return config_; }
-
 bool LibcameraCapturer::SetControls(int key, int value) {
     std::lock_guard<std::mutex> lock(control_mutex_);
     DEBUG_PRINT("  Set camera control: %d, %d", key, value);

@@ -362,8 +362,6 @@ bool LibargusCapturer::is_dma_capture() const { return true; }
 
 uint32_t LibargusCapturer::format() const { return format_; }
 
-Args LibargusCapturer::config() const { return config_; }
-
 webrtc::scoped_refptr<webrtc::I420BufferInterface> LibargusCapturer::GetI420Frame(int stream_idx) {
     if (stream_idx <= 0 || stream_idx >= num_streams_) {
         return stream_handlers_[0]->GetFrameBuffer()->ToI420();

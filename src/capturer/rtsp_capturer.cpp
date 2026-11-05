@@ -291,8 +291,6 @@ bool RtspCapturer::is_dma_capture() const { return hw_decoder_; }
 
 uint32_t RtspCapturer::format() const { return stream_.format; }
 
-Args RtspCapturer::config() const { return config_; }
-
 void RtspCapturer::SetFrameBuffer(V4L2FrameBufferRef frame_buffer) {
     std::lock_guard<std::mutex> lock(frame_mtx_);
     frame_buffer_ = std::move(frame_buffer);

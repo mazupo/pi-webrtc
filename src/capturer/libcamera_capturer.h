@@ -26,7 +26,6 @@ class LibcameraCapturer : public VideoCapturer {
     bool has_sub_stream() const override;
     bool is_dma_capture() const override;
     uint32_t format() const override;
-    Args config() const override;
 
     bool SetControls(int key, int value) override;
     void StartCapture() override;

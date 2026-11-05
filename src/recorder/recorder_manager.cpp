@@ -158,7 +158,7 @@ const unsigned long MIN_FREE_BYTE = 400 * 1024 * 1024;
 const char *CONTAINER_FORMAT = "mp4";
 const char *PREVIEW_IMAGE_EXTENSION = ".jpg";
 
-std::unique_ptr<RecorderManager> RecorderManager::Create(std::shared_ptr<VideoCapturer> video_src,
+std::unique_ptr<RecorderManager> RecorderManager::Create(std::shared_ptr<FrameSource> video_src,
                                                          std::shared_ptr<AudioCapturer> audio_src,
                                                          Args config, bool auto_start) {
     auto instance = std::make_unique<RecorderManager>(config);
@@ -201,7 +201,7 @@ void RecorderManager::StartRotationThread() {
     });
 }
 
-void RecorderManager::CreateVideoRecorder(std::shared_ptr<VideoCapturer> capturer) {
+void RecorderManager::CreateVideoRecorder(std::shared_ptr<FrameSource> capturer) {
     video_src_ = capturer;
     fps = capturer->fps();
     width = capturer->width(config.record_stream_idx);
@@ -242,7 +242,7 @@ RecorderManager::RecorderManager(Args config)
       is_recording_(false),
       record_path(config.record_path) {}
 
-void RecorderManager::SubscribeVideoSource(std::shared_ptr<VideoCapturer> video_src) {
+void RecorderManager::SubscribeVideoSource(std::shared_ptr<FrameSource> video_src) {
     video_subscription_ = video_src->Subscribe(
         [this](V4L2FrameBufferRef buffer) {
             if (auto_start_ && !is_recording_) {

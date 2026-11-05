@@ -130,11 +130,13 @@ void Conductor::InitializeTracks() {
 
         video_track_source_ = ([this]() -> webrtc::scoped_refptr<ScaleTrackSource> {
             if (args.hw_accel) {
-                if (auto source = V4L2DmaTrackSource::Create(video_capture_source_)) {
+                if (auto source = V4L2DmaTrackSource::Create(
+                        video_capture_source_, args.live_stream_idx, args.no_adaptive)) {
                     return source;
                 }
             }
-            return ScaleTrackSource::Create(video_capture_source_);
+            return ScaleTrackSource::Create(video_capture_source_, args.live_stream_idx,
+                                            args.no_adaptive);
         })();
 
         video_track_ =

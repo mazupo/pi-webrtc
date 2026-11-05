@@ -23,24 +23,27 @@ int64_t SensorUsOf(const webrtc::scoped_refptr<webrtc::VideoFrameBuffer> &frame_
 } // namespace
 
 webrtc::scoped_refptr<ScaleTrackSource>
-ScaleTrackSource::Create(std::shared_ptr<VideoCapturer> capturer) {
-    auto obj = webrtc::make_ref_counted<ScaleTrackSource>(std::move(capturer));
+ScaleTrackSource::Create(std::shared_ptr<FrameSource> source, int stream_idx, bool no_adaptive) {
+    auto obj =
+        webrtc::make_ref_counted<ScaleTrackSource>(std::move(source), stream_idx, no_adaptive);
     obj->StartTrack();
     return obj;
 }
 
-ScaleTrackSource::ScaleTrackSource(std::shared_ptr<VideoCapturer> capturer)
-    : capturer(capturer),
-      width(capturer->width()),
-      height(capturer->height()),
-      stream_idx(capturer->config().live_stream_idx) {}
+ScaleTrackSource::ScaleTrackSource(std::shared_ptr<FrameSource> source, int stream_idx,
+                                   bool no_adaptive)
+    : width(source->width()),
+      height(source->height()),
+      stream_idx(stream_idx),
+      no_adaptive(no_adaptive),
+      source(source) {}
 
 ScaleTrackSource::~ScaleTrackSource() {
     // todo: tell capture unsubscribe observer.
 }
 
 void ScaleTrackSource::StartTrack() {
-    subscription_ = capturer->Subscribe(
+    subscription_ = source->Subscribe(
         [this](webrtc::scoped_refptr<webrtc::VideoFrameBuffer> frame_buffer) {
             OnFrameCaptured(frame_buffer);
         },
@@ -63,7 +66,7 @@ void ScaleTrackSource::OnFrameCaptured(
     }
 
     int adapted_width, adapted_height, crop_width, crop_height, crop_x, crop_y;
-    if (capturer->config().no_adaptive) {
+    if (no_adaptive) {
         adapted_width = width;
         adapted_height = height;
     } else if (!AdaptFrame(width, height, timestamp_us, &adapted_width, &adapted_height,

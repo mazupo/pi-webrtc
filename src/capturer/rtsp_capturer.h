@@ -29,7 +29,6 @@ class RtspCapturer : public VideoCapturer {
     int height(int stream_idx = 0) const override;
     bool is_dma_capture() const override;
     uint32_t format() const override;
-    Args config() const override;
     void StartCapture() override;
 
     webrtc::scoped_refptr<webrtc::I420BufferInterface> GetI420Frame(int stream_idx = 0) override;
