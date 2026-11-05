@@ -7,18 +7,18 @@
 
 const int kKeyFrameIntervalFrames = 3000;
 
-std::unique_ptr<webrtc::VideoEncoder> V4L2H264Encoder::Create(Args args) {
-    return std::make_unique<V4L2H264Encoder>(args);
+std::unique_ptr<webrtc::VideoEncoder> V4L2H264Encoder::Create(RtcEncoderConfig config) {
+    return std::make_unique<V4L2H264Encoder>(config);
 }
 
-V4L2H264Encoder::V4L2H264Encoder(Args args)
-    : target_fps_(args.fps),
+V4L2H264Encoder::V4L2H264Encoder(RtcEncoderConfig config)
+    : target_fps_(config.fps),
       target_bitrate_bps_(0),
       callback_(nullptr) {
-    if (args.max_playout_delay_ms >= 0) {
+    if (config.max_playout_delay_ms >= 0) {
         playout_delay_ =
-            webrtc::VideoPlayoutDelay(webrtc::TimeDelta::Millis(args.min_playout_delay_ms),
-                                      webrtc::TimeDelta::Millis(args.max_playout_delay_ms));
+            webrtc::VideoPlayoutDelay(webrtc::TimeDelta::Millis(config.min_playout_delay_ms),
+                                      webrtc::TimeDelta::Millis(config.max_playout_delay_ms));
     }
 }
 

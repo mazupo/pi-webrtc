@@ -8,9 +8,9 @@
 
 #include <boost/asio.hpp>
 
-#include "args.h"
 #include "proto/cloudflare.pb.h"
 #include "rtc/conductor.h"
+#include "signaling/signaling_config.h"
 #include "signaling/signaling_service.h"
 #include "signaling/websocket_client.h"
 
@@ -20,9 +20,10 @@
 class CloudflareService : public SignalingService,
                           public std::enable_shared_from_this<CloudflareService> {
   public:
-    static std::shared_ptr<CloudflareService>
-    Create(Args args, std::shared_ptr<Conductor> conductor, boost::asio::io_context &ioc);
-    CloudflareService(Args args, std::shared_ptr<Conductor> conductor,
+    static std::shared_ptr<CloudflareService> Create(CloudflareConfig config,
+                                                     std::shared_ptr<Conductor> conductor,
+                                                     boost::asio::io_context &ioc);
+    CloudflareService(CloudflareConfig config, std::shared_ptr<Conductor> conductor,
                       boost::asio::io_context &ioc);
     ~CloudflareService() override;
 
@@ -31,7 +32,7 @@ class CloudflareService : public SignalingService,
 
   private:
     std::shared_ptr<Conductor> conductor_;
-    Args args_;
+    CloudflareConfig config_;
     boost::asio::io_context &ioc_;
     boost::asio::steady_timer reconnect_timer_, health_timer_, retry_timer_;
     std::shared_ptr<WebSocketClient> socket_;

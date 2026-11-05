@@ -24,20 +24,21 @@
 #include <modules/video_coding/codecs/vp8/vp8_scalability.h>
 #include <modules/video_coding/codecs/vp9/include/vp9.h>
 
-std::unique_ptr<webrtc::VideoEncoderFactory> CreateCustomVideoEncoderFactory(const Args &args) {
-    return std::make_unique<CustomVideoEncoderFactory>(args);
+std::unique_ptr<webrtc::VideoEncoderFactory>
+CreateCustomVideoEncoderFactory(const RtcEncoderConfig &config) {
+    return std::make_unique<CustomVideoEncoderFactory>(config);
 }
 
-CustomVideoEncoderFactory::CustomVideoEncoderFactory(const Args &args)
-    : args_(args),
-      hw_encoder_(args.hw_accel) {
+CustomVideoEncoderFactory::CustomVideoEncoderFactory(const RtcEncoderConfig &config)
+    : config_(config),
+      hw_encoder_(config.hw_accel) {
 #if defined(USE_RPI_HW_ENCODER)
     if (hw_encoder_ && !V4L2Encoder::IsAvailable()) {
         hw_encoder_ = false;
         WARN_PRINT("No hardware encoder found; WebRTC uses software encoding.");
     }
 #endif
-    if (hw_encoder_ && !args_.scalability_mode.empty()) {
+    if (hw_encoder_ && !config_.scalability_mode.empty()) {
         ERROR_PRINT("--scalability-mode is not supported by the hardware encoder.");
         exit(EXIT_FAILURE);
     }
@@ -134,17 +135,17 @@ CustomVideoEncoderFactory::CreateEncoder(const webrtc::Environment &env,
                                          const webrtc::SdpVideoFormat &format) {
 #if defined(USE_JETSON_HW_ENCODER)
     if (hw_encoder_) {
-        return JetsonVideoEncoder::Create(args_, webrtc::PayloadStringToCodecType(format.name));
+        return JetsonVideoEncoder::Create(config_, webrtc::PayloadStringToCodecType(format.name));
     }
 #endif
 
     if (absl::EqualsIgnoreCase(format.name, webrtc::kH264CodecName)) {
 #if defined(USE_RPI_HW_ENCODER)
         if (hw_encoder_) {
-            return V4L2H264Encoder::Create(args_);
+            return V4L2H264Encoder::Create(config_);
         }
 #endif
-        return Openh264VideoEncoder::Create(args_);
+        return Openh264VideoEncoder::Create(config_);
     } else if (absl::EqualsIgnoreCase(format.name, webrtc::kVp8CodecName)) {
         return webrtc::CreateVp8Encoder(env);
     } else if (absl::EqualsIgnoreCase(format.name, webrtc::kVp9CodecName)) {

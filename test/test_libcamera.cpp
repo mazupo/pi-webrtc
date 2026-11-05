@@ -1,4 +1,3 @@
-#include "args.h"
 #include "capturer/libcamera_capturer.h"
 
 #include <condition_variable>
@@ -28,9 +27,9 @@ int main(int argc, char *argv[]) {
     bool is_finished = false;
     int i = 0;
     int images_nb = 10;
-    Args args{.fps = 30, .width = 1280, .height = 960};
+    VideoCaptureConfig config{.width = 1280, .height = 960, .fps = 30};
 
-    auto capturer = LibcameraCapturer::Create(args);
+    auto capturer = LibcameraCapturer::Create(config);
 
     auto observer = capturer->Subscribe([&](V4L2FrameBufferRef frame_buffer) {
         if (i < images_nb) {

@@ -10,7 +10,7 @@ extern "C" {
 #include <libavformat/avformat.h>
 }
 
-#include "args.h"
+#include "capturer/capture_config.h"
 #include "capturer/video_capturer.h"
 #include "codecs/frame_processor.h"
 #include "common/subject.h"
@@ -19,9 +19,9 @@ extern "C" {
 
 class RtspCapturer : public VideoCapturer {
   public:
-    static std::shared_ptr<RtspCapturer> Create(Args args);
+    static std::shared_ptr<RtspCapturer> Create(VideoCaptureConfig config);
 
-    RtspCapturer(Args args);
+    RtspCapturer(VideoCaptureConfig config);
     ~RtspCapturer() override;
 
     int fps() const override;
@@ -44,7 +44,7 @@ class RtspCapturer : public VideoCapturer {
         std::vector<uint8_t> parameter_sets;
     };
 
-    Args config_;
+    VideoCaptureConfig config_;
     std::string url_;
     StreamInfo stream_;
     bool hw_decoder_;

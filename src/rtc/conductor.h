@@ -11,9 +11,9 @@
 #include <api/peer_connection_interface.h>
 #include <rtc_base/thread.h>
 
-#include "args.h"
 #include "capturer/audio_capturer.h"
 #include "capturer/video_capturer.h"
+#include "config.h"
 #include "ipc/endpoint_registry.h"
 #include "recorder/recorder_manager.h"
 #include "rtc/audio_device_bridge.h"
@@ -22,12 +22,12 @@
 
 class Conductor {
   public:
-    static std::shared_ptr<Conductor> Create(Args args);
+    static std::shared_ptr<Conductor> Create(AppConfig args);
 
-    Conductor(Args args);
+    Conductor(AppConfig args);
     ~Conductor();
 
-    Args config() const;
+    AppConfig config() const;
     webrtc::scoped_refptr<RtcPeer> CreatePeerConnection(PeerConfig peer_config);
     std::optional<std::string> ResolveWebrtcAlias(const std::string &requested) const;
     std::shared_ptr<AudioCapturer> AudioSource() const;
@@ -37,7 +37,7 @@ class Conductor {
     void SetOnDemandRecorder(std::shared_ptr<RecorderManager> recorder);
 
   private:
-    Args args;
+    AppConfig args;
 
     void InitializePeerConnectionFactory();
     void InitializeTracks();

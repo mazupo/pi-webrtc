@@ -10,13 +10,13 @@
 #include <common_video/h264/h264_bitstream_parser.h>
 #include <modules/video_coding/codecs/h264/include/h264.h>
 
-#include "args.h"
 #include "codecs/h264/openh264_encoder.h"
+#include "codecs/rtc_encoder_config.h"
 
 class Openh264VideoEncoder : public webrtc::VideoEncoder {
   public:
-    static std::unique_ptr<webrtc::VideoEncoder> Create(Args args);
-    Openh264VideoEncoder(Args args);
+    static std::unique_ptr<webrtc::VideoEncoder> Create(RtcEncoderConfig config);
+    Openh264VideoEncoder(RtcEncoderConfig config);
 
     int32_t InitEncode(const webrtc::VideoCodec *codec_settings,
                        const VideoEncoder::Settings &settings) override;

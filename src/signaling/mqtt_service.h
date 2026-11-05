@@ -1,6 +1,7 @@
 #ifndef MQTT_SERVICE_H_
 #define MQTT_SERVICE_H_
 
+#include "signaling/signaling_config.h"
 #include "signaling/signaling_service.h"
 
 #include <memory>
@@ -9,15 +10,15 @@
 #include <string>
 #include <unordered_map>
 
-#include "args.h"
 #include "rtc/conductor.h"
 #include "signaling/peer_registry.h"
 
 class MqttService : public SignalingService {
   public:
-    static std::shared_ptr<MqttService> Create(Args args, std::shared_ptr<Conductor> conductor);
+    static std::shared_ptr<MqttService> Create(MqttConfig config,
+                                               std::shared_ptr<Conductor> conductor);
 
-    MqttService(Args args, std::shared_ptr<Conductor> conductor);
+    MqttService(MqttConfig config, std::shared_ptr<Conductor> conductor);
     ~MqttService() override;
 
     enum class TopicType {
