@@ -1,5 +1,5 @@
-#ifndef COMMON_V4L2_UTILS_H_
-#define COMMON_V4L2_UTILS_H_
+#ifndef V4L2_UTILS_H_
+#define V4L2_UTILS_H_
 
 #include <linux/videodev2.h>
 #include <stdint.h>
@@ -46,4 +46,4 @@ bool DeallocateBuffer(int fd, V4L2BufferGroup *gbuffer);
 
 } // namespace v4l2_util
 
-#endif // COMMON_V4L2_UTILS_H_
+#endif // V4L2_UTILS_H_

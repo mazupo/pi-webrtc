@@ -80,6 +80,7 @@ target_include_directories(${PROJECT_NAME} PUBLIC
 target_link_libraries(${PROJECT_NAME} PUBLIC
     common
     ffmpeg_codecs
+    v4l2_utils
     avformat
     avcodec
     avutil
