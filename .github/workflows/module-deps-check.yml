@@ -1,0 +1,25 @@
+name: Module Dependency Check
+
+on:
+  push:
+    paths:
+      - "src/**"
+      - "scripts/check_module_deps.py"
+      - ".github/workflows/module-deps-check.yml"
+  pull_request:
+    paths:
+      - "src/**"
+      - "scripts/check_module_deps.py"
+      - ".github/workflows/module-deps-check.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  module-deps-check:
+    name: Module Dependency Check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check that src/ includes follow the module layers
+        run: python3 scripts/check_module_deps.py
