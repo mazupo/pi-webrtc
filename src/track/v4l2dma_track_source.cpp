@@ -9,28 +9,30 @@
 #include "common/logging.h"
 
 webrtc::scoped_refptr<V4L2DmaTrackSource>
-V4L2DmaTrackSource::Create(std::shared_ptr<VideoCapturer> capturer) {
+V4L2DmaTrackSource::Create(std::shared_ptr<FrameSource> source, int stream_idx, bool no_adaptive) {
 #if defined(USE_RPI_HW_ENCODER)
     if (!V4L2Scaler::IsAvailable()) {
         WARN_PRINT("No hardware scaler found; scaling frames in software.");
         return nullptr;
     }
 #endif
-    auto obj = webrtc::make_ref_counted<V4L2DmaTrackSource>(std::move(capturer));
+    auto obj =
+        webrtc::make_ref_counted<V4L2DmaTrackSource>(std::move(source), stream_idx, no_adaptive);
     obj->StartTrack();
     return obj;
 }
 
-V4L2DmaTrackSource::V4L2DmaTrackSource(std::shared_ptr<VideoCapturer> capturer)
-    : ScaleTrackSource(capturer),
-      is_dma_src_(capturer->is_dma_capture()),
-      config_width_(capturer->width()),
-      config_height_(capturer->height()) {}
+V4L2DmaTrackSource::V4L2DmaTrackSource(std::shared_ptr<FrameSource> source, int stream_idx,
+                                       bool no_adaptive)
+    : ScaleTrackSource(source, stream_idx, no_adaptive),
+      is_dma_src_(source->is_dma_capture()),
+      config_width_(source->width()),
+      config_height_(source->height()) {}
 
 V4L2DmaTrackSource::~V4L2DmaTrackSource() { scaler.reset(); }
 
 void V4L2DmaTrackSource::StartTrack() {
-    subscription_ = capturer->Subscribe(
+    subscription_ = source->Subscribe(
         [this](V4L2FrameBufferRef frame_buffer) {
             OnFrameCaptured(frame_buffer);
         },
@@ -51,7 +53,7 @@ void V4L2DmaTrackSource::OnFrameCaptured(V4L2FrameBufferRef frame_buffer) {
         latency::Record(latency::Stage::kSensorToTrackIn, timestamp_us - sensor_us);
     }
 
-    if (capturer->config().no_adaptive) {
+    if (no_adaptive) {
         if (traced) {
             latency::SetSentResolution(width, height);
             if (sensor_us != 0) {

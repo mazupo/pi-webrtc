@@ -119,8 +119,6 @@ bool V4L2Capturer::is_dma_capture() const { return hw_decoder_; }
 
 uint32_t V4L2Capturer::format() const { return format_; }
 
-Args V4L2Capturer::config() const { return config_; }
-
 bool V4L2Capturer::IsCompressedFormat() const {
     return format_ == V4L2_PIX_FMT_MJPEG || format_ == V4L2_PIX_FMT_H264;
 }

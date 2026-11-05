@@ -82,7 +82,6 @@ class LibargusCapturer : public VideoCapturer {
     bool has_sub_stream() const override { return num_streams_ > 1; }
     bool is_dma_capture() const override;
     uint32_t format() const override;
-    Args config() const override;
 
     webrtc::scoped_refptr<webrtc::I420BufferInterface> GetI420Frame(int stream_idx = 0) override;
     void StartCapture() override;

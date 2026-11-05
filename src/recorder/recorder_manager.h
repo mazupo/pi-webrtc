@@ -11,14 +11,15 @@ extern "C" {
 #include <libavutil/audio_fifo.h>
 }
 
+#include "args.h"
 #include "capturer/audio_capturer.h"
-#include "capturer/video_capturer.h"
+#include "capturer/frame_source.h"
 #include "recorder/audio_recorder.h"
 #include "recorder/video_recorder.h"
 
 class RecorderManager {
   public:
-    static std::unique_ptr<RecorderManager> Create(std::shared_ptr<VideoCapturer> video_src,
+    static std::unique_ptr<RecorderManager> Create(std::shared_ptr<FrameSource> video_src,
                                                    std::shared_ptr<AudioCapturer> audio_src,
                                                    Args config, bool auto_start = true);
     RecorderManager(Args config);
@@ -41,10 +42,10 @@ class RecorderManager {
     std::unique_ptr<VideoRecorder> video_recorder;
     std::unique_ptr<AudioRecorder> audio_recorder;
 
-    void CreateVideoRecorder(std::shared_ptr<VideoCapturer> video_src);
+    void CreateVideoRecorder(std::shared_ptr<FrameSource> video_src);
     void CloseCurrentFile();
     void CreateAudioRecorder(std::shared_ptr<AudioCapturer> audio_src);
-    void SubscribeVideoSource(std::shared_ptr<VideoCapturer> video_src);
+    void SubscribeVideoSource(std::shared_ptr<FrameSource> video_src);
     void SubscribeAudioSource(std::shared_ptr<AudioCapturer> audio_src);
 
   private:
@@ -57,7 +58,7 @@ class RecorderManager {
     std::atomic<bool> rotation_requested_;
     std::thread rotation_thread_;
     struct timeval base_start_time_;
-    std::shared_ptr<VideoCapturer> video_src_;
+    std::shared_ptr<FrameSource> video_src_;
 
     std::string current_filepath_;
 
