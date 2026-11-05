@@ -14,11 +14,9 @@ target_include_directories(${PROJECT_NAME} PUBLIC
 
 target_link_libraries(${PROJECT_NAME} PUBLIC
   proto
-  codecs
-  track
+  capturer
   ipc
   jpeg_codecs
   player
-  recorder
   ${WEBRTC_LIBRARY}
 )

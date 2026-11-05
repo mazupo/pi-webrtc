@@ -13,7 +13,7 @@
 #include <boost/beast/http.hpp>
 #include <boost/beast/version.hpp>
 
-#include "rtc/conductor.h"
+#include "rtc/peer_factory.h"
 #include "signaling/peer_registry.h"
 #include "signaling/signaling_config.h"
 #include "signaling/signaling_service.h"
@@ -51,10 +51,11 @@ struct WhepTarget {
 class WhepService : public SignalingService,
                     public std::enable_shared_from_this<WhepService> {
   public:
-    static std::shared_ptr<WhepService>
-    Create(WhepConfig config, std::shared_ptr<Conductor> conductor, boost::asio::io_context &ioc);
+    static std::shared_ptr<WhepService> Create(WhepConfig config,
+                                               std::shared_ptr<PeerFactory> peer_factory,
+                                               boost::asio::io_context &ioc);
 
-    WhepService(WhepConfig config, std::shared_ptr<Conductor> conductor,
+    WhepService(WhepConfig config, std::shared_ptr<PeerFactory> peer_factory,
                 boost::asio::io_context &ioc);
     ~WhepService() override;
 
@@ -67,7 +68,7 @@ class WhepService : public SignalingService,
     std::optional<std::string> ResolveStream(const std::string &stream) const;
 
   private:
-    std::shared_ptr<Conductor> conductor_;
+    std::shared_ptr<PeerFactory> peer_factory_;
     uint16_t port_;
     tcp::acceptor acceptor_;
     PeerRegistry peer_registry_;

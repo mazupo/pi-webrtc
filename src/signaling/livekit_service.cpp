@@ -5,9 +5,9 @@
 using json = nlohmann::json;
 
 std::shared_ptr<LiveKitService> LiveKitService::Create(LiveKitConfig config,
-                                                       std::shared_ptr<Conductor> conductor,
+                                                       std::shared_ptr<PeerFactory> peer_factory,
                                                        net::io_context &ioc) {
-    return std::make_shared<LiveKitService>(config, conductor, ioc);
+    return std::make_shared<LiveKitService>(config, peer_factory, ioc);
 }
 
 std::string LiveKitService::UrlEncode(const std::string &value) {
@@ -44,9 +44,9 @@ std::string LiveKitService::BuildWebSocketTarget(const std::string &basePath,
     return target.str();
 }
 
-LiveKitService::LiveKitService(LiveKitConfig config, std::shared_ptr<Conductor> conductor,
+LiveKitService::LiveKitService(LiveKitConfig config, std::shared_ptr<PeerFactory> peer_factory,
                                net::io_context &ioc)
-    : conductor_(conductor),
+    : peer_factory_(peer_factory),
       config_(config),
       ssl_ctx_(ssl::context::tls_client),
       ws_(InitWebSocket(ioc)),
@@ -217,8 +217,8 @@ void LiveKitService::OnMessage(const std::string &req) {
     std::string message = jsonObj["message"];
 
     if (action == "join") {
-        if (!conductor_) {
-            ERROR_PRINT("Conductor is not initialized.");
+        if (!peer_factory_) {
+            ERROR_PRINT("The peer factory is not initialized.");
             return;
         }
 
@@ -234,7 +234,7 @@ void LiveKitService::OnMessage(const std::string &req) {
 
         // SFU peers are a fixed publisher/subscriber pair held by this service directly, so
         // they are not registered anywhere.
-        pub_peer_ = conductor_->CreatePeerConnection(config);
+        pub_peer_ = peer_factory_->CreatePeerConnection(config);
         if (pub_peer_) {
             pub_peer_->OnLocalSdp([this](const std::string &peer_id, const std::string &sdp,
                                          const std::string &type) {
@@ -247,7 +247,7 @@ void LiveKitService::OnMessage(const std::string &req) {
         }
 
         config.is_publisher = false;
-        sub_peer_ = conductor_->CreatePeerConnection(config);
+        sub_peer_ = peer_factory_->CreatePeerConnection(config);
         if (sub_peer_) {
             sub_peer_->OnLocalSdp([this](const std::string &peer_id, const std::string &sdp,
                                          const std::string &type) {

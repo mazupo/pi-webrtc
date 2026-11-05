@@ -12,12 +12,12 @@
 #include "common/logging.h"
 
 std::shared_ptr<MqttService> MqttService::Create(MqttConfig config,
-                                                 std::shared_ptr<Conductor> conductor) {
-    return std::make_shared<MqttService>(config, conductor);
+                                                 std::shared_ptr<PeerFactory> peer_factory) {
+    return std::make_shared<MqttService>(config, peer_factory);
 }
 
-MqttService::MqttService(MqttConfig config, std::shared_ptr<Conductor> conductor)
-    : conductor_(conductor),
+MqttService::MqttService(MqttConfig config, std::shared_ptr<PeerFactory> peer_factory)
+    : peer_factory_(peer_factory),
       port_(config.port),
       uid_(config.uid),
       hostname_(config.host),
@@ -32,12 +32,12 @@ MqttService::MqttService(MqttConfig config, std::shared_ptr<Conductor> conductor
 MqttService::~MqttService() { Disconnect(); }
 
 webrtc::scoped_refptr<RtcPeer> MqttService::CreatePeer(PeerConfig config) {
-    if (!conductor_) {
-        ERROR_PRINT("Conductor is not initialized.");
+    if (!peer_factory_) {
+        ERROR_PRINT("The peer factory is not initialized.");
         return nullptr;
     }
 
-    auto peer = conductor_->CreatePeerConnection(config);
+    auto peer = peer_factory_->CreatePeerConnection(config);
     peer_registry_.Add(peer);
     return peer;
 }
@@ -271,7 +271,7 @@ void MqttService::OnMessage(struct mosquitto *mosq, void *obj,
         bool has_media = (payload.find("m=video") != std::string::npos ||
                           payload.find("m=audio") != std::string::npos);
         if (has_media) {
-            conductor_->EnsureTracksAdded(peer);
+            peer_factory_->EnsureTracksAdded(peer);
         }
         OnRemoteSdp(peer->id(), payload);
     } else if (topic_type == TopicType::Answer) {

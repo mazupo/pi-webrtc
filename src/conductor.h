@@ -17,23 +17,23 @@
 #include "ipc/endpoint_registry.h"
 #include "recorder/recorder_manager.h"
 #include "rtc/audio_device_bridge.h"
+#include "rtc/peer_factory.h"
 #include "rtc/rtc_peer.h"
 #include "track/scale_track_source.h"
 
-class Conductor {
+class Conductor : public PeerFactory {
   public:
     static std::shared_ptr<Conductor> Create(AppConfig args);
 
     Conductor(AppConfig args);
-    ~Conductor();
+    ~Conductor() override;
 
     AppConfig config() const;
-    webrtc::scoped_refptr<RtcPeer> CreatePeerConnection(PeerConfig peer_config);
-    std::optional<std::string> ResolveWebrtcAlias(const std::string &requested) const;
+    webrtc::scoped_refptr<RtcPeer> CreatePeerConnection(PeerConfig peer_config) override;
+    std::optional<std::string> ResolveWebrtcAlias(const std::string &requested) const override;
     std::shared_ptr<AudioCapturer> AudioSource() const;
     std::shared_ptr<VideoCapturer> VideoSource() const;
-    std::shared_ptr<EndpointRegistry> IpcEndpoints() const;
-    void EnsureTracksAdded(webrtc::scoped_refptr<RtcPeer> peer);
+    void EnsureTracksAdded(webrtc::scoped_refptr<RtcPeer> peer) override;
     void SetOnDemandRecorder(std::shared_ptr<RecorderManager> recorder);
 
   private:
