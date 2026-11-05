@@ -1,7 +1,7 @@
 #include "codecs/jetson/jetson_decoder.h"
 #include "common/latency_tracer.h"
 #include "common/logging.h"
-#include "common/v4l2_utils.h"
+#include "common/v4l2_buffer.h"
 
 #include <algorithm>
 #include <cstring>

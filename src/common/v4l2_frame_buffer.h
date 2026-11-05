@@ -1,7 +1,7 @@
 #ifndef COMMON_V4L2_FRAME_BUFFER_H_
 #define COMMON_V4L2_FRAME_BUFFER_H_
 
-#include "common/v4l2_utils.h"
+#include "common/v4l2_buffer.h"
 
 #include <cstdint>
 #include <linux/videodev2.h>

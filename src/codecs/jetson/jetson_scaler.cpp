@@ -4,7 +4,7 @@
 
 #include "common/latency_tracer.h"
 #include "common/logging.h"
-#include "common/v4l2_utils.h"
+#include "common/v4l2_buffer.h"
 
 std::unique_ptr<JetsonScaler> JetsonScaler::Create(ScalerConfig config) {
     auto scaler = std::make_unique<JetsonScaler>(config);
