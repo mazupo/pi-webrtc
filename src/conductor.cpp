@@ -1,4 +1,4 @@
-#include "rtc/conductor.h"
+#include "conductor.h"
 
 #include <api/audio/builtin_audio_processing_builder.h>
 #include <api/audio_codecs/builtin_audio_decoder_factory.h>
@@ -69,13 +69,9 @@ Conductor::~Conductor() {
     webrtc::CleanupSSL();
 }
 
-AppConfig Conductor::config() const { return args; }
-
 std::shared_ptr<AudioCapturer> Conductor::AudioSource() const { return audio_capture_source_; }
 
 std::shared_ptr<VideoCapturer> Conductor::VideoSource() const { return video_capture_source_; }
-
-std::shared_ptr<EndpointRegistry> Conductor::IpcEndpoints() const { return endpoint_registry_; }
 
 void Conductor::InitializeTracks() {
     if (!audio_track_ && !args.no_audio) {
@@ -252,6 +248,7 @@ webrtc::scoped_refptr<RtcPeer> Conductor::CreatePeerConnection(PeerConfig config
     }
 
     peer->SetPeer(result.MoveValue());
+    peer->SetEndpointRegistry(endpoint_registry_); // null unless --enable-ipc
     ApplyBitrateSettings(peer->GetPeer());
 
     if (!config.no_data_channels) {
@@ -276,8 +273,6 @@ std::optional<std::string> Conductor::ResolveWebrtcAlias(const std::string &requ
 }
 
 void Conductor::InitializeDataChannels(webrtc::scoped_refptr<RtcPeer> peer) {
-    peer->SetEndpointRegistry(endpoint_registry_);
-
     if (peer->is_sfu_peer() && !peer->is_publisher()) {
         // A LiveKit subscriber peer opens via onDataChannel.
         return;

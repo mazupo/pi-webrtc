@@ -9,7 +9,7 @@
 #include <boost/asio.hpp>
 
 #include "proto/cloudflare.pb.h"
-#include "rtc/conductor.h"
+#include "rtc/peer_factory.h"
 #include "signaling/signaling_config.h"
 #include "signaling/signaling_service.h"
 #include "signaling/websocket_client.h"
@@ -21,9 +21,9 @@ class CloudflareService : public SignalingService,
                           public std::enable_shared_from_this<CloudflareService> {
   public:
     static std::shared_ptr<CloudflareService> Create(CloudflareConfig config,
-                                                     std::shared_ptr<Conductor> conductor,
+                                                     std::shared_ptr<PeerFactory> peer_factory,
                                                      boost::asio::io_context &ioc);
-    CloudflareService(CloudflareConfig config, std::shared_ptr<Conductor> conductor,
+    CloudflareService(CloudflareConfig config, std::shared_ptr<PeerFactory> peer_factory,
                       boost::asio::io_context &ioc);
     ~CloudflareService() override;
 
@@ -31,7 +31,7 @@ class CloudflareService : public SignalingService,
     void Disconnect() override;
 
   private:
-    std::shared_ptr<Conductor> conductor_;
+    std::shared_ptr<PeerFactory> peer_factory_;
     CloudflareConfig config_;
     boost::asio::io_context &ioc_;
     boost::asio::steady_timer reconnect_timer_, health_timer_, retry_timer_;

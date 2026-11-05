@@ -11,8 +11,7 @@ import sys
 LAYERS = [
     ["root"],  # main, parser, config.h: the composition layer
     ["signaling"],
-    ["rtc"],
-    ["recorder", "track"],
+    ["recorder", "rtc", "track"],
     ["capturer", "ipc", "player"],
     ["codecs"],
     ["v4l2"],
@@ -20,9 +19,7 @@ LAYERS = [
 ]
 
 # (file, included file) pairs allowed to break the layers. Remove each once it is fixed.
-EXCEPTIONS = {
-    ("rtc/conductor.h", "config.h"),  # until Conductor moves to src/
-}
+EXCEPTIONS = set()
 
 SRC = os.path.normpath(os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "src"))
 SOURCE_EXTS = (".h", ".hpp", ".cpp", ".cc", ".cu")
