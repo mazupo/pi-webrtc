@@ -8,7 +8,6 @@ set(COMMON_FILES
     ${PROJECT_SOURCE_DIR}/latency_tracer.cpp
     ${PROJECT_SOURCE_DIR}/v4l2_frame_buffer.cpp
     ${PROJECT_SOURCE_DIR}/utils.cpp
-    ${PROJECT_SOURCE_DIR}/v4l2_utils.cpp
     ${PROJECT_SOURCE_DIR}/worker.cpp
 )
 
