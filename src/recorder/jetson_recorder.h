@@ -1,5 +1,5 @@
-#ifndef V4L2_H264_RECORDER_H_
-#define V4L2_H264_RECORDER_H_
+#ifndef JETSON_RECORDER_H_
+#define JETSON_RECORDER_H_
 
 #include "codecs/jetson/jetson_encoder.h"
 #include "recorder/video_recorder.h"
