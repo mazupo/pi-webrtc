@@ -20,8 +20,8 @@ V4L2DmaTrackSource::V4L2DmaTrackSource(std::shared_ptr<FrameSource> source, int 
                                        bool no_adaptive)
     : ScaleTrackSource(source, stream_idx, no_adaptive),
       is_dma_src_(source->is_dma_capture()),
-      config_width_(source->width()),
-      config_height_(source->height()) {}
+      config_width_(width),
+      config_height_(height) {}
 
 V4L2DmaTrackSource::~V4L2DmaTrackSource() { scaler.reset(); }
 
