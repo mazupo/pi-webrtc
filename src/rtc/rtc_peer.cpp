@@ -288,6 +288,12 @@ void RtcPeer::OnSignalingChange(webrtc::PeerConnectionInterface::SignalingState 
 void RtcPeer::OnDataChannel(webrtc::scoped_refptr<webrtc::DataChannelInterface> channel) {
     DEBUG_PRINT("On remote DataChannel => %s", channel->label().c_str());
 
+    // WHEP carries no DataChannel.
+    if (backend_ == SignalingBackend::Whep) {
+        DEBUG_PRINT("Ignoring remote DataChannel on a WHEP peer => %s", channel->label().c_str());
+        return;
+    }
+
     auto role = RoleFromLabel(channel->label());
     if (!role) {
         DEBUG_PRINT("Ignoring remote DataChannel with unknown label => %s",
