@@ -32,11 +32,11 @@ ScaleTrackSource::Create(std::shared_ptr<FrameSource> source, int stream_idx, bo
 
 ScaleTrackSource::ScaleTrackSource(std::shared_ptr<FrameSource> source, int stream_idx,
                                    bool no_adaptive)
-    : width(source->width()),
-      height(source->height()),
+    : source(source),
       stream_idx(stream_idx),
       no_adaptive(no_adaptive),
-      source(source) {}
+      width(source->width(stream_idx)),
+      height(source->height(stream_idx)) {}
 
 ScaleTrackSource::~ScaleTrackSource() {
     // todo: tell capture unsubscribe observer.

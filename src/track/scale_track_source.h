@@ -20,11 +20,11 @@ class ScaleTrackSource : public webrtc::AdaptedVideoTrackSource {
     virtual void StartTrack();
 
   protected:
-    int width;
-    int height;
+    std::shared_ptr<FrameSource> source;
     int stream_idx;
     bool no_adaptive;
-    std::shared_ptr<FrameSource> source;
+    int width;
+    int height;
     webrtc::TimestampAligner timestamp_aligner;
 
   private:
