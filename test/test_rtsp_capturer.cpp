@@ -29,12 +29,14 @@ int main(int argc, char *argv[]) {
     int report_every = std::max(capturer->fps(), 1);
     std::atomic<int> frames{0};
     std::atomic<std::chrono::steady_clock::rep> first_frame{0};
+    std::atomic<bool> dma_frames{false};
 
     {
         auto subscription = capturer->Subscribe([&](V4L2FrameBufferRef frame_buffer) {
             int n = ++frames;
             if (n == 1) {
                 first_frame = std::chrono::steady_clock::now().time_since_epoch().count();
+                dma_frames = frame_buffer->GetDmaFd() >= 0;
             }
             if (n % report_every != 1) {
                 return;
@@ -59,8 +61,8 @@ int main(int argc, char *argv[]) {
         std::chrono::steady_clock::duration(first_frame.load()));
     double elapsed =
         std::chrono::duration<double>(std::chrono::steady_clock::now() - start).count();
-    printf("%dx%d: %d frames in %.1f s after the first one (%.1f fps), hardware decoder: %s\n",
+    printf("%dx%d: %d frames in %.1f s after the first one (%.1f fps), dma frames: %s\n",
            capturer->width(), capturer->height(), frames.load(), elapsed, (frames - 1) / elapsed,
-           capturer->is_dma_capture() ? "yes" : "no");
+           dma_frames ? "yes" : "no");
     return 0;
 }

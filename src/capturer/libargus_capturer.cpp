@@ -358,8 +358,6 @@ int LibargusCapturer::height(int stream_idx) const {
     return stream_handlers_[stream_idx]->height();
 }
 
-bool LibargusCapturer::is_dma_capture() const { return true; }
-
 uint32_t LibargusCapturer::format() const { return format_; }
 
 webrtc::scoped_refptr<webrtc::I420BufferInterface> LibargusCapturer::GetI420Frame(int stream_idx) {

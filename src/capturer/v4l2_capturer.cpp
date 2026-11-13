@@ -30,7 +30,6 @@ V4L2Capturer::V4L2Capturer(VideoCaptureConfig config)
       rotation_(config.rotation),
       buffer_count_(4),
       hw_accel_(config.hw_accel),
-      hw_decoder_(false),
       has_first_keyframe_(false),
       dequeue_failures_(0),
       format_(config.format) {}
@@ -45,9 +44,7 @@ V4L2Capturer::~V4L2Capturer() {
 
 void V4L2Capturer::Initialize() {
     if (IsCompressedFormat()) {
-        auto decoder = CreateVideoDecoder({width_, height_, format_, hw_accel_});
-        decoder_ = std::move(decoder.processor);
-        hw_decoder_ = decoder.is_hardware;
+        decoder_ = CreateVideoDecoder({width_, height_, format_, hw_accel_});
     }
     if (format_ == V4L2_PIX_FMT_H264 && !decoder_) {
         ERROR_PRINT("Unable to create a decoder for the H264 camera input.");
@@ -110,8 +107,6 @@ int V4L2Capturer::fps() const { return fps_; }
 int V4L2Capturer::width(int stream_idx) const { return width_; }
 
 int V4L2Capturer::height(int stream_idx) const { return height_; }
-
-bool V4L2Capturer::is_dma_capture() const { return hw_decoder_; }
 
 uint32_t V4L2Capturer::format() const { return format_; }
 

@@ -23,7 +23,6 @@ class V4L2Capturer : public VideoCapturer {
     int fps() const override;
     int width(int stream_idx = 0) const override;
     int height(int stream_idx = 0) const override;
-    bool is_dma_capture() const override;
     uint32_t format() const override;
 
     bool SetControls(int key, int value) override;
@@ -42,7 +41,6 @@ class V4L2Capturer : public VideoCapturer {
     int rotation_;
     int buffer_count_;
     bool hw_accel_;
-    bool hw_decoder_;
     bool has_first_keyframe_;
     int dequeue_failures_;
     uint32_t format_;

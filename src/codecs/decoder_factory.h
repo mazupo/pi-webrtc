@@ -5,13 +5,7 @@
 
 #include "codecs/frame_processor.h"
 
-struct VideoDecoder {
-    std::unique_ptr<FrameProcessor> processor;
-    // True when frames come out of a hardware decoder as DMA buffers.
-    bool is_hardware = false;
-};
-
 // Tries hardware when is_dma_dst is set, then software; MJPEG without is_dma_dst gets none.
-VideoDecoder CreateVideoDecoder(DecoderConfig config);
+std::unique_ptr<FrameProcessor> CreateVideoDecoder(DecoderConfig config);
 
 #endif // DECODER_FACTORY_H_
