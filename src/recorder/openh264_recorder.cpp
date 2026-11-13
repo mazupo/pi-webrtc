@@ -20,12 +20,10 @@ void Openh264Recorder::Encode(V4L2FrameBufferRef frame_buffer) {
         encoder_ = Openh264Encoder::Create(config);
     }
 
-    auto i420_buffer = frame_buffer->ToI420();
-    encoder_->Encode(i420_buffer,
-                     [this, frame_buffer](uint8_t *encoded_buffer, int size, bool is_keyframe) {
-                         uint32_t flags = is_keyframe ? V4L2_BUF_FLAG_KEYFRAME : 0;
-                         OnEncoded(encoded_buffer, size, frame_buffer->timestamp(), flags);
-                     });
+    encoder_->EmplaceBuffer(frame_buffer, [this, frame_buffer](V4L2FrameBufferRef encoded_buffer) {
+        OnEncoded((uint8_t *)encoded_buffer->Data(), encoded_buffer->size(),
+                  frame_buffer->timestamp(), encoded_buffer->flags());
+    });
 }
 
 void Openh264Recorder::ReleaseEncoder() { encoder_.reset(); }
