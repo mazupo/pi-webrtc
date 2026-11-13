@@ -70,7 +70,9 @@ bool JetsonEncoder::CreateVideoEncoder() {
             ORIGINATE_ERROR("Could not disable IVF headers for AV1 codec");
     }
 
-    ret = encoder_->setOutputPlaneFormat(V4L2_PIX_FMT_NV12M, config_.width, config_.height);
+    // DMA frames arrive as NV12; frames in CPU memory are copied in as I420.
+    uint32_t src_pix_fmt = config_.is_dma_src ? V4L2_PIX_FMT_NV12M : V4L2_PIX_FMT_YUV420M;
+    ret = encoder_->setOutputPlaneFormat(src_pix_fmt, config_.width, config_.height);
     if (ret < 0)
         ORIGINATE_ERROR("Could not set output plane format");
 
