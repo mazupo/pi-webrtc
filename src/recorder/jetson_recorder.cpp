@@ -16,7 +16,7 @@ void JetsonRecorder::Encode(V4L2FrameBufferRef frame_buffer) {
             .height = height,
             .fps = fps,
             .bitrate = static_cast<int>(width * height * fps * bpp_factor),
-            .keyframe_interval = 0,
+            .keyframe_interval = fps,
             .idr_interval = fps,
             .is_dma_src = true,
             .dst_pix_fmt = V4L2_PIX_FMT_AV1,

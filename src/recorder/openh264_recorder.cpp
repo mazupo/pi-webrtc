@@ -15,6 +15,7 @@ void Openh264Recorder::Encode(V4L2FrameBufferRef frame_buffer) {
             .fps = fps,
             .bitrate = static_cast<int>(width * height * fps * 0.1),
             .keyframe_interval = fps,
+            .idr_interval = fps,
             .rc_mode = V4L2_MPEG_VIDEO_BITRATE_MODE_VBR,
         };
         encoder_ = Openh264Encoder::Create(config);
