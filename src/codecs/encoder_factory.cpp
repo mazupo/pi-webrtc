@@ -13,13 +13,16 @@
 #include <modules/video_coding/codecs/vp8/vp8_scalability.h>
 #include <modules/video_coding/codecs/vp9/include/vp9.h>
 
+#include "codecs/h264/openh264_encoder.h"
 #include "codecs/h264/openh264_video_encoder.h"
 #include "codecs/tracing_video_encoder.h"
 #include "common/latency_tracer.h"
 #include "common/logging.h"
 #if defined(USE_RPI_HW_ENCODER)
+#include "codecs/v4l2/v4l2_encoder.h"
 #include "codecs/v4l2/v4l2_h264_encoder.h"
 #elif defined(USE_JETSON_HW_ENCODER)
+#include "codecs/jetson/jetson_encoder.h"
 #include "codecs/jetson/jetson_video_encoder.h"
 #endif
 
@@ -46,12 +49,10 @@ class RtcEncoderFactory : public webrtc::VideoEncoderFactory {
 RtcEncoderFactory::RtcEncoderFactory(const RtcEncoderConfig &config)
     : config_(config),
       hw_encoder_(config.hw_accel) {
-#if defined(USE_RPI_HW_ENCODER)
-    if (hw_encoder_ && !V4L2Encoder::IsAvailable()) {
+    if (hw_encoder_ && !IsHwEncoderAvailable()) {
         hw_encoder_ = false;
         WARN_PRINT("No hardware encoder found; WebRTC uses software encoding.");
     }
-#endif
     if (hw_encoder_ && !config_.scalability_mode.empty()) {
         ERROR_PRINT("--scalability-mode is not supported by the hardware encoder.");
         exit(EXIT_FAILURE);
@@ -164,4 +165,34 @@ RtcEncoderFactory::CreateEncoder(const webrtc::Environment &env,
 std::unique_ptr<webrtc::VideoEncoderFactory>
 CreateRtcEncoderFactory(const RtcEncoderConfig &config) {
     return std::make_unique<RtcEncoderFactory>(config);
+}
+
+bool IsHwEncoderAvailable() {
+#if defined(USE_RPI_HW_ENCODER)
+    return V4L2Encoder::IsAvailable();
+#elif defined(USE_JETSON_HW_ENCODER)
+    return true;
+#else
+    return false;
+#endif
+}
+
+uint32_t VideoEncoderFormat(bool use_hw) {
+#if defined(USE_JETSON_HW_ENCODER)
+    if (use_hw) {
+        return V4L2_PIX_FMT_AV1;
+    }
+#endif
+    return V4L2_PIX_FMT_H264;
+}
+
+std::unique_ptr<FrameProcessor> CreateVideoEncoder(EncoderConfig config, bool use_hw) {
+    if (use_hw) {
+#if defined(USE_RPI_HW_ENCODER)
+        return V4L2Encoder::Create(config);
+#elif defined(USE_JETSON_HW_ENCODER)
+        return JetsonEncoder::Create(config);
+#endif
+    }
+    return Openh264Encoder::Create(config);
 }
