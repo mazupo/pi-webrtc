@@ -26,7 +26,6 @@ class V4L2Capturer : public VideoCapturer {
     uint32_t format() const override;
 
     bool SetControls(int key, int value) override;
-    void StartCapture() override;
 
     webrtc::scoped_refptr<webrtc::I420BufferInterface> GetI420Frame(int stream_idx = 0) override;
     Subscription Subscribe(Subject<V4L2FrameBufferRef>::Callback callback,
@@ -53,6 +52,7 @@ class V4L2Capturer : public VideoCapturer {
     Subject<V4L2FrameBufferRef> stream_subject_;
 
     void Initialize();
+    void StartCapture() override;
     bool IsCompressedFormat() const;
     void CaptureImage();
     void SetFrameBuffer(V4L2FrameBufferRef frame_buffer);

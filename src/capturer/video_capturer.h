@@ -3,11 +3,13 @@
 
 #include "capturer/frame_source.h"
 
-// A frame source backed by a camera or stream, which can be started and controlled.
+// A frame source backed by a camera or stream; it starts on creation and can be controlled.
 class VideoCapturer : public FrameSource {
   public:
-    virtual void StartCapture() = 0;
     virtual bool SetControls(int key, int value) { return false; };
+
+  protected:
+    virtual void StartCapture() = 0;
 };
 
 #endif

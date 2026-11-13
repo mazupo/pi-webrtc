@@ -28,7 +28,6 @@ class RtspCapturer : public VideoCapturer {
     int width(int stream_idx = 0) const override;
     int height(int stream_idx = 0) const override;
     uint32_t format() const override;
-    void StartCapture() override;
 
     webrtc::scoped_refptr<webrtc::I420BufferInterface> GetI420Frame(int stream_idx = 0) override;
     Subscription Subscribe(Subject<V4L2FrameBufferRef>::Callback callback,
@@ -61,6 +60,7 @@ class RtspCapturer : public VideoCapturer {
     std::unique_ptr<Worker> worker_;
 
     void Initialize();
+    void StartCapture() override;
     bool Open(StreamInfo *info);
     void Close();
     void Reconnect();

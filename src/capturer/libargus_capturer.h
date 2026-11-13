@@ -81,7 +81,6 @@ class LibargusCapturer : public VideoCapturer {
     uint32_t format() const override;
 
     webrtc::scoped_refptr<webrtc::I420BufferInterface> GetI420Frame(int stream_idx = 0) override;
-    void StartCapture() override;
 
     Subscription Subscribe(Subject<V4L2FrameBufferRef>::Callback callback,
                            int stream_idx = 0) override;
@@ -104,6 +103,7 @@ class LibargusCapturer : public VideoCapturer {
 
     void Initialize();
     void InitStreams();
+    void StartCapture() override;
 
     Argus::SensorMode *FindBestSensorMode(int req_width, int req_height, int req_fps);
 };
