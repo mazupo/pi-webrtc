@@ -7,7 +7,7 @@
 
 std::unique_ptr<Openh264Encoder> Openh264Encoder::Create(EncoderConfig config) {
     auto ptr = std::make_unique<Openh264Encoder>(config);
-    if (!ptr->Init()) {
+    if (!ptr->Initialize()) {
         return nullptr;
     }
     return ptr;
@@ -24,7 +24,7 @@ Openh264Encoder::~Openh264Encoder() {
     DEBUG_PRINT("sw h264 encode was released!\n");
 }
 
-bool Openh264Encoder::Init() {
+bool Openh264Encoder::Initialize() {
     int rv = WelsCreateSVCEncoder(&encoder_);
     if (rv != 0) {
         ERROR_PRINT("Failed to create OpenH264 encoder.");
@@ -117,20 +117,20 @@ bool Openh264Encoder::Encode(webrtc::scoped_refptr<webrtc::I420BufferInterface> 
     return rv == cmResultSuccess && info->eFrameType != videoFrameTypeSkip;
 }
 
-bool Openh264Encoder::Encode(webrtc::scoped_refptr<webrtc::I420BufferInterface> frame_buffer,
-                             std::function<void(uint8_t *, int, bool)> on_capture) {
+void Openh264Encoder::EmplaceBuffer(V4L2FrameBufferRef frame_buffer,
+                                    std::function<void(V4L2FrameBufferRef)> on_capture) {
     SFrameBSInfo info;
-    if (!Encode(frame_buffer, &info)) {
-        return false;
+    if (!Encode(frame_buffer->ToI420(), &info)) {
+        return;
     }
 
     encoded_buf_.resize(BitstreamSize(info));
     CopyBitstream(info, encoded_buf_.data());
 
-    bool is_keyframe = (info.eFrameType == videoFrameTypeIDR);
-    on_capture(encoded_buf_.data(), encoded_buf_.size(), is_keyframe);
-
-    return true;
+    uint32_t flags = (info.eFrameType == videoFrameTypeIDR) ? V4L2_BUF_FLAG_KEYFRAME : 0;
+    auto encoded = V4L2Buffer::FromCapturedPlane(encoded_buf_.data(), encoded_buf_.size(), -1,
+                                                 flags, V4L2_PIX_FMT_H264);
+    on_capture(V4L2FrameBuffer::Create(config_.width, config_.height, encoded));
 }
 
 int Openh264Encoder::BitstreamSize(const SFrameBSInfo &info) {
