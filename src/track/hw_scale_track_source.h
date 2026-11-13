@@ -13,7 +13,6 @@ class HwScaleTrackSource : public ScaleTrackSource {
     void StartTrack() override;
 
   private:
-    bool is_dma_src_;
     int config_width_;
     int config_height_;
     Subscription subscription_;
