@@ -1,5 +1,7 @@
 #include "player/pa_player.h"
 
+#include <pulse/error.h>
+
 #include "common/logging.h"
 
 // Server-side buffer target.

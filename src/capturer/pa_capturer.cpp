@@ -3,6 +3,8 @@
 #include <chrono>
 #include <thread>
 
+#include <pulse/error.h>
+
 #include "common/logging.h"
 
 std::shared_ptr<AudioCapturer> PaCapturer::Create(AudioCaptureConfig config) {

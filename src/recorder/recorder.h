@@ -1,8 +1,6 @@
 #ifndef RECORDER_H_
 #define RECORDER_H_
 
-#include <mutex>
-
 extern "C" {
 #include <libavcodec/avcodec.h>
 #include <libavformat/avformat.h>

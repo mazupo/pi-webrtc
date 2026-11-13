@@ -3,7 +3,6 @@
 
 #include <vector>
 
-#include <pulse/error.h>
 #include <pulse/simple.h>
 
 #include "capturer/audio_capturer.h"

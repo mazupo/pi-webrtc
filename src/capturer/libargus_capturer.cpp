@@ -4,6 +4,7 @@
 #include <string>
 
 #include "common/latency_tracer.h"
+#include "common/logging.h"
 
 namespace {
 

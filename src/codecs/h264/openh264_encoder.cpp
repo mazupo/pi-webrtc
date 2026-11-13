@@ -1,6 +1,7 @@
 #include "codecs/h264/openh264_encoder.h"
 
 #include <algorithm>
+#include <cstring>
 
 #include "common/logging.h"
 

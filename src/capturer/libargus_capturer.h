@@ -6,7 +6,6 @@
 
 #include "capturer/capture_config.h"
 #include "capturer/video_capturer.h"
-#include "common/logging.h"
 #include "common/subject.h"
 #include "common/worker.h"
 
