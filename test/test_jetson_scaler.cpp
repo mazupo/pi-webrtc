@@ -4,10 +4,7 @@
 
 #include <chrono>
 #include <condition_variable>
-#include <fcntl.h>
 #include <mutex>
-#include <string>
-#include <unistd.h>
 
 int main(int argc, char *argv[]) {
     std::mutex mtx;

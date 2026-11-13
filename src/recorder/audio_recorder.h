@@ -1,12 +1,10 @@
 #ifndef AUDIO_RECORDER_H_
 #define AUDIO_RECORDER_H_
 
-#include <condition_variable>
 #include <mutex>
 
 extern "C" {
 #include <libavcodec/avcodec.h>
-#include <libavformat/avformat.h>
 #include <libavutil/audio_fifo.h>
 }
 

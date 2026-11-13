@@ -4,12 +4,9 @@
 #include <errno.h>
 #include <linux/videodev2.h>
 #include <string.h>
-#include <sys/mman.h>
 #include <sys/select.h>
 
 // WebRTC
-#include <modules/video_capture/video_capture_factory.h>
-#include <third_party/libyuv/include/libyuv.h>
 
 #include "codecs/decoder_factory.h"
 #include "common/latency_tracer.h"

@@ -3,8 +3,6 @@
 
 #include "codecs/v4l2/v4l2_codec.h"
 
-#include <api/video_codecs/video_encoder.h>
-
 #include "codecs/frame_processor.h"
 
 class V4L2Encoder : public V4L2Codec {

@@ -1,9 +1,6 @@
 #include "recorder/video_recorder.h"
 
-#include <memory>
-
 #include "common/latency_tracer.h"
-#include "common/logging.h"
 
 namespace {
 

@@ -4,7 +4,6 @@
 
 #include "common/latency_tracer.h"
 
-#include <modules/video_coding/include/video_error_codes.h>
 #include <rtc_base/bitrate_tracker.h>
 
 namespace {

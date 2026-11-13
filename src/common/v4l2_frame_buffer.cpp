@@ -7,7 +7,6 @@
 #include <nvbufsurftransform.h>
 #endif
 
-#include <chrono>
 #include <cstring>
 
 namespace {

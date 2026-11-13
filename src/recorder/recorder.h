@@ -1,7 +1,6 @@
 #ifndef RECORDER_H_
 #define RECORDER_H_
 
-#include <condition_variable>
 #include <mutex>
 
 extern "C" {

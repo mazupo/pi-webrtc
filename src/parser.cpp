@@ -1,7 +1,5 @@
 #include "parser.h"
 #include "common/logging.h"
-#include "recorder/recorder_manager.h"
-#include "rtc/rtc_peer.h"
 
 #include <algorithm>
 #include <api/video/video_timing.h>
@@ -9,7 +7,7 @@
 #include <boost/program_options.hpp>
 #include <chrono>
 #include <cstdint>
-#include <iostream>
+#include <linux/videodev2.h>
 #include <sstream>
 #include <stdexcept>
 #include <string>

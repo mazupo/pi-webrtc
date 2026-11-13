@@ -5,9 +5,7 @@
 #include <atomic>
 #include <cstdint>
 #include <cstring>
-#include <fcntl.h>
 #include <functional>
-#include <iostream>
 #include <memory>
 #include <mutex>
 #include <sys/socket.h>
@@ -15,7 +13,6 @@
 #include <thread>
 #include <unistd.h>
 #include <unordered_map>
-#include <vector>
 
 class UnixSocketServer {
   public:

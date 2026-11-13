@@ -15,7 +15,6 @@
 
 #include "ipc/unix_socket_server.h"
 
-#include <arpa/inet.h>
 #include <atomic>
 #include <chrono>
 #include <cstring>

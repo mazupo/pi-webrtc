@@ -2,7 +2,6 @@
 
 #include <condition_variable>
 #include <fcntl.h>
-#include <iostream>
 #include <mutex>
 #include <unistd.h>
 

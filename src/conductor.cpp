@@ -6,17 +6,12 @@
 #include <api/create_modular_peer_connection_factory.h>
 #include <api/enable_media.h>
 #include <api/environment/environment_factory.h>
-#include <api/rtc_event_log/rtc_event_log_factory.h>
-#include <api/task_queue/default_task_queue_factory.h>
 #include <api/transport/bitrate_settings.h>
-#include <api/video_codecs/video_decoder_factory.h>
 #include <api/video_codecs/video_decoder_factory_template.h>
 #include <api/video_codecs/video_decoder_factory_template_dav1d_adapter.h>
 #include <api/video_codecs/video_decoder_factory_template_libvpx_vp8_adapter.h>
 #include <api/video_codecs/video_decoder_factory_template_libvpx_vp9_adapter.h>
 #include <api/video_codecs/video_decoder_factory_template_open_h264_adapter.h>
-#include <media/engine/webrtc_media_engine.h>
-#include <modules/audio_processing/include/audio_processing.h>
 #include <rtc_base/ssl_adapter.h>
 
 #if defined(USE_LIBCAMERA_CAPTURE)

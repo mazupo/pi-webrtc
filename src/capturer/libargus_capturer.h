@@ -12,8 +12,6 @@
 #include <Argus/Argus.h>
 #include <Argus/BufferStream.h>
 #include <Argus/EGLImage.h>
-#include <Argus/Ext/DolWdrSensorMode.h>
-#include <Argus/Ext/PwlWdrSensorMode.h>
 #include <Argus/Stream.h>
 #include <EGL/egl.h>
 #include <nvbufsurface.h>
