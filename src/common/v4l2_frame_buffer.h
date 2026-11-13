@@ -5,11 +5,9 @@
 
 #include <cstdint>
 #include <linux/videodev2.h>
-#include <vector>
 
 #include <api/video/i420_buffer.h>
 #include <api/video/video_frame.h>
-#include <common_video/include/video_frame_buffer.h>
 #include <rtc_base/memory/aligned_malloc.h>
 
 class V4L2FrameBuffer : public webrtc::VideoFrameBuffer {

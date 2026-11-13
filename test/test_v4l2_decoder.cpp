@@ -2,10 +2,8 @@
 #include "codecs/v4l2/v4l2_decoder.h"
 
 #include <condition_variable>
-#include <fcntl.h>
 #include <mutex>
 #include <string>
-#include <unistd.h>
 
 void WriteYuvImage(void *start, int length, int index) {
     std::string filename = "img" + std::to_string(index) + ".yuv";

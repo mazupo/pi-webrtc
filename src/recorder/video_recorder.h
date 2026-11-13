@@ -6,7 +6,6 @@
 
 extern "C" {
 #include <libavcodec/avcodec.h>
-#include <libavformat/avformat.h>
 }
 
 #include "common/thread_safe_queue.h"

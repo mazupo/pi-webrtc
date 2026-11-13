@@ -5,13 +5,11 @@
 #include <vector>
 
 #include <libcamera/libcamera.h>
-#include <modules/video_capture/video_capture.h>
 
 #include "capturer/capture_config.h"
 #include "capturer/video_capturer.h"
 #include "common/subject.h"
 #include "common/v4l2_frame_buffer.h"
-#include "common/worker.h"
 
 class LibcameraCapturer : public VideoCapturer {
   public:

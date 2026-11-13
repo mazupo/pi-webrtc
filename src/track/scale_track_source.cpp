@@ -5,7 +5,6 @@
 
 // WebRTC
 #include <api/video/i420_buffer.h>
-#include <third_party/libyuv/include/libyuv.h>
 
 static const int kBufferAlignment = 64;
 

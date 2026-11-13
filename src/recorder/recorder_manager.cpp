@@ -4,7 +4,6 @@
 #include <condition_variable>
 #include <csignal>
 #include <filesystem>
-#include <future>
 #include <mutex>
 #include <sstream>
 #include <sys/statvfs.h>

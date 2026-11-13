@@ -4,7 +4,6 @@
 #include <algorithm>
 #include <cstring>
 #include <sys/ioctl.h>
-#include <thread>
 
 namespace {
 

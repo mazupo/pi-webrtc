@@ -1,13 +1,7 @@
 #include "signaling/mqtt_service.h"
 
-#include <functional>
-#include <future>
-#include <iostream>
-#include <map>
 #include <mqtt_protocol.h>
 #include <nlohmann/json.hpp>
-#include <sstream>
-#include <unistd.h>
 
 #include "common/logging.h"
 

@@ -2,10 +2,7 @@
 
 #include <chrono>
 #include <condition_variable>
-#include <fcntl.h>
 #include <mutex>
-#include <string>
-#include <unistd.h>
 
 int main() {
     std::mutex mtx;

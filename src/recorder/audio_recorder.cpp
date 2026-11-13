@@ -1,6 +1,8 @@
 #include "recorder/audio_recorder.h"
 #include "common/logging.h"
 
+#include <thread>
+
 std::unique_ptr<AudioRecorder> AudioRecorder::Create(int sample_rate) {
     auto ptr = std::make_unique<AudioRecorder>(sample_rate);
     ptr->InitializeFifoBuffer();

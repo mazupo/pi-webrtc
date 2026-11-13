@@ -7,7 +7,6 @@
 // WebRTC
 #include <api/video/video_timing.h>
 #include <api/video_codecs/video_encoder.h>
-#include <modules/video_coding/codecs/h264/include/h264.h>
 
 #include "codecs/rtc_encoder_config.h"
 #include "codecs/v4l2/v4l2_encoder.h"

@@ -1,9 +1,6 @@
 #ifndef CONDUCTOR_H_
 #define CONDUCTOR_H_
 
-#include <condition_variable>
-#include <functional>
-#include <iostream>
 #include <memory>
 #include <optional>
 #include <string>
