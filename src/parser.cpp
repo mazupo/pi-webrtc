@@ -55,29 +55,29 @@ static const std::unordered_map<std::string, int> stream_source_table = {
 
 #if defined(USE_LIBCAMERA_CAPTURE)
 static const std::unordered_map<std::string, int> ae_metering_table = {
-    {"centre", libcamera::controls::MeteringCentreWeighted},
-    {"spot", libcamera::controls::MeteringSpot},
-    {"average", libcamera::controls::MeteringMatrix},
-    {"matrix", libcamera::controls::MeteringMatrix},
-    {"custom", libcamera::controls::MeteringCustom}};
+    {"centre", libcamera::controls::AeMeteringModeCentreWeighted},
+    {"spot", libcamera::controls::AeMeteringModeSpot},
+    {"average", libcamera::controls::AeMeteringModeMatrix},
+    {"matrix", libcamera::controls::AeMeteringModeMatrix},
+    {"custom", libcamera::controls::AeMeteringModeCustom}};
 
 static const std::unordered_map<std::string, int> exposure_table = {
-    {"normal", libcamera::controls::ExposureNormal},
-    {"sport", libcamera::controls::ExposureShort},
-    {"short", libcamera::controls::ExposureShort},
-    {"long", libcamera::controls::ExposureLong},
-    {"custom", libcamera::controls::ExposureCustom}};
+    {"normal", libcamera::controls::AeExposureModeNormal},
+    {"sport", libcamera::controls::AeExposureModeShort},
+    {"short", libcamera::controls::AeExposureModeShort},
+    {"long", libcamera::controls::AeExposureModeLong},
+    {"custom", libcamera::controls::AeExposureModeCustom}};
 
 static const std::unordered_map<std::string, int> awb_table = {
-    {"auto", libcamera::controls::AwbAuto},
-    {"normal", libcamera::controls::AwbAuto},
-    {"incandescent", libcamera::controls::AwbIncandescent},
-    {"tungsten", libcamera::controls::AwbTungsten},
-    {"fluorescent", libcamera::controls::AwbFluorescent},
-    {"indoor", libcamera::controls::AwbIndoor},
-    {"daylight", libcamera::controls::AwbDaylight},
-    {"cloudy", libcamera::controls::AwbCloudy},
-    {"custom", libcamera::controls::AwbCustom}};
+    {"auto", libcamera::controls::AwbModeAuto},
+    {"normal", libcamera::controls::AwbModeAuto},
+    {"incandescent", libcamera::controls::AwbModeIncandescent},
+    {"tungsten", libcamera::controls::AwbModeTungsten},
+    {"fluorescent", libcamera::controls::AwbModeFluorescent},
+    {"indoor", libcamera::controls::AwbModeIndoor},
+    {"daylight", libcamera::controls::AwbModeDaylight},
+    {"cloudy", libcamera::controls::AwbModeCloudy},
+    {"custom", libcamera::controls::AwbModeCustom}};
 
 static const std::unordered_map<std::string, int> denoise_table = {
     {"auto", libcamera::controls::draft::NoiseReductionModeFast},
