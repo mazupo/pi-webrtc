@@ -25,7 +25,6 @@ class LibcameraCapturer : public VideoCapturer {
     uint32_t format() const override;
 
     bool SetControls(int key, int value) override;
-    void StartCapture() override;
 
     webrtc::scoped_refptr<webrtc::I420BufferInterface> GetI420Frame(int stream_idx = 0) override;
     Subscription Subscribe(Subject<V4L2FrameBufferRef>::Callback callback,
@@ -68,6 +67,7 @@ class LibcameraCapturer : public VideoCapturer {
     void InitCamera();
     void InitControls(CameraControls requested);
     void AllocateBuffer();
+    void StartCapture() override;
     void RequestComplete(libcamera::Request *request);
 };
 
