@@ -19,7 +19,6 @@ HwScaleTrackSource::Create(std::shared_ptr<FrameSource> source, int stream_idx, 
 HwScaleTrackSource::HwScaleTrackSource(std::shared_ptr<FrameSource> source, int stream_idx,
                                        bool no_adaptive)
     : ScaleTrackSource(source, stream_idx, no_adaptive),
-      is_dma_src_(source->is_dma_capture()),
       config_width_(width),
       config_height_(height) {}
 
@@ -96,7 +95,7 @@ void HwScaleTrackSource::OnFrameCaptured(V4L2FrameBufferRef frame_buffer) {
             config_width_ = adapted_width;
             config_height_ = adapted_height;
             scaler = CreateHwScaler({width, height, config_width_, config_height_,
-                                     frame_buffer->format(), is_dma_src_, true,
+                                     frame_buffer->format(), frame_buffer->GetDmaFd() > 0, true,
                                      frame_buffer->plane_height()});
             DEBUG_PRINT("New scaler is set: %dx%d -> %dx%d", width, height, config_width_,
                         config_height_);
