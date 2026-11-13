@@ -1,31 +1,31 @@
-#include "track/v4l2dma_track_source.h"
+#include "track/hw_scale_track_source.h"
 
 #include "codecs/scaler_factory.h"
 #include "common/latency_tracer.h"
 #include "common/logging.h"
 
-webrtc::scoped_refptr<V4L2DmaTrackSource>
-V4L2DmaTrackSource::Create(std::shared_ptr<FrameSource> source, int stream_idx, bool no_adaptive) {
+webrtc::scoped_refptr<HwScaleTrackSource>
+HwScaleTrackSource::Create(std::shared_ptr<FrameSource> source, int stream_idx, bool no_adaptive) {
     if (!IsHwScalerAvailable()) {
         WARN_PRINT("No hardware scaler found; scaling frames in software.");
         return nullptr;
     }
     auto obj =
-        webrtc::make_ref_counted<V4L2DmaTrackSource>(std::move(source), stream_idx, no_adaptive);
+        webrtc::make_ref_counted<HwScaleTrackSource>(std::move(source), stream_idx, no_adaptive);
     obj->StartTrack();
     return obj;
 }
 
-V4L2DmaTrackSource::V4L2DmaTrackSource(std::shared_ptr<FrameSource> source, int stream_idx,
+HwScaleTrackSource::HwScaleTrackSource(std::shared_ptr<FrameSource> source, int stream_idx,
                                        bool no_adaptive)
     : ScaleTrackSource(source, stream_idx, no_adaptive),
       is_dma_src_(source->is_dma_capture()),
       config_width_(width),
       config_height_(height) {}
 
-V4L2DmaTrackSource::~V4L2DmaTrackSource() { scaler.reset(); }
+HwScaleTrackSource::~HwScaleTrackSource() { scaler.reset(); }
 
-void V4L2DmaTrackSource::StartTrack() {
+void HwScaleTrackSource::StartTrack() {
     subscription_ = source->Subscribe(
         [this](V4L2FrameBufferRef frame_buffer) {
             OnFrameCaptured(frame_buffer);
@@ -33,7 +33,7 @@ void V4L2DmaTrackSource::StartTrack() {
         stream_idx);
 }
 
-void V4L2DmaTrackSource::OnFrameCaptured(V4L2FrameBufferRef frame_buffer) {
+void HwScaleTrackSource::OnFrameCaptured(V4L2FrameBufferRef frame_buffer) {
     const int64_t timestamp_us = webrtc::TimeMicros();
     const int64_t translated_timestamp_us =
         timestamp_aligner.TranslateTimestamp(timestamp_us, webrtc::TimeMicros());

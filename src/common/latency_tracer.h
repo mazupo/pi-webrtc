@@ -17,7 +17,7 @@ namespace latency {
 // budget. The rest are per-stage costs, useful for attributing whichever cumulative step jumps.
 enum class Stage : int {
     kSensorToCapture = 0, // exposure done -> capture callback (ISP + driver + kernel -> userspace)
-    kSensorToTrackIn,     // -> ScaleTrackSource/V4L2DmaTrackSource::OnFrameCaptured entry
+    kSensorToTrackIn,     // -> ScaleTrackSource/HwScaleTrackSource::OnFrameCaptured entry
     kSensorToOnFrame,     // -> handed to WebRTC via OnFrame(), after any scale/transform
     kSensorToEncodeIn,    // -> VideoEncoder::Encode() entry, i.e. after the encoder queue wait
     kSensorToEncoded,     // -> the encoded frame comes back out of the encoder

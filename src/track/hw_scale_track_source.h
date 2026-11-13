@@ -1,15 +1,15 @@
-#ifndef V4L2DMA_TRACK_SOURCE_H_
-#define V4L2DMA_TRACK_SOURCE_H_
+#ifndef HW_SCALE_TRACK_SOURCE_H_
+#define HW_SCALE_TRACK_SOURCE_H_
 
 #include "codecs/frame_processor.h"
 #include "track/scale_track_source.h"
 
-class V4L2DmaTrackSource : public ScaleTrackSource {
+class HwScaleTrackSource : public ScaleTrackSource {
   public:
-    static webrtc::scoped_refptr<V4L2DmaTrackSource> Create(std::shared_ptr<FrameSource> source,
+    static webrtc::scoped_refptr<HwScaleTrackSource> Create(std::shared_ptr<FrameSource> source,
                                                             int stream_idx, bool no_adaptive);
-    V4L2DmaTrackSource(std::shared_ptr<FrameSource> source, int stream_idx, bool no_adaptive);
-    ~V4L2DmaTrackSource();
+    HwScaleTrackSource(std::shared_ptr<FrameSource> source, int stream_idx, bool no_adaptive);
+    ~HwScaleTrackSource();
     void StartTrack() override;
 
   private:

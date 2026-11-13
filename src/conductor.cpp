@@ -34,7 +34,7 @@
 #include "ipc/gamepad_endpoint.h"
 #include "ipc/ipc_endpoint.h"
 #include "recorder/media_query.h"
-#include "track/v4l2dma_track_source.h"
+#include "track/hw_scale_track_source.h"
 
 std::shared_ptr<Conductor> Conductor::Create(AppConfig args) {
     auto ptr = std::make_shared<Conductor>(args);
@@ -126,7 +126,7 @@ void Conductor::InitializeTracks() {
 
         video_track_source_ = ([this]() -> webrtc::scoped_refptr<ScaleTrackSource> {
             if (args.hw_accel) {
-                if (auto source = V4L2DmaTrackSource::Create(
+                if (auto source = HwScaleTrackSource::Create(
                         video_capture_source_, args.live_stream_idx, args.encoder.no_adaptive)) {
                     return source;
                 }
