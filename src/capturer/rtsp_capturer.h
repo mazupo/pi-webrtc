@@ -27,7 +27,6 @@ class RtspCapturer : public VideoCapturer {
     int fps() const override;
     int width(int stream_idx = 0) const override;
     int height(int stream_idx = 0) const override;
-    bool is_dma_capture() const override;
     uint32_t format() const override;
     void StartCapture() override;
 
@@ -47,7 +46,6 @@ class RtspCapturer : public VideoCapturer {
     VideoCaptureConfig config_;
     std::string url_;
     StreamInfo stream_;
-    bool hw_decoder_;
     bool has_first_keyframe_;
     bool retrying_;
     int stream_index_;

@@ -61,7 +61,6 @@ std::shared_ptr<RtspCapturer> RtspCapturer::Create(VideoCaptureConfig config) {
 RtspCapturer::RtspCapturer(VideoCaptureConfig config)
     : config_(config),
       url_(config.camera),
-      hw_decoder_(false),
       has_first_keyframe_(false),
       retrying_(false),
       stream_index_(-1),
@@ -165,10 +164,8 @@ void RtspCapturer::Close() {
 }
 
 void RtspCapturer::CreateDecoder() {
-    auto decoder =
+    decoder_ =
         CreateVideoDecoder({stream_.width, stream_.height, stream_.format, config_.hw_accel});
-    decoder_ = std::move(decoder.processor);
-    hw_decoder_ = decoder.is_hardware;
     if (!decoder_ && stream_.format != V4L2_PIX_FMT_MJPEG) {
         ERROR_PRINT("Unable to create a decoder for the %s RTSP stream.",
                     v4l2_util::FourccToString(stream_.format).c_str());
@@ -286,8 +283,6 @@ int RtspCapturer::fps() const { return stream_.fps; }
 int RtspCapturer::width(int stream_idx) const { return stream_.width; }
 
 int RtspCapturer::height(int stream_idx) const { return stream_.height; }
-
-bool RtspCapturer::is_dma_capture() const { return hw_decoder_; }
 
 uint32_t RtspCapturer::format() const { return stream_.format; }
 

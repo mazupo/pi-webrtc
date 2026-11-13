@@ -253,8 +253,6 @@ int LibcameraCapturer::height(int stream_idx) const { return StreamAt(stream_idx
 
 bool LibcameraCapturer::has_sub_stream() const { return num_streams_ > 1; }
 
-bool LibcameraCapturer::is_dma_capture() const { return true; }
-
 uint32_t LibcameraCapturer::format() const { return format_; }
 
 bool LibcameraCapturer::SetControls(int key, int value) {

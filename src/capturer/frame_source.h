@@ -15,7 +15,6 @@ class FrameSource {
     virtual int width(int stream_idx = 0) const = 0;
     virtual int height(int stream_idx = 0) const = 0;
     virtual bool has_sub_stream() const { return false; }
-    virtual bool is_dma_capture() const = 0;
     virtual uint32_t format() const = 0;
     virtual webrtc::scoped_refptr<webrtc::I420BufferInterface> GetI420Frame(int stream_idx = 0) = 0;
     virtual Subscription Subscribe(Subject<V4L2FrameBufferRef>::Callback callback,
