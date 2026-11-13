@@ -152,7 +152,7 @@ void LibcameraCapturer::InitControls(CameraControls requested) {
         controls_.set(libcamera::controls::ExposureValue, requested.ev);
     }
 
-    if (controls_.get(libcamera::controls::ExposureTime) && requested.shutter_us) {
+    if (!controls_.get(libcamera::controls::ExposureTime) && requested.shutter_us) {
         controls_.set(libcamera::controls::ExposureTimeMode,
                       libcamera::controls::ExposureTimeModeManual);
         controls_.set(libcamera::controls::ExposureTime, requested.shutter_us);
