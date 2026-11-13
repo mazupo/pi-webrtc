@@ -5,6 +5,7 @@
 #include <api/video/video_timing.h>
 #include <api/video_codecs/scalability_mode_helper.h>
 #include <boost/program_options.hpp>
+#include <cctype>
 #include <chrono>
 #include <cstdint>
 #include <linux/videodev2.h>
