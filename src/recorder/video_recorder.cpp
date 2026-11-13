@@ -38,10 +38,9 @@ void VideoRecorder::OnBuffer(V4L2FrameBufferRef frame_buffer) {
         return;
     }
 
-    // A dma-only frame is passed on by reference: it lives in NVMM and every encoder on that path
-    // reads it through the dma fd, so there is nothing to copy. A mmap-backed one has to be copied
-    // out first, because the driver takes it back as soon as this callback returns.
-    frame_buffer_queue.push(frame_buffer->IsDmaOnly() ? frame_buffer : frame_buffer->Clone());
+    // A frame in CPU memory is copied, because the driver takes it back when this callback
+    // returns. One without lives in NVMM and is passed on by reference.
+    frame_buffer_queue.push(frame_buffer->Data() ? frame_buffer->Clone() : frame_buffer);
 }
 
 void VideoRecorder::OnStart() {
