@@ -4,14 +4,11 @@
 
 #include <atomic>
 #include <cstdint>
-#include <cstring>
 #include <functional>
 #include <memory>
 #include <mutex>
-#include <sys/socket.h>
-#include <sys/un.h>
+#include <string>
 #include <thread>
-#include <unistd.h>
 #include <unordered_map>
 
 class UnixSocketServer {

@@ -1,6 +1,7 @@
 #include "common/v4l2_frame_buffer.h"
 #include "common/logging.h"
 
+#include <api/make_ref_counted.h>
 #include <third_party/libyuv/include/libyuv.h>
 #if defined(USE_LIBARGUS_CAPTURE)
 #include <nvbufsurface.h>

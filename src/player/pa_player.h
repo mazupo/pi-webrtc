@@ -3,7 +3,6 @@
 
 #include <memory>
 
-#include <pulse/error.h>
 #include <pulse/simple.h>
 
 #include "player/audio_player.h"

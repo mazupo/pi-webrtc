@@ -8,7 +8,6 @@
 #include <api/video/video_timing.h>
 #include <api/video_codecs/video_encoder.h>
 #include <common_video/h264/h264_bitstream_parser.h>
-#include <modules/video_coding/codecs/h264/include/h264.h>
 
 #include "codecs/h264/openh264_encoder.h"
 #include "codecs/rtc_encoder_config.h"

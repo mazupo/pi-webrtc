@@ -2,6 +2,7 @@
 #define LIBCAMERA_CAPTURER_H_
 
 #include <array>
+#include <atomic>
 #include <vector>
 
 #include <libcamera/libcamera.h>

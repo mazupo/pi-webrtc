@@ -3,6 +3,7 @@
 
 #include <atomic>
 #include <cstdint>
+#include <mutex>
 
 extern "C" {
 #include <libavcodec/avcodec.h>
