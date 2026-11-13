@@ -161,7 +161,7 @@ webrtc::scoped_refptr<webrtc::I420BufferInterface> V4L2FrameBuffer::ToI420() {
     }
 
 #if defined(USE_LIBARGUS_CAPTURE)
-    if (IsDmaOnly()) {
+    if (buffer_.dmafd > 0) {
         if (NvConvertToI420(buffer_.dmafd, i420_buffer->MutableDataY(), size_, width_, height_) <
             0) {
             ERROR_PRINT("NvConvertToI420 Failed");
@@ -192,8 +192,6 @@ V4L2Buffer V4L2FrameBuffer::GetRawBuffer() { return buffer_; }
 
 const void *V4L2FrameBuffer::Data() const { return data_ ? data_.get() : buffer_.start; }
 
-bool V4L2FrameBuffer::IsDmaOnly() const { return Data() == nullptr && buffer_.dmafd > 0; }
-
 uint8_t *V4L2FrameBuffer::MutableData() {
     if (!data_) {
         throw std::runtime_error(
@@ -204,12 +202,6 @@ uint8_t *V4L2FrameBuffer::MutableData() {
 }
 
 int V4L2FrameBuffer::GetDmaFd() const { return buffer_.dmafd; }
-
-void V4L2FrameBuffer::SetDmaFd(int fd) {
-    if (fd > 0) {
-        buffer_.dmafd = fd;
-    }
-}
 
 void V4L2FrameBuffer::SetTimestamp(timeval timestamp) { timestamp_ = timestamp; }
 
@@ -223,7 +215,6 @@ webrtc::scoped_refptr<V4L2FrameBuffer> V4L2FrameBuffer::Clone() const {
 
     memcpy(clone->MutableData(), Data(), size_);
 
-    clone->SetDmaFd(buffer_.dmafd);
     clone->SetLayout(stride_, plane_height_);
     clone->flags_ = flags_;
     clone->timestamp_ = timestamp_;
