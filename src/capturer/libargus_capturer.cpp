@@ -293,7 +293,7 @@ void StreamHandler::CaptureImage() {
     }
 
     last_frame_buffer_ = frame_buffer;
-    Next(frame_buffer);
+    subject_.Next(frame_buffer);
 
     i_buffer_stream_->releaseBuffer(buffer);
 }

@@ -1,11 +1,13 @@
 #ifndef LIBARGUS_CAPTURER_H_
 #define LIBARGUS_CAPTURER_H_
 
+#include <utility>
 #include <vector>
 
 #include "capturer/capture_config.h"
 #include "capturer/video_capturer.h"
 #include "common/logging.h"
+#include "common/subject.h"
 #include "common/worker.h"
 
 // Jetson Multimedia API
@@ -16,7 +18,7 @@
 #include <EGL/egl.h>
 #include <nvbufsurface.h>
 
-class StreamHandler : public Subject<V4L2FrameBufferRef> {
+class StreamHandler {
   public:
     static constexpr int kBufferCount = 6;
 
@@ -36,6 +38,9 @@ class StreamHandler : public Subject<V4L2FrameBufferRef> {
     Argus::Size2D<uint32_t> GetSize() const { return size_; }
 
     V4L2FrameBufferRef GetFrameBuffer() { return last_frame_buffer_; }
+    Subscription Subscribe(Subject<V4L2FrameBufferRef>::Callback callback) {
+        return subject_.Subscribe(std::move(callback));
+    }
     void SetOutputStream(Argus::OutputStream *stream) { output_stream_ = stream; }
     bool PrepareBuffers();
     void StartCapture();
@@ -59,6 +64,7 @@ class StreamHandler : public Subject<V4L2FrameBufferRef> {
 
     std::vector<std::unique_ptr<CaptureBuffer>> buffers_;
     V4L2FrameBufferRef last_frame_buffer_;
+    Subject<V4L2FrameBufferRef> subject_;
 
     std::unique_ptr<Worker> worker_;
 
