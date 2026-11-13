@@ -17,12 +17,6 @@ extern "C" {
 #include "common/logging.h"
 #include "common/utils.h"
 #include "common/v4l2_frame_buffer.h"
-#include "recorder/openh264_recorder.h"
-#if defined(USE_RPI_HW_ENCODER)
-#include "recorder/v4l2_h264_recorder.h"
-#elif defined(USE_JETSON_HW_ENCODER)
-#include "recorder/jetson_recorder.h"
-#endif
 
 namespace fs = std::filesystem;
 
@@ -205,21 +199,9 @@ void RecorderManager::CreateVideoRecorder(std::shared_ptr<FrameSource> capturer)
     fps = capturer->fps();
     width = capturer->width(config.stream_idx);
     height = capturer->height(config.stream_idx);
-    video_recorder = ([this, capturer]() -> std::unique_ptr<VideoRecorder> {
-        if (config.type == RecordType::Snapshot) {
-            return nullptr;
-        }
-        if (config.hw_accel) {
-#if defined(USE_RPI_HW_ENCODER)
-            if (auto recorder = V4L2H264Recorder::Create(width, height, fps)) {
-                return recorder;
-            }
-#elif defined(USE_JETSON_HW_ENCODER)
-            return JetsonRecorder::Create(width, height, fps);
-#endif
-        }
-        return Openh264Recorder::Create(width, height, fps);
-    })();
+    if (config.type != RecordType::Snapshot) {
+        video_recorder = VideoRecorder::Create(width, height, fps, config.hw_accel);
+    }
 }
 
 void RecorderManager::CreateAudioRecorder(std::shared_ptr<AudioCapturer> audio_src) {

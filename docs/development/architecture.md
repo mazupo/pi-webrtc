@@ -78,9 +78,9 @@ application messages bridged to a local Unix socket.
 `RecorderManager` consumes the same frames the encoder does, so recording resolution is
 unaffected by WebRTC's adaptive scaling. Up to two managers run at once: a background one
 writing continuously to `--record-path`, and an on-demand one that clients start and stop over
-the DataChannel. The concrete recorder depends on the platform — `V4L2H264Recorder`,
-`JetsonRecorder`, or `OpenH264Recorder` encodes the frames the capturer delivers. Audio is
-encoded to AAC by `AudioRecorder` and muxed into the same MP4.
+the DataChannel. `VideoRecorder` encodes the frames the capturer delivers with the encoder the
+codecs factory picks for the platform — the hardware one with `--hw-accel` where the device has
+it, OpenH264 otherwise. Audio is encoded to AAC by `AudioRecorder` and muxed into the same MP4.
 
 See [Recording](../recording/README.md).
 
