@@ -62,8 +62,9 @@ void VideoRecorder::OnBuffer(V4L2FrameBufferRef frame_buffer) {
 void VideoRecorder::OnStart() {
     {
         std::lock_guard<std::mutex> lock(encoder_mtx_);
-        base_time_initialized = false;
+        // The old encoder can still deliver frames until it is gone.
         encoder_.reset();
+        base_time_initialized = false;
     }
     frame_buffer_queue.clear();
 }
