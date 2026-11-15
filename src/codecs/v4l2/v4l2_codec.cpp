@@ -25,14 +25,15 @@ V4L2Codec::V4L2Codec()
 
 V4L2Codec::~V4L2Codec() {
     abort_ = true;
-    worker_.reset();
 
     if (fd_ < 0) {
         return;
     }
 
+    // Stopping the queues wakes the worker from select() instead of waiting out its timeout.
     v4l2_util::StreamOff(fd_, output_.type);
     v4l2_util::StreamOff(fd_, capture_.type);
+    worker_.reset();
 
     v4l2_util::DeallocateBuffer(fd_, &output_);
     v4l2_util::DeallocateBuffer(fd_, &capture_);
