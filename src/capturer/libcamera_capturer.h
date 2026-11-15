@@ -3,6 +3,7 @@
 
 #include <array>
 #include <atomic>
+#include <mutex>
 #include <vector>
 
 #include <libcamera/libcamera.h>
@@ -50,6 +51,7 @@ class LibcameraCapturer : public VideoCapturer {
     int buffer_count_;
     uint32_t format_;
     std::mutex control_mutex_;
+    std::mutex frame_mutex_; // guards StreamState::frame_buffer
     std::atomic<bool> is_controls_updated_;
 
     std::unique_ptr<libcamera::CameraManager> cm_;

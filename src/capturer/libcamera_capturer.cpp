@@ -333,13 +333,17 @@ void LibcameraCapturer::RequestComplete(libcamera::Request *request) {
         tv.tv_usec = (buffer->metadata().timestamp % 1000000000) / 1000;
 
         auto v4l2_buffer = V4L2Buffer::FromLibcamera((uint8_t *)data, length, fd, tv, format_);
-        stream.frame_buffer = V4L2FrameBuffer::Create(stream.width, stream.height, v4l2_buffer);
+        auto frame_buffer = V4L2FrameBuffer::Create(stream.width, stream.height, v4l2_buffer);
+        {
+            std::lock_guard<std::mutex> lock(frame_mutex_);
+            stream.frame_buffer = frame_buffer;
+        }
 
         if (traced && i == 0) {
             latency::RecordCapture(latency::SensorUs(tv), callback_start_us);
         }
 
-        stream.subject.Next(stream.frame_buffer);
+        stream.subject.Next(frame_buffer);
     }
 
     request->reuse(libcamera::Request::ReuseBuffers);
@@ -361,7 +365,13 @@ void LibcameraCapturer::RequestComplete(libcamera::Request *request) {
 }
 
 webrtc::scoped_refptr<webrtc::I420BufferInterface> LibcameraCapturer::GetI420Frame(int stream_idx) {
-    return StreamAt(stream_idx).frame_buffer->ToI420();
+    // Hold a reference: the capture thread replaces the frame while this one converts it.
+    V4L2FrameBufferRef frame_buffer;
+    {
+        std::lock_guard<std::mutex> lock(frame_mutex_);
+        frame_buffer = StreamAt(stream_idx).frame_buffer;
+    }
+    return frame_buffer->ToI420();
 }
 
 Subscription LibcameraCapturer::Subscribe(Subject<V4L2FrameBufferRef>::Callback callback,
