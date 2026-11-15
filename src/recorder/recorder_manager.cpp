@@ -286,11 +286,13 @@ void RecorderManager::WriteIntoFile(AVPacket *pkt) {
         return;
 
     if (!header_written_) {
-        if (!(pkt->flags & AV_PKT_FLAG_KEY)) {
+        AVCodecParameters *codecpar = fmt_ctx->streams[pkt->stream_index]->codecpar;
+
+        // A file with video starts at a video keyframe, which also carries the AV1 extradata.
+        bool is_video = codecpar->codec_type == AVMEDIA_TYPE_VIDEO;
+        if (!(pkt->flags & AV_PKT_FLAG_KEY) || (video_recorder && !is_video)) {
             return;
         }
-
-        AVCodecParameters *codecpar = fmt_ctx->streams[pkt->stream_index]->codecpar;
 
         if (codecpar->codec_id == AV_CODEC_ID_AV1) {
             av_free(codecpar->extradata);
