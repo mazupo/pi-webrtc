@@ -246,7 +246,7 @@ bool StreamHandler::PrepareBuffers() {
         }
     }
 
-    last_frame_buffer_ = WrapBuffer(buffers_[0]->dma_fd, {0, 0});
+    SetFrameBuffer(WrapBuffer(buffers_[0]->dma_fd, {0, 0}));
     return true;
 }
 
@@ -293,7 +293,7 @@ void StreamHandler::CaptureImage() {
         latency::RecordCapture(latency::SensorUs(timestamp), latency::NowUs());
     }
 
-    last_frame_buffer_ = frame_buffer;
+    SetFrameBuffer(frame_buffer);
     subject_.Next(frame_buffer);
 
     i_buffer_stream_->releaseBuffer(buffer);
@@ -339,7 +339,7 @@ StreamHandler::~StreamHandler() {
         i_buffer_stream_->endOfStream();
     }
     worker_.reset();
-    last_frame_buffer_ = nullptr;
+    SetFrameBuffer(nullptr);
     ReleaseBuffers();
 }
 

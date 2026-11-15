@@ -1,6 +1,7 @@
 #ifndef LIBARGUS_CAPTURER_H_
 #define LIBARGUS_CAPTURER_H_
 
+#include <mutex>
 #include <utility>
 #include <vector>
 
@@ -36,7 +37,10 @@ class StreamHandler {
     uint32_t height() const { return size_.height(); }
     Argus::Size2D<uint32_t> GetSize() const { return size_; }
 
-    V4L2FrameBufferRef GetFrameBuffer() { return last_frame_buffer_; }
+    V4L2FrameBufferRef GetFrameBuffer() {
+        std::lock_guard<std::mutex> lock(frame_mutex_);
+        return last_frame_buffer_;
+    }
     Subscription Subscribe(Subject<V4L2FrameBufferRef>::Callback callback) {
         return subject_.Subscribe(std::move(callback));
     }
@@ -62,12 +66,17 @@ class StreamHandler {
     EGLDisplay egl_display_ = EGL_NO_DISPLAY;
 
     std::vector<std::unique_ptr<CaptureBuffer>> buffers_;
+    std::mutex frame_mutex_; // guards last_frame_buffer_
     V4L2FrameBufferRef last_frame_buffer_;
     Subject<V4L2FrameBufferRef> subject_;
 
     std::unique_ptr<Worker> worker_;
 
     V4L2FrameBufferRef WrapBuffer(int dma_fd, timeval timestamp) const;
+    void SetFrameBuffer(V4L2FrameBufferRef frame_buffer) {
+        std::lock_guard<std::mutex> lock(frame_mutex_);
+        last_frame_buffer_ = std::move(frame_buffer);
+    }
     void CaptureImage();
     void ReleaseBuffers();
 };
