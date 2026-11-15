@@ -1,8 +1,11 @@
 #ifndef RECORDER_MANAGER_H_
 #define RECORDER_MANAGER_H_
 
+#include <atomic>
 #include <condition_variable>
+#include <cstdint>
 #include <mutex>
+#include <optional>
 #include <string>
 #include <thread>
 
@@ -42,6 +45,7 @@ class RecorderManager {
     std::unique_ptr<AudioRecorder> audio_recorder;
 
     void CreateVideoRecorder(std::shared_ptr<FrameSource> video_src);
+    void OpenFile();
     void CloseCurrentFile();
     void CreateAudioRecorder(std::shared_ptr<AudioCapturer> audio_src);
     void SubscribeVideoSource(std::shared_ptr<FrameSource> video_src);
@@ -49,22 +53,29 @@ class RecorderManager {
 
   private:
     bool auto_start_;
-    int file_number_ = 0;
     std::atomic<bool> header_written_;
-    std::mutex rotation_mtx_;
-    std::condition_variable rotation_cv_;
-    std::atomic<bool> rotation_abort_;
-    std::atomic<bool> rotation_requested_;
-    std::thread rotation_thread_;
-    struct timeval base_start_time_;
     std::shared_ptr<FrameSource> video_src_;
 
+    // Serializes Start(), Stop() and the rotation thread's file switch.
+    mutable std::mutex file_mtx_;
+    int file_number_ = 0;
+    int64_t base_start_us_ = 0;
     std::string current_filepath_;
+    // Frame time at which the rotation thread opens the next file.
+    std::atomic<int64_t> next_file_due_us_;
+
+    std::mutex rotation_mtx_;
+    std::condition_variable rotation_cv_;
+    bool rotation_abort_ = false;
+    std::optional<int64_t> due_frame_us_; // a frame that reached next_file_due_us_
+    std::thread rotation_thread_;
 
     Subscription audio_subscription_;
     Subscription video_subscription_;
 
     void StartRotationThread();
+    void RequestNextFile(int64_t frame_us);
+    void OpenNextFile(int64_t frame_us);
     void MakePreviewImage(std::string path);
     std::string ReplaceExtension(const std::string &url, const std::string &new_extension);
 };
