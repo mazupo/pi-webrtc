@@ -4,10 +4,13 @@
 #include <condition_variable>
 #include <csignal>
 #include <filesystem>
+#include <limits>
 #include <mutex>
+#include <optional>
 #include <sstream>
 #include <sys/statvfs.h>
 #include <thread>
+#include <utility>
 
 extern "C" {
 #include <libavutil/opt.h>
@@ -21,6 +24,11 @@ extern "C" {
 namespace fs = std::filesystem;
 
 namespace {
+
+// next_file_due_us_ of a recorder that is waiting for Start().
+constexpr int64_t kNoFileDue = std::numeric_limits<int64_t>::max();
+
+int64_t ToMicroseconds(const timeval &tv) { return (int64_t)tv.tv_sec * 1000000LL + tv.tv_usec; }
 
 std::string PrefixZero(int src, int digits) {
     std::string str = std::to_string(src);
@@ -156,6 +164,8 @@ std::unique_ptr<RecorderManager> RecorderManager::Create(std::shared_ptr<FrameSo
                                                          RecorderConfig config, bool auto_start) {
     auto instance = std::make_unique<RecorderManager>(config);
     instance->auto_start_ = auto_start;
+    // An auto-start recorder opens its first file at the first frame.
+    instance->next_file_due_us_ = auto_start ? 0 : kNoFileDue;
 
     if (video_src) {
         instance->CreateVideoRecorder(video_src);
@@ -172,26 +182,60 @@ std::unique_ptr<RecorderManager> RecorderManager::Create(std::shared_ptr<FrameSo
 }
 
 void RecorderManager::StartRotationThread() {
-    rotation_abort_.store(false);
-    rotation_requested_.store(false);
     rotation_thread_ = std::thread([this]() {
         while (true) {
+            // Delete one file per pass, so a due file never waits behind a long cleanup.
+            bool low_space = !CheckDriveSpace(config.path, MIN_FREE_BYTE);
+            if (low_space) {
+                RotateFiles(config.path);
+            }
+
+            std::optional<int64_t> frame_us;
             {
                 std::unique_lock<std::mutex> lock(rotation_mtx_);
-                rotation_cv_.wait_for(lock, std::chrono::seconds(ROTATION_PERIOD), [this]() {
-                    return rotation_abort_.load() || rotation_requested_.load();
+                auto timeout = low_space ? std::chrono::milliseconds(100)
+                                         : std::chrono::milliseconds(ROTATION_PERIOD * 1000);
+                rotation_cv_.wait_for(lock, timeout, [this]() {
+                    return rotation_abort_ || due_frame_us_.has_value();
                 });
+                if (rotation_abort_) {
+                    break;
+                }
+                frame_us = std::exchange(due_frame_us_, std::nullopt);
             }
-            if (rotation_abort_.load())
-                break;
-            rotation_requested_.store(false);
-            DEBUG_PRINT("Rotate files in path: %s", config.path.c_str());
-            while (!rotation_abort_.load() && !CheckDriveSpace(config.path, MIN_FREE_BYTE)) {
-                RotateFiles(config.path);
-                std::this_thread::sleep_for(std::chrono::milliseconds(100));
+            if (frame_us) {
+                OpenNextFile(*frame_us);
             }
         }
     });
+}
+
+void RecorderManager::RequestNextFile(int64_t frame_us) {
+    {
+        std::lock_guard<std::mutex> lock(rotation_mtx_);
+        due_frame_us_ = frame_us;
+    }
+    rotation_cv_.notify_one();
+}
+
+void RecorderManager::OpenNextFile(int64_t frame_us) {
+    std::lock_guard<std::mutex> lock(file_mtx_);
+
+    // The frame was reported before the last switch, or after Stop().
+    if (frame_us < next_file_due_us_) {
+        return;
+    }
+
+    if (file_number_ == 0) {
+        base_start_us_ = frame_us;
+    }
+    // Start() has already opened the first file of an on-demand recording.
+    if (file_number_ > 0 || !is_recording_) {
+        CloseCurrentFile();
+        OpenFile();
+    }
+    ++file_number_;
+    next_file_due_us_ = base_start_us_ + file_number_ * (int64_t)config.file_duration * 1000000LL;
 }
 
 void RecorderManager::CreateVideoRecorder(std::shared_ptr<FrameSource> capturer) {
@@ -219,38 +263,20 @@ RecorderManager::RecorderManager(RecorderConfig config)
       fmt_ctx(nullptr),
       auto_start_(true),
       header_written_(false),
-      base_start_time_{},
       is_recording_(false),
-      record_path(config.path) {}
+      record_path(config.path),
+      next_file_due_us_(0) {}
 
 void RecorderManager::SubscribeVideoSource(std::shared_ptr<FrameSource> video_src) {
     video_subscription_ = video_src->Subscribe(
         [this](V4L2FrameBufferRef buffer) {
-            if (auto_start_ && !is_recording_) {
-                Start();
+            // Files are opened and closed by the rotation thread, never by this one.
+            int64_t frame_us = ToMicroseconds(buffer->timestamp());
+            if (frame_us >= next_file_due_us_) {
+                RequestNextFile(frame_us);
             }
 
-            if (!is_recording_) {
-                return;
-            }
-
-            if (file_number_ == 0) {
-                base_start_time_ = buffer->timestamp();
-                file_number_ = 1;
-            }
-
-            int64_t total_elapsed_us =
-                (int64_t)(buffer->timestamp().tv_sec - base_start_time_.tv_sec) * 1000000LL +
-                (int64_t)(buffer->timestamp().tv_usec - base_start_time_.tv_usec);
-            double total_elapsed_time = total_elapsed_us / 1e6;
-
-            if (total_elapsed_time >= file_number_ * config.file_duration) {
-                CloseCurrentFile();
-                Start();
-                ++file_number_;
-            }
-
-            if (video_recorder) {
+            if (is_recording_ && video_recorder) {
                 video_recorder->OnBuffer(buffer);
             }
         },
@@ -322,11 +348,16 @@ void RecorderManager::WriteIntoFile(AVPacket *pkt) {
 }
 
 void RecorderManager::Start() {
-    if (!CheckDriveSpace(record_path, MIN_FREE_BYTE)) {
-        rotation_requested_.store(true);
-        rotation_cv_.notify_one();
+    std::lock_guard<std::mutex> lock(file_mtx_);
+    OpenFile();
+    if (is_recording_) {
+        // The first frame anchors the file timeline.
+        file_number_ = 0;
+        next_file_due_us_ = 0;
     }
+}
 
+void RecorderManager::OpenFile() {
     FileInfo new_file(record_path, CONTAINER_FORMAT);
     auto folder = new_file.GetFolderPath();
     utils::CreateFolder(folder);
@@ -414,24 +445,33 @@ void RecorderManager::CloseCurrentFile() {
 }
 
 void RecorderManager::Stop() {
+    std::lock_guard<std::mutex> lock(file_mtx_);
     CloseCurrentFile();
 
     file_number_ = 0;
+    next_file_due_us_ = auto_start_ ? 0 : kNoFileDue;
 }
 
 RecorderManager::~RecorderManager() {
     printf("~RecorderManager\n");
-    Stop();
-    rotation_abort_.store(true);
+    // Join the rotation thread first, so it cannot open a file after Stop().
+    {
+        std::lock_guard<std::mutex> lock(rotation_mtx_);
+        rotation_abort_ = true;
+    }
     rotation_cv_.notify_one();
     if (rotation_thread_.joinable()) {
         rotation_thread_.join();
     }
+    Stop();
     video_recorder.reset();
     audio_recorder.reset();
 }
 
-std::string RecorderManager::current_filepath() const { return current_filepath_; }
+std::string RecorderManager::current_filepath() const {
+    std::lock_guard<std::mutex> lock(file_mtx_);
+    return current_filepath_;
+}
 
 bool RecorderManager::is_recording() const { return is_recording_.load(); }
 
