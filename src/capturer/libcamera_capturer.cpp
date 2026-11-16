@@ -1,12 +1,56 @@
 #include "libcamera_capturer.h"
 
 #include <algorithm>
+#include <cerrno>
+#include <cstring>
+#include <fcntl.h>
+#include <linux/dma-buf.h>
+#include <linux/dma-heap.h>
+#include <sys/ioctl.h>
 #include <sys/mman.h>
 
 #include "common/latency_tracer.h"
 #include "common/logging.h"
 #include "common/v4l2_buffer.h"
+#include <libcamera/base/unique_fd.h>
 #include <libcamera/geometry.h>
+
+namespace {
+
+// Cached CMA, as rpicam-apps uses; the ISP's own buffers are mapped uncached and read slowly.
+constexpr const char *kDmaHeaps[] = {"/dev/dma_heap/vidbuf_cached", "/dev/dma_heap/linux,cma"};
+
+libcamera::UniqueFD AllocateDmaBuf(size_t size) {
+    for (const char *path : kDmaHeaps) {
+        libcamera::UniqueFD heap(open(path, O_RDWR | O_CLOEXEC));
+        if (!heap.isValid()) {
+            continue;
+        }
+        dma_heap_allocation_data alloc = {};
+        alloc.len = size;
+        alloc.fd_flags = O_RDWR | O_CLOEXEC;
+        if (ioctl(heap.get(), DMA_HEAP_IOCTL_ALLOC, &alloc) == 0) {
+            return libcamera::UniqueFD(alloc.fd);
+        }
+    }
+    return {};
+}
+
+void SyncBuffers(libcamera::Request *request, uint64_t flags) {
+    dma_buf_sync sync = {};
+    sync.flags = flags;
+    for (const auto &[stream, buffer] : request->buffers()) {
+        int ret;
+        do {
+            ret = ioctl(buffer->planes()[0].fd.get(), DMA_BUF_IOCTL_SYNC, &sync);
+        } while (ret < 0 && (errno == EINTR || errno == EAGAIN));
+        if (ret < 0) {
+            ERROR_PRINT("Failed to sync a camera buffer: %s", strerror(errno));
+        }
+    }
+}
+
+} // namespace
 
 std::shared_ptr<LibcameraCapturer> LibcameraCapturer::Create(VideoCaptureConfig config) {
     auto ptr = std::make_shared<LibcameraCapturer>(config);
@@ -32,10 +76,16 @@ LibcameraCapturer::LibcameraCapturer(VideoCaptureConfig config)
 
 LibcameraCapturer::~LibcameraCapturer() {
     camera_->stop();
-    for (int i = 0; i < num_streams_; i++) {
-        allocator_->free(streams_[i].stream);
+    for (auto &[fd, mapping] : mapped_buffers_) {
+        munmap(mapping.first, mapping.second);
+    }
+    if (allocator_) {
+        for (int i = 0; i < num_streams_; i++) {
+            allocator_->free(streams_[i].stream);
+        }
     }
     allocator_.reset();
+    heap_buffers_.clear();
     camera_config_.reset();
     camera_->release();
     camera_.reset();
@@ -264,25 +314,19 @@ bool LibcameraCapturer::SetControls(int key, int value) {
 }
 
 void LibcameraCapturer::AllocateBuffer() {
-    allocator_ = std::make_unique<libcamera::FrameBufferAllocator>(camera_);
-
     for (int i = 0; i < num_streams_; i++) {
-        auto *stream = camera_config_->at(i).stream();
-        streams_[i].stream = stream;
-        if (allocator_->allocate(stream) < 0) {
-            ERROR_PRINT("Can't allocate buffers");
-        }
-
-        auto &buffers = allocator_->buffers(stream);
-        if (buffer_count_ != buffers.size()) {
-            ERROR_PRINT("Buffer counts not match allocated buffer number");
-            exit(1);
+        const auto &stream_config = camera_config_->at(i);
+        auto &stream = streams_[i];
+        stream.stream = stream_config.stream();
+        if (!AllocateHeapBuffers(stream, stream_config.frameSize)) {
+            INFO_PRINT("No dma heap for camera buffers; CPU reads of frames will be slower.");
+            AllocateIspBuffers(stream);
         }
 
         for (unsigned int j = 0; j < buffer_count_; j++) {
             int fd = 0;
             int buffer_length = 0;
-            for (auto &plane : buffers[j]->planes()) {
+            for (auto &plane : stream.buffers[j]->planes()) {
                 fd = plane.fd.get();
                 buffer_length += plane.length;
             }
@@ -300,12 +344,49 @@ void LibcameraCapturer::AllocateBuffer() {
             ERROR_PRINT("Can't create camera request");
         }
         for (int i = 0; i < num_streams_; i++) {
-            auto *stream = streams_[i].stream;
-            if (request->addBuffer(stream, allocator_->buffers(stream)[j].get()) < 0) {
+            if (request->addBuffer(streams_[i].stream, streams_[i].buffers[j]) < 0) {
                 ERROR_PRINT("Can't set buffer for request");
             }
         }
         requests_.push_back(std::move(request));
+    }
+}
+
+bool LibcameraCapturer::AllocateHeapBuffers(StreamState &stream, unsigned int frame_size) {
+    std::vector<std::unique_ptr<libcamera::FrameBuffer>> buffers;
+    for (int j = 0; j < buffer_count_; j++) {
+        auto fd = AllocateDmaBuf(frame_size);
+        if (!fd.isValid()) {
+            return false;
+        }
+        std::vector<libcamera::FrameBuffer::Plane> planes(1);
+        planes[0].fd = libcamera::SharedFD(std::move(fd));
+        planes[0].offset = 0;
+        planes[0].length = frame_size;
+        buffers.push_back(std::make_unique<libcamera::FrameBuffer>(planes));
+    }
+    for (auto &buffer : buffers) {
+        stream.buffers.push_back(buffer.get());
+        heap_buffers_.push_back(std::move(buffer));
+    }
+    return true;
+}
+
+void LibcameraCapturer::AllocateIspBuffers(StreamState &stream) {
+    if (!allocator_) {
+        allocator_ = std::make_unique<libcamera::FrameBufferAllocator>(camera_);
+    }
+    if (allocator_->allocate(stream.stream) < 0) {
+        ERROR_PRINT("Can't allocate buffers");
+    }
+
+    auto &buffers = allocator_->buffers(stream.stream);
+    if (buffer_count_ != buffers.size()) {
+        ERROR_PRINT("Buffer counts not match allocated buffer number");
+        exit(1);
+    }
+    for (auto &buffer : buffers) {
+        stream.buffers.push_back(buffer.get());
     }
 }
 
@@ -317,6 +398,9 @@ void LibcameraCapturer::RequestComplete(libcamera::Request *request) {
 
     const bool traced = latency::Enabled();
     const int64_t callback_start_us = traced ? latency::NowUs() : 0;
+
+    // The CPU caches these buffers, so drop stale lines before reading what the ISP wrote.
+    SyncBuffers(request, DMA_BUF_SYNC_START | DMA_BUF_SYNC_READ);
 
     for (int i = 0; i < num_streams_; i++) {
         auto &stream = streams_[i];
@@ -346,6 +430,7 @@ void LibcameraCapturer::RequestComplete(libcamera::Request *request) {
         stream.subject.Next(frame_buffer);
     }
 
+    SyncBuffers(request, DMA_BUF_SYNC_END | DMA_BUF_SYNC_READ);
     request->reuse(libcamera::Request::ReuseBuffers);
 
     {
