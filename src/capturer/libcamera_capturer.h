@@ -39,6 +39,7 @@ class LibcameraCapturer : public VideoCapturer {
         libcamera::Stream *stream = nullptr;
         int width = 0;
         int height = 0;
+        std::vector<libcamera::FrameBuffer *> buffers;
         V4L2FrameBufferRef frame_buffer;
         Subject<V4L2FrameBufferRef> subject;
     };
@@ -56,6 +57,7 @@ class LibcameraCapturer : public VideoCapturer {
     std::shared_ptr<libcamera::Camera> camera_;
     std::unique_ptr<libcamera::CameraConfiguration> camera_config_;
     std::unique_ptr<libcamera::FrameBufferAllocator> allocator_;
+    std::vector<std::unique_ptr<libcamera::FrameBuffer>> heap_buffers_;
     std::vector<std::unique_ptr<libcamera::Request>> requests_;
     std::array<StreamState, kMaxStreams> streams_;
     libcamera::ControlList controls_;
@@ -68,6 +70,8 @@ class LibcameraCapturer : public VideoCapturer {
     void InitCamera();
     void InitControls(CameraControls requested);
     void AllocateBuffer();
+    bool AllocateHeapBuffers(StreamState &stream, unsigned int frame_size);
+    void AllocateIspBuffers(StreamState &stream);
     void StartCapture() override;
     void RequestComplete(libcamera::Request *request);
 };
