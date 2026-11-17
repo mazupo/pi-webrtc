@@ -9,7 +9,7 @@ struct RtcEncoderConfig {
     int max_bitrate = 0; // kbps; 0 leaves WebRTC's own default in place
     bool no_adaptive = false;
     int min_playout_delay_ms = 0;
-    int max_playout_delay_ms = -1;
+    int max_playout_delay_ms = 0;
     bool hw_accel = false;
     std::string scalability_mode = "";
 };

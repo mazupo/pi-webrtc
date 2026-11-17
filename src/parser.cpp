@@ -275,12 +275,12 @@ void Parser::ParseArgs(int argc, char *argv[], AppConfig &args) {
             "Not supported with --hw-accel. Empty keeps WebRTC's default (L1T1).")
         ("min-playout-delay-ms", bpo::value<int>(&args.encoder.min_playout_delay_ms)->default_value(args.encoder.min_playout_delay_ms),
             "Lower bound of the playout delay requested from the receiver, in milliseconds. "
-            "Only takes effect together with --max-playout-delay-ms.")
+            "Clamped to --max-playout-delay-ms; ignored when that is -1.")
         ("max-playout-delay-ms", bpo::value<int>(&args.encoder.max_playout_delay_ms)->default_value(args.encoder.max_playout_delay_ms),
             "Upper bound of the playout delay requested from the receiver via the playout-delay "
             "RTP header extension, in milliseconds. The receiver adapts its jitter buffer "
-            "within [min, max]; 0 for both asks it to render as soon as possible. "
-            "-1 (default) does not send the extension.")
+            "within [min, max]; 0 for both (default) asks it to render as soon as possible. "
+            "-1 does not send the extension.")
         ("latency-trace", bpo::bool_switch(&args.latency_trace)->default_value(args.latency_trace),
             "Measure per-frame latency from the sensor timestamp through capture, scaling, "
             "encoding and the handoff to WebRTC, and print p50/p95/max for each stage.")
