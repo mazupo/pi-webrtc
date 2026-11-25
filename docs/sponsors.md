@@ -22,14 +22,19 @@ Sponsors get access to sponsor-only releases with additional features:
 
 ## Tiers
 
-| Tier | Includes |
-|---|---|
-| **Raspberry Pi** | Sponsor-only releases for Raspberry Pi and the private `sponsor-pi` repository. |
-| **NVIDIA Jetson** | Sponsor-only releases for Jetson, including detection and tracking, and the private `sponsor-jetson` repository. |
-| **All access** | All sponsor-only releases, all private sponsor repositories, and priority issue response. |
+Sponsor-only releases come with a monthly sponsorship. One-time sponsorships do not include access.
 
-Sponsors are invited to the private repositories automatically. See [GitHub Sponsors](https://github.com/sponsors/mazupo).
+| Tier | Releases | Use | SFU |
+|---|---|---|---|
+| **Raspberry Pi** | Raspberry Pi, in the private `sponsor-pi` repository | Non-commercial | Your own |
+| **NVIDIA Jetson** | Jetson, including detection and tracking, in the private `sponsor-jetson` repository | Non-commercial | Your own |
+| **Commercial** | All sponsor-only releases | Commercial use, including shipping the binary in your products | Your own |
+| **Commercial with hosted SFU** | All sponsor-only releases | Same as Commercial | Hosted by the maintainer; traffic billed separately |
+
+Non-commercial means personal, educational or research use, or evaluation. Versions you download while sponsoring stay licensed after you stop. Devices you shipped while on a Commercial tier keep working, but shipping new devices needs an active Commercial tier. Stopping also ends access to new releases and to the hosted SFU.
+
+Monthly sponsors are invited to their tier's private repositories. Prices and sign-up are on [GitHub Sponsors](https://github.com/sponsors/mazupo).
 
 ## Commercial / OEM notes
 
-For products you ship, larger fleets, dedicated SFU environments, or integration work, commercial terms are arranged separately. Contact **tzu.huan.tai@gmail.com**.
+For invoicing outside GitHub Sponsors, larger fleets, dedicated SFU environments, or integration work, commercial terms are arranged separately. Contact **tzu.huan.tai@gmail.com**.
