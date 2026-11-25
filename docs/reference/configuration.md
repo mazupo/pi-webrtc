@@ -180,8 +180,8 @@ At least one signaling transport must be enabled or the process exits. See
 
 ### Cloudflare Realtime SFU
 
-The device connects to a [cf-sfu-worker](https://github.com/mazupo/cf-sfu-worker) and streams
-only while someone watches one of its rooms. See [SFU](../signaling/sfu.md#cloudflare-realtime)
+The device connects to a worker that the maintainer hosts on Cloudflare, and streams only
+while someone watches one of its rooms. See [SFU](../signaling/sfu.md#cloudflare-realtime)
 for a worked example.
 
 | Option | Default | Description |

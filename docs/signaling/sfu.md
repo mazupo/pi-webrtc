@@ -9,7 +9,7 @@ With MQTT or WHEP, each viewer connects to the device directly. More viewers mea
 pi-webrtc supports two SFUs:
 
 - [LiveKit](#livekit): host it yourself, or use LiveKit Cloud.
-- [Cloudflare Realtime](#cloudflare-realtime): run by Cloudflare.
+- [Cloudflare Realtime](#cloudflare-realtime): rooms hosted by the maintainer on Cloudflare.
 
 Both have a free test server below.
 
@@ -61,7 +61,7 @@ Viewers in the room can talk. The device plays their voices only with `--enable-
 
 ## Cloudflare Realtime
 
-The device connects to a [cf-sfu-worker](https://github.com/mazupo/cf-sfu-worker). The worker holds the Cloudflare credentials. The device only needs the worker's device public key.
+The device connects to a worker that the maintainer hosts on Cloudflare. The worker holds the Cloudflare credentials. The device only needs the worker's device public key. Rooms of your own come with the Commercial with hosted SFU [sponsor tier](../sponsors.md#tiers). Try the free test server below first.
 
 The device streams only while someone watches:
 
@@ -78,7 +78,7 @@ The camera stays on the whole time, so recording is not affected.
 | `https://api.mazupo.com/sfu` | `1L4-mUUztDWhzF_ORhPHb4xpQK2Y9bEgeif0pYn7PXI` | `-706d13ForZLHmv6FwARf9ZgEEfO78AattyxWhNoHFo` |
 
 > [!WARNING]
-> This is a shared test environment. All users share the free Cloudflare quota. Anyone who knows a room name can watch that room, so use room names and a `--uid` that are hard to guess. For your own environment, deploy your own worker.
+> This is a shared test environment. All users share the free Cloudflare quota. Anyone who knows a room name can watch that room, so use room names and a `--uid` that are hard to guess. For rooms of your own, see the [sponsor tiers](../sponsors.md#tiers), or run your own [LiveKit](#livekit) server.
 
 ### 1. Run on the device
 
