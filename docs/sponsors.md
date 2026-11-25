@@ -2,6 +2,8 @@
 
 `pi-webrtc` is open source under [Apache-2.0](../LICENSE). Options marked with
 <sup>[\*](#sponsor-benefits)</sup> in the docs are available to sponsors.
+Sponsor-only releases are licensed under the EULA included in each package,
+not Apache-2.0.
 
 ## Why sponsor
 

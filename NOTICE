@@ -29,7 +29,8 @@ libmosquitto and yaml-cpp) are not distributed with pi-webrtc.
    - https://www.boost.org/LICENSE_1_0.txt
 
 5. LiveKit Protocol (generated protobuf code)
-   - License: Apache-2.0 (see LICENSE)
+   - License: Apache-2.0 (full text in the libwebrtc-builder NOTICE, appended
+     below in release packages)
    - Copyright 2023 LiveKit, Inc.
    - https://github.com/livekit/protocol/blob/main/LICENSE
 

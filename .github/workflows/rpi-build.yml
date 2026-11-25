@@ -137,12 +137,14 @@ jobs:
         run: |
           SUFFIX=$([ "${{ matrix.build_type }}" == "Release" ] && echo "" || echo "_debug")
           FILENAME="pi-webrtc_${{ needs.prepare-env.outputs.raspios_version }}${SUFFIX}.tar.gz"
+          # Sponsor packages carry the EULA; open-source packages carry Apache-2.0.
+          LICENSE_FILE=$([ "${{ github.repository }}" == "mazupo/pi-webrtc-pro" ] && echo "EULA" || echo "LICENSE")
           # The package NOTICE is ours followed by libwebrtc-builder's for the bundled libwebrtc.a.
           docker run --rm rpi-docker-env cat /usr/local/share/doc/libwebrtc/NOTICE > NOTICE.libwebrtc
           mkdir -p pkg
-          cp build/pi-webrtc LICENSE pkg/
+          cp build/pi-webrtc "$LICENSE_FILE" pkg/
           { cat NOTICE; printf '\n%78s\n\n' | tr ' ' '='; cat NOTICE.libwebrtc; } > pkg/NOTICE
-          tar -C pkg -czvf "$FILENAME" pi-webrtc LICENSE NOTICE
+          tar -C pkg -czvf "$FILENAME" pi-webrtc "$LICENSE_FILE" NOTICE
           echo "filename=$FILENAME" >> $GITHUB_OUTPUT
 
       - name: Upload build artifact
