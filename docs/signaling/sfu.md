@@ -28,7 +28,7 @@ The SFU forwards the stream as it is, so every viewer gets the same quality. Set
 | `wss://api.mazupo.com` | `APIWnQTs4tmUZvA` |
 
 > [!WARNING]
-> This is a shared test server. All users together get 100 connections, 5,000 minutes and 50 GB of transfer per month. For your own environment, see [Sponsors](../sponsors.md#commercial--oem-notes).
+> This is a shared test server. All users together get 100 connections, 5,000 minutes and 50 GB of transfer per month. For your own environment, run your own LiveKit server, or use the rooms that come with a [Mazupo Cloud plan](https://mazupo.com/pricing).
 
 ### 1. Run on the device
 
@@ -61,7 +61,7 @@ Viewers in the room can talk. The device plays their voices only with `--enable-
 
 ## Cloudflare Realtime
 
-The device connects to a worker that the maintainer hosts on Cloudflare. The worker holds the Cloudflare credentials. The device only needs the worker's device public key. Rooms of your own come with the Commercial with hosted SFU [sponsor tier](../sponsors.md#tiers). Try the free test server below first.
+The device connects to a worker that the maintainer hosts on Cloudflare. The worker holds the Cloudflare credentials. The device only needs the worker's device public key. Rooms of your own come with a [Mazupo Cloud plan](https://mazupo.com/pricing). Try the free test server below first.
 
 The device streams only while someone watches:
 
@@ -78,7 +78,7 @@ The camera stays on the whole time, so recording is not affected.
 | `https://api.mazupo.com/sfu` | `1L4-mUUztDWhzF_ORhPHb4xpQK2Y9bEgeif0pYn7PXI` | `-706d13ForZLHmv6FwARf9ZgEEfO78AattyxWhNoHFo` |
 
 > [!WARNING]
-> This is a shared test environment. All users share the free Cloudflare quota. Anyone who knows a room name can watch that room, so use room names and a `--uid` that are hard to guess. For rooms of your own, see the [sponsor tiers](../sponsors.md#tiers), or run your own [LiveKit](#livekit) server.
+> This is a shared test environment. All users share the free Cloudflare quota. Anyone who knows a room name can watch that room, so use room names and a `--uid` that are hard to guess. For rooms of your own, see the [Mazupo Cloud plans](https://mazupo.com/pricing), or run your own [LiveKit](#livekit) server.
 
 ### 1. Run on the device
 
