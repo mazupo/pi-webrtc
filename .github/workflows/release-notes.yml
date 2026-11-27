@@ -35,18 +35,10 @@ jobs:
         with:
           body_path: notes.md
 
-      - name: Set sponsor-pi release notes
+      - name: Set sponsor release notes
         if: github.repository == 'mazupo/pi-webrtc-pro'
         uses: softprops/action-gh-release@v2
         with:
-          repository: mazupo/sponsor-pi
-          token: ${{ secrets.SPONSOR_RELEASE_TOKEN }}
-          body_path: sponsor-notes.md
-
-      - name: Set sponsor-jetson release notes
-        if: github.repository == 'mazupo/pi-webrtc-pro'
-        uses: softprops/action-gh-release@v2
-        with:
-          repository: mazupo/sponsor-jetson
+          repository: mazupo/sponsor
           token: ${{ secrets.SPONSOR_RELEASE_TOKEN }}
           body_path: sponsor-notes.md
