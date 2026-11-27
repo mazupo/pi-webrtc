@@ -161,6 +161,6 @@ jobs:
         if: github.event_name == 'push' && github.repository == 'mazupo/pi-webrtc-pro'
         uses: softprops/action-gh-release@v2
         with:
-          repository: mazupo/sponsor-jetson
+          repository: mazupo/sponsor
           token: ${{ secrets.SPONSOR_RELEASE_TOKEN }}
           files: ${{ steps.zip-binary.outputs.filename }}
